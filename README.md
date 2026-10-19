@@ -60,3 +60,12 @@ syuct-oj/
 7. 删除 Worktree 和临时分支。
 
 后续会为 OJ 单独补充 `AGENTS.md`，明确判题兼容、数据迁移和视觉回归要求。
+
+## 开发文档
+
+- [AGENTS-OJ.md](./AGENTS-OJ.md)：重构开发规范与安全边界
+- [docs/architecture.md](./docs/architecture.md)：目标架构
+- [docs/migrations.md](./docs/migrations.md)：多域数据迁移方案
+- [docs/parity-checklist.md](./docs/parity-checklist.md)：前端视觉与交互对照清单
+
+> 当前为开发阶段，不连接生产环境；判题机保持不动。
