@@ -122,3 +122,13 @@ JUDGE_FILE_ROOT=./data/judge-files
 目前实现了 `hydrojudge` 兼容的登录、判题文件下载、测试数据下载、上传和 WebSocket 握手接口。详细契约见 [docs/judge-compat.md](./docs/judge-compat.md)。
 
 > Session 当前是内存实现，仅用于本地开发；真实 `hydrojudge` 进程联调尚未完成。
+
+## 域数据迁移工具
+
+本地 dry-run：
+
+```bash
+go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/domain-migration.json
+```
+
+默认不会修改数据；只有显式传入 `--execute` 才会执行。存储文件路径迁移尚未包含。

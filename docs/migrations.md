@@ -78,3 +78,22 @@ domainId = "system"
 - 比赛榜单可访问
 - 旧 URL 可重定向
 - 本地判题闭环不受影响
+
+## 8. 迁移工具
+
+```bash
+# 默认 dry-run，不修改数据
+go run ./cmd/migrate   --sources=contest2025,select2025   --dry-run   --report=/tmp/domain-migration-report.json
+
+# 明确执行迁移
+go run ./cmd/migrate   --sources=contest2025,select2025   --execute
+```
+
+当前工具会：
+
+- 把 domain 范围集合的 `domainId` 更新为 `system`
+- 给迁移后的文档添加 `legacyDomains`
+- 合并 `domain.user` 的数值统计
+- 把旧 domain 文档归档到 `domain.legacy`
+
+注意：存储中的文件路径（如 `problem/<domain>/...`）暂不由该工具重写，文件系统迁移必须单独完成并校验。
