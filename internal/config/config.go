@@ -10,6 +10,9 @@ type Config struct {
 	MongoURI      string
 	MongoDatabase string
 	CORSOrigins   []string
+	JudgeUsername string
+	JudgePassword string
+	JudgeFileRoot string
 }
 
 func Load() Config {
@@ -25,6 +28,9 @@ func Load() Config {
 		MongoURI:      mongoURI,
 		MongoDatabase: mongoDatabase,
 		CORSOrigins:   origins,
+		JudgeUsername: env("JUDGE_USERNAME", "judge"),
+		JudgePassword: env("JUDGE_PASSWORD", "judge_dev_password"),
+		JudgeFileRoot: env("JUDGE_FILE_ROOT", "./data/judge-files"),
 	}
 }
 
