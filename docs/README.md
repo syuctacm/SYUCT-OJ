@@ -5,3 +5,4 @@
 - [前端视觉与交互对照清单](./parity-checklist.md)
 - [OJ 开发规范](../AGENTS-OJ.md)
 - [hydrojudge 兼容层](./judge-compat.md)
+- [用户认证](./auth.md)

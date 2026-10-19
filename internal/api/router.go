@@ -6,11 +6,12 @@ import (
 
 	"github.com/syuctacm/syuct-oj/internal/api/handler"
 	"github.com/syuctacm/syuct-oj/internal/api/middleware"
+	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/config"
 	"github.com/syuctacm/syuct-oj/internal/judge"
 )
 
-func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handler) *gin.Engine {
+func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handler, authHandler *auth.Handler) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery(), middleware.CORS(cfg.CORSOrigins))
 
@@ -18,6 +19,9 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	{
 		v1.GET("/health", handler.NewHealthHandler(db).Get)
 		v1.GET("/info", handler.NewInfoHandler().Get)
+	}
+	if authHandler != nil {
+		authHandler.RegisterRoutes(router.Group("/"))
 	}
 	if judgeHandler != nil {
 		judgeHandler.RegisterRoutes(router.Group("/"))
