@@ -13,8 +13,10 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/syuctacm/syuct-oj/internal/api"
+	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/config"
 	"github.com/syuctacm/syuct-oj/internal/database"
+	"github.com/syuctacm/syuct-oj/internal/judge"
 )
 
 func main() {
@@ -34,9 +36,18 @@ func main() {
 		_ = client.Disconnect(context.Background())
 	}()
 
+	judgeStore := judge.NewFileStore(cfg.JudgeFileRoot)
+	if err := judgeStore.Ensure(); err != nil {
+		slog.Error("unable to initialize judge file store", "error", err)
+		os.Exit(1)
+	}
+	hub := judge.NewHub(judge.DefaultLanguages())
+	sessions := auth.NewSessionManager(24 * time.Hour)
+	judgeHandler := judge.NewHandler(cfg.JudgeUsername, cfg.JudgePassword, sessions, judgeStore, hub)
+
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           api.NewRouter(cfg, db),
+		Handler:           api.NewRouter(cfg, db, judgeHandler),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

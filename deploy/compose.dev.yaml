@@ -12,10 +12,14 @@ services:
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
-      - ../data/mongo:/data/db
+      - mongo-data:/data/db
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
+
+volumes:
+  mongo-data:
+    name: syuct-oj-dev-mongo-data

@@ -87,7 +87,7 @@ cp .env.example .env
 go run ./cmd/api
 ```
 
-默认地址：`http://127.0.0.1:8080`。
+默认地址：`http://127.0.0.1:8080`。如果端口被占用，可以使用 `SERVER_PORT=18080 go run ./cmd/api`。
 
 ### 3. 启动 React
 
@@ -108,3 +108,17 @@ cd web && pnpm build
 ```
 
 当前只包含开发脚手架和健康检查，不包含业务功能，也不连接生产环境。
+
+## 判题机开发接口
+
+本地开发使用以下环境变量（不要用于生产）：
+
+```bash
+JUDGE_USERNAME=judge
+JUDGE_PASSWORD=judge_dev_password
+JUDGE_FILE_ROOT=./data/judge-files
+```
+
+目前实现了 `hydrojudge` 兼容的登录、判题文件下载、测试数据下载、上传和 WebSocket 握手接口。详细契约见 [docs/judge-compat.md](./docs/judge-compat.md)。
+
+> Session 当前是内存实现，仅用于本地开发；真实 `hydrojudge` 进程联调尚未完成。
