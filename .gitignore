@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# frontend build
+dist/
+.vite/
+
+# Go build
+bin/
+tmp/
+
+# local environment
+.env
+.env.*
+!.env.example
+
+# local Docker data
+data/
+pgdata/
+mongo-data/
+
+# isolated worktrees and scratch files
+.temp/
+
+# logs and editor files
+*.log
+.DS_Store
+.idea/
+.vscode/
