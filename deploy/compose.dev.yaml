@@ -1,0 +1,21 @@
+name: syuct-oj-dev
+
+services:
+  mongo:
+    image: mongo:7-jammy
+    container_name: syuct-oj-dev-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-syuct}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-syuct_dev_password}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-syuct_oj}
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - ../data/mongo:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s

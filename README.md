@@ -69,3 +69,42 @@ syuct-oj/
 - [docs/parity-checklist.md](./docs/parity-checklist.md)：前端视觉与交互对照清单
 
 > 当前为开发阶段，不连接生产环境；判题机保持不动。
+
+## 本地开发
+
+### 1. 启动 MongoDB
+
+```bash
+docker compose -f deploy/compose.dev.yaml up -d
+```
+
+默认只绑定 `127.0.0.1:27017`，不会暴露到公网。
+
+### 2. 启动 Go API
+
+```bash
+cp .env.example .env
+go run ./cmd/api
+```
+
+默认地址：`http://127.0.0.1:8080`。
+
+### 3. 启动 React
+
+```bash
+cd web
+pnpm install
+pnpm dev
+```
+
+默认地址：`http://127.0.0.1:5173`，`/api` 会代理到本地 Go 服务。
+
+### 4. 验证
+
+```bash
+go test ./...
+go build ./...
+cd web && pnpm build
+```
+
+当前只包含开发脚手架和健康检查，不包含业务功能，也不连接生产环境。
