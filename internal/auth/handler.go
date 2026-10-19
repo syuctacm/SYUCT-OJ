@@ -1,0 +1,123 @@
+package auth
+
+import (
+	"context"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/syuctacm/syuct-oj/internal/user"
+)
+
+type UserStore interface {
+	FindByLogin(ctx context.Context, identifier string) (*user.User, error)
+	FindByID(ctx context.Context, id int64) (*user.User, error)
+}
+
+type Handler struct {
+	users    UserStore
+	sessions *SessionManager
+}
+
+func NewHandler(users UserStore, sessions *SessionManager) *Handler {
+	return &Handler{users: users, sessions: sessions}
+}
+
+func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
+	router.POST("/api/v1/auth/login", h.login)
+	router.GET("/api/v1/auth/me", h.me)
+	router.POST("/api/v1/auth/logout", h.logout)
+}
+
+type loginRequest struct {
+	Username string `form:"uname" json:"username"`
+	Password string `form:"password" json:"password"`
+}
+
+func (h *Handler) login(c *gin.Context) {
+	var req loginRequest
+	if strings.HasPrefix(c.ContentType(), "application/json") {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+			return
+		}
+	} else if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	u, err := h.users.FindByLogin(c.Request.Context(), req.Username)
+	if err != nil || user.VerifyPassword(u, req.Password) != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+	token, err := h.sessions.IssueForUser(u.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "session error"})
+		return
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "sid",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   int((24 * time.Hour).Seconds()),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	c.JSON(http.StatusOK, gin.H{"user": publicUser(u)})
+}
+
+func (h *Handler) me(c *gin.Context) {
+	token := sessionToken(c)
+	session, ok := h.sessions.Get(token)
+	if !ok || session.Kind != "user" || session.UserID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	u, err := h.users.FindByID(c.Request.Context(), session.UserID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": publicUser(u)})
+}
+
+func (h *Handler) logout(c *gin.Context) {
+	token := sessionToken(c)
+	if token != "" {
+		h.sessions.Revoke(token)
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "sid",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	c.Status(http.StatusNoContent)
+}
+
+func sessionToken(c *gin.Context) string {
+	if cookie, err := c.Cookie("sid"); err == nil {
+		return cookie
+	}
+	authorization := c.GetHeader("Authorization")
+	if strings.HasPrefix(authorization, "Bearer ") {
+		return strings.TrimPrefix(authorization, "Bearer ")
+	}
+	return ""
+}
+
+func publicUser(u *user.User) gin.H {
+	return gin.H{
+		"id":          u.ID,
+		"username":    u.Uname,
+		"email":       u.Mail,
+		"displayName": u.DisplayName,
+		"studentId":   u.StudentID,
+		"avatar":      u.Avatar,
+		"priv":        u.Priv,
+	}
+}

@@ -7,9 +7,15 @@ import (
 	"time"
 )
 
+type Session struct {
+	UserID    int64
+	Kind      string
+	ExpiresAt time.Time
+}
+
 type SessionManager struct {
 	mu       sync.RWMutex
-	sessions map[string]time.Time
+	sessions map[string]Session
 	ttl      time.Duration
 	now      func() time.Time
 }
@@ -19,41 +25,59 @@ func NewSessionManager(ttl time.Duration) *SessionManager {
 		ttl = 24 * time.Hour
 	}
 	return &SessionManager{
-		sessions: make(map[string]time.Time),
+		sessions: make(map[string]Session),
 		ttl:      ttl,
 		now:      time.Now,
 	}
 }
 
+// Issue creates a judge-compatible session without a browser user identity.
 func (s *SessionManager) Issue() (string, error) {
+	return s.IssueFor(0, "judge")
+}
+
+func (s *SessionManager) IssueForUser(uid int64) (string, error) {
+	return s.IssueFor(uid, "user")
+}
+
+func (s *SessionManager) IssueFor(uid int64, kind string) (string, error) {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
 	token := base64.RawURLEncoding.EncodeToString(buf)
 	s.mu.Lock()
-	s.sessions[token] = s.now().Add(s.ttl)
+	s.sessions[token] = Session{
+		UserID:    uid,
+		Kind:      kind,
+		ExpiresAt: s.now().Add(s.ttl),
+	}
 	s.mu.Unlock()
 	return token, nil
 }
 
-func (s *SessionManager) Validate(token string) bool {
+func (s *SessionManager) Get(token string) (Session, bool) {
 	if token == "" {
-		return false
+		return Session{}, false
 	}
 	s.mu.RLock()
-	expiresAt, ok := s.sessions[token]
+	session, ok := s.sessions[token]
 	s.mu.RUnlock()
 	if !ok {
-		return false
+		return Session{}, false
 	}
-	if s.now().After(expiresAt) {
+	if s.now().After(session.ExpiresAt) {
 		s.mu.Lock()
 		delete(s.sessions, token)
 		s.mu.Unlock()
-		return false
+		return Session{}, false
 	}
-	return true
+	return session, true
+}
+
+func (s *SessionManager) Validate(token string) bool {
+	_, ok := s.Get(token)
+	return ok
 }
 
 func (s *SessionManager) Revoke(token string) {

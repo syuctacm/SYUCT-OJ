@@ -17,6 +17,7 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/config"
 	"github.com/syuctacm/syuct-oj/internal/database"
 	"github.com/syuctacm/syuct-oj/internal/judge"
+	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
 func main() {
@@ -44,10 +45,11 @@ func main() {
 	hub := judge.NewHub(judge.DefaultLanguages())
 	sessions := auth.NewSessionManager(24 * time.Hour)
 	judgeHandler := judge.NewHandler(cfg.JudgeUsername, cfg.JudgePassword, sessions, judgeStore, hub)
+	authHandler := auth.NewHandler(user.NewRepository(db), sessions)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           api.NewRouter(cfg, db, judgeHandler),
+		Handler:           api.NewRouter(cfg, db, judgeHandler, authHandler),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

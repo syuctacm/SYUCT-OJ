@@ -132,3 +132,11 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 ```
 
 默认不会修改数据；只有显式传入 `--execute` 才会执行。存储文件路径迁移尚未包含。
+
+## 用户认证接口
+
+- `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/logout`
+
+密码校验兼容 Hydro 的 PBKDF2 格式，详见 [docs/auth.md](./docs/auth.md)。Session 当前为内存实现，仅用于本地开发。
