@@ -28,8 +28,9 @@ export function Layout() {
         <div className="row"><div className="columns clearfix">
           <ol className="nav__list nav__list--main clearfix">
             <li className="nav__list-item">
-              <NavLink to="/p"><img className="nav__logo" src="/nav_logo_dark.png" alt="SYUCT ACM" /></NavLink>
+              <NavLink to="/"><img className="nav__logo" src="/nav_logo_dark.png" alt="SYUCT ACM" /></NavLink>
             </li>
+            <li className="nav__list-item"><NavLink to="/" end className={navClass}>首页</NavLink></li>
             <li className="nav__list-item"><NavLink to="/p" className={navClass}>题库</NavLink></li>
             <li className="nav__list-item"><NavLink to="/training" className={navClass}>训练</NavLink></li>
             <li className="nav__list-item"><NavLink to="/contest" className={navClass}>比赛</NavLink></li>
