@@ -58,6 +58,13 @@ env.addFilter('nl2br', (value: string) => String(value).replace(/\n/g, '<br>'))
 env.addFilter('json', (value: unknown) => JSON.stringify(value))
 env.addFilter('parseYaml', (value: string) => yaml.load(String(value)))
 env.addFilter('toString', (value: unknown) => String(value ?? ''))
+env.addFilter('contentLang', () => ['zh'])
+env.addFilter('content', (value: unknown) => value)
+env.addFilter('problemPreview', (value: unknown) => String(value ?? '')
+  .replace(/```[\s\S]*?```/g, ' ')
+  .replace(/[#>*_`\[\]]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim())
 
 function translate(key: string) {
   return String(translations[key] ?? key)
@@ -92,6 +99,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     urlForFile: options.urlForFile ?? ((filename: string) => filename),
     size,
     isIE: () => false,
+    typeof: (value: unknown) => typeof value,
     set: (target: RenderContext, keyOrValues: string | RenderContext, value?: unknown) => {
       if (typeof keyOrValues === 'string') target[keyOrValues] = value
       else Object.assign(target, keyOrValues)
@@ -100,7 +108,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     ...options.context,
   }
   return env.renderString(
-    `{% import "components/form.html" as form with context %}{% import "components/noscript_note.html" as noscript_note with context %}{% include "${template}" %}`,
+    `{% import "components/user.html" as user with context %}{% import "components/problem.html" as problem with context %}{% import "components/nothing.html" as nothing with context %}{% import "components/record.html" as record with context %}{% import "components/form.html" as form with context %}{% import "components/noscript_note.html" as noscript_note with context %}{% include "${template}" %}`,
     context,
   )
 }

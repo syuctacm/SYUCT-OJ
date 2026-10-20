@@ -41,13 +41,14 @@
 
 搜索、排序、分页、标签筛选和用户提交状态均通过 URL 与 API 参数保持。
 
-题目详情和提交页对应：
+题目详情和提交页由 `HydroTemplate` 直接渲染上游模板：
 
-- `problem_detail.html`：题目标题、标签信息、Markdown 内容
-- `problem_submit.html`：由 `HydroTemplate` 直接渲染，保留原版语言选择、代码输入和提交结构
+- `problem_detail.html`：题目标题、标签、题面、操作区和侧栏
+- `problem_submit.html`：语言选择、代码输入和提交结构
+- `partials/problem_description.html`：题面 Markdown 输出
 - `partials/problem_sidebar.html`：提交入口和题目信息侧栏
 
-提交页的 React 适配层只负责语言下拉、提交请求和 Ctrl+Enter；代码文件上传和 Monaco/CodeMirror 编辑器尚未接入。
+题面使用与 Hydro 编辑器一致的 markdown-it 插件链（KaTeX、脚注、高亮、图片尺寸、媒体和 XSS）。提交页的 React 适配层只负责语言下拉、提交请求和 Ctrl+Enter；代码文件上传和 Monaco/CodeMirror 编辑器尚未接入。
 
 详情 API 额外返回 `problemType`、`timeLimit` 和 `memoryLimit`，由 Hydro 题目 `config` 生成展示信息。
 
@@ -91,6 +92,8 @@ problem/system/<docId>/additional_file/<name>
 - 题目删除 API 尚未实现，编辑页暂不展示原模板删除按钮
 - 题目分类配置尚未从 Go 设置接口读取，分类侧栏目前为空
 - 题目文件重命名和批量选择脚本尚未接入
+- 题目收藏、题面下载/复制和 Scratchpad 尚未接入
+- 题面多语言切换暂未实现
 
 ## 响应
 
