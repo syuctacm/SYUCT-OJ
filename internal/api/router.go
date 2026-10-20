@@ -29,7 +29,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		authHandler.RegisterRoutes(router.Group("/"))
 	}
 	if problemRepo != nil {
-		handler.NewProblemHandler(problemRepo).RegisterRoutes(router.Group("/"))
+		handler.NewProblemHandler(problemRepo, sessions).RegisterRoutes(router.Group("/"))
 	}
 	if submissionHandler != nil {
 		submissionHandler.RegisterRoutes(router.Group("/"))

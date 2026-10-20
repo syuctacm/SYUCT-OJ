@@ -17,6 +17,10 @@ export type ProblemSummary = {
   difficulty?: number
   nSubmit: number
   nAccept: number
+  userStatus?: {
+    status: number
+    rid: string
+  }
 }
 
 export type ProblemDetail = ProblemSummary & {
@@ -90,11 +94,12 @@ export type ProblemPage = {
   limit: number
 }
 
-export async function getProblems(query = ''): Promise<ProblemPage> {
-  const params = new URLSearchParams()
+export async function getProblems(query = '', page = 1, sort = 'default', tag = ''): Promise<ProblemPage> {
+  const params = new URLSearchParams({ page: String(page), limit: '20' })
   if (query.trim()) params.set('q', query.trim())
-  const suffix = params.toString() ? `?${params.toString()}` : ''
-  const result = await request<Envelope<ProblemPage>>(`/api/v1/problems${suffix}`)
+  if (sort && sort !== 'default') params.set('sort', sort)
+  if (tag) params.set('tag', tag)
+  const result = await request<Envelope<ProblemPage>>(`/api/v1/problems?${params.toString()}`)
   return result.data
 }
 

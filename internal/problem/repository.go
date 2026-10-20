@@ -43,6 +43,12 @@ type Problem struct {
 	Owner      int64         `bson:"owner" json:"owner,omitempty"`
 	Config     any           `bson:"config" json:"-"`
 	Data       []ProblemFile `bson:"data" json:"-"`
+	UserStatus *UserStatus   `bson:"-" json:"userStatus,omitempty"`
+}
+
+type UserStatus struct {
+	Status int    `json:"status"`
+	RID    string `json:"rid"`
 }
 
 type ListOptions struct {
@@ -51,6 +57,8 @@ type ListOptions struct {
 	Query      string
 	Tag        string
 	Difficulty *int
+	Sort       string
+	UID        int64
 }
 
 type ListResult struct {
@@ -61,11 +69,12 @@ type ListResult struct {
 }
 
 type Repository struct {
-	coll *mongo.Collection
+	coll    *mongo.Collection
+	records *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
-	return &Repository{coll: db.Collection("document")}
+	return &Repository{coll: db.Collection("document"), records: db.Collection("record")}
 }
 
 func (r *Repository) List(ctx context.Context, opts ListOptions) (*ListResult, error) {
@@ -98,9 +107,13 @@ func (r *Repository) List(ctx context.Context, opts ListOptions) (*ListResult, e
 		"difficulty": 1, "nSubmit": 1, "nAccept": 1,
 		"hidden": 1, "sort": 1, "owner": 1,
 	}
+	sort := bson.D{{Key: "sort", Value: 1}, {Key: "docId", Value: 1}}
+	if opts.Sort == "recent" {
+		sort = bson.D{{Key: "_id", Value: -1}}
+	}
 	findOpts := options.Find().
 		SetProjection(projection).
-		SetSort(bson.D{{Key: "sort", Value: 1}, {Key: "docId", Value: 1}}).
+		SetSort(sort).
 		SetSkip(int64((opts.Page - 1) * opts.Limit)).
 		SetLimit(int64(opts.Limit))
 	cursor, err := r.coll.Find(ctx, filter, findOpts)
@@ -112,7 +125,53 @@ func (r *Repository) List(ctx context.Context, opts ListOptions) (*ListResult, e
 	if err := cursor.All(ctx, &items); err != nil {
 		return nil, err
 	}
+	if opts.UID > 0 {
+		if err := r.fillUserStatus(ctx, opts.UID, items); err != nil {
+			return nil, err
+		}
+	}
 	return &ListResult{Items: items, Total: total, Page: opts.Page, Limit: opts.Limit}, nil
+}
+
+func (r *Repository) fillUserStatus(ctx context.Context, uid int64, items []Problem) error {
+	if len(items) == 0 {
+		return nil
+	}
+	ids := make([]int64, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.DocID)
+	}
+	cursor, err := r.records.Find(ctx, bson.M{
+		"uid":      uid,
+		"domainId": DomainSystem,
+		"pid":      bson.M{"$in": ids},
+	}, options.Find().
+		SetProjection(bson.M{"_id": 1, "pid": 1, "status": 1}).
+		SetSort(bson.D{{Key: "_id", Value: -1}}))
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+	var records []struct {
+		ID     bson.ObjectID `bson:"_id"`
+		PID    int64         `bson:"pid"`
+		Status int           `bson:"status"`
+	}
+	if err := cursor.All(ctx, &records); err != nil {
+		return err
+	}
+	byPID := make(map[int64]UserStatus, len(items))
+	for _, record := range records {
+		if _, exists := byPID[record.PID]; !exists {
+			byPID[record.PID] = UserStatus{Status: record.Status, RID: record.ID.Hex()}
+		}
+	}
+	for i := range items {
+		if status, ok := byPID[items[i].DocID]; ok {
+			items[i].UserStatus = &status
+		}
+	}
+	return nil
 }
 
 func (r *Repository) GetManyByDocIDs(ctx context.Context, ids []int64) ([]Problem, error) {
@@ -191,5 +250,9 @@ func normalizeListOptions(opts ListOptions) ListOptions {
 	}
 	opts.Query = strings.TrimSpace(opts.Query)
 	opts.Tag = strings.TrimSpace(opts.Tag)
+	opts.Sort = strings.TrimSpace(opts.Sort)
+	if opts.Sort != "recent" {
+		opts.Sort = "default"
+	}
 	return opts
 }

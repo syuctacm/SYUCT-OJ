@@ -6,15 +6,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/problem"
 )
 
 type ProblemHandler struct {
-	repo *problem.Repository
+	repo     *problem.Repository
+	sessions *auth.SessionManager
 }
 
-func NewProblemHandler(repo *problem.Repository) *ProblemHandler {
-	return &ProblemHandler{repo: repo}
+func NewProblemHandler(repo *problem.Repository, sessions *auth.SessionManager) *ProblemHandler {
+	return &ProblemHandler{repo: repo, sessions: sessions}
 }
 
 func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -23,6 +25,12 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *ProblemHandler) list(c *gin.Context) {
+	var uid int64
+	if h.sessions != nil {
+		if session, ok := h.sessions.Get(auth.Token(c)); ok && session.Kind == "user" {
+			uid = session.UserID
+		}
+	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	var difficulty *int
@@ -37,6 +45,8 @@ func (h *ProblemHandler) list(c *gin.Context) {
 		Query:      c.Query("q"),
 		Tag:        c.Query("tag"),
 		Difficulty: difficulty,
+		Sort:       c.Query("sort"),
+		UID:        uid,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list problems"})

@@ -51,6 +51,15 @@ func TestProblemRepositoryIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	acceptedRID := bson.NewObjectID()
+	wrongRID := bson.NewObjectID()
+	_, err = db.Collection("record").InsertMany(ctx, []any{
+		bson.M{"_id": acceptedRID, "uid": int64(7), "pid": int64(1), "domainId": "system", "status": 1},
+		bson.M{"_id": wrongRID, "uid": int64(7), "pid": int64(2), "domainId": "system", "status": 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	repo := problem.NewRepository(db)
 
 	result, err := repo.List(ctx, problem.ListOptions{Page: 1, Limit: 20})
@@ -76,6 +85,25 @@ func TestProblemRepositoryIntegration(t *testing.T) {
 	}
 	if result.Total != 1 || result.Items[0].PID != "P1001" {
 		t.Fatalf("difficulty result: %+v", result)
+	}
+
+	result, err = repo.List(ctx, problem.ListOptions{Page: 1, Limit: 20, UID: 7})
+	if err != nil {
+		t.Fatalf("user status: %v", err)
+	}
+	if result.Items[0].UserStatus == nil || result.Items[0].UserStatus.RID != acceptedRID.Hex() || result.Items[0].UserStatus.Status != 1 {
+		t.Fatalf("accepted status: %+v", result.Items[0])
+	}
+	if result.Items[1].UserStatus == nil || result.Items[1].UserStatus.RID != wrongRID.Hex() || result.Items[1].UserStatus.Status != 2 {
+		t.Fatalf("wrong answer status: %+v", result.Items[1])
+	}
+
+	result, err = repo.List(ctx, problem.ListOptions{Page: 1, Limit: 20, Sort: "recent"})
+	if err != nil {
+		t.Fatalf("recent sort: %v", err)
+	}
+	if result.Items[0].PID != "P1002" {
+		t.Fatalf("recent sort first = %s", result.Items[0].PID)
 	}
 
 	pdoc, err := repo.Get(ctx, "P1002")
