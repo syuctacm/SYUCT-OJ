@@ -54,6 +54,13 @@ func TestProblemRepositoryIntegration(t *testing.T) {
 	}
 	acceptedRID := bson.NewObjectID()
 	wrongRID := bson.NewObjectID()
+	_, err = db.Collection("user").InsertMany(ctx, []any{
+		bson.M{"_id": int64(7), "uname": "alice", "displayName": "Alice"},
+		bson.M{"_id": int64(8), "uname": "bob", "displayName": "Bob"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = db.Collection("record").InsertMany(ctx, []any{
 		bson.M{"_id": acceptedRID, "uid": int64(7), "pid": int64(1), "domainId": "system", "status": 1},
 		bson.M{"_id": wrongRID, "uid": int64(7), "pid": int64(2), "domainId": "system", "status": 2},
@@ -122,5 +129,30 @@ func TestProblemRepositoryIntegration(t *testing.T) {
 	}
 	if _, err := repo.Get(ctx, "P1003"); err != problem.ErrNotFound {
 		t.Fatalf("hidden problem should not be visible: %v", err)
+	}
+	if _, err = db.Collection("record").InsertMany(ctx, []any{
+		bson.M{"_id": bson.NewObjectID(), "uid": int64(7), "pid": int64(1), "domainId": "system", "status": 1},
+		bson.M{"_id": bson.NewObjectID(), "uid": int64(8), "pid": int64(1), "domainId": "system", "status": 1},
+		bson.M{"_id": bson.NewObjectID(), "uid": int64(8), "pid": int64(1), "domainId": "system", "status": 2},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	tags, err := repo.TagStats(ctx)
+	if err != nil || len(tags) != 2 || tags[0].Tag != "graph" || tags[0].Count != 1 {
+		t.Fatalf("tag stats: tags=%+v err=%v", tags, err)
+	}
+	ranking, err := repo.TagRanking(ctx, "math", 1, 20, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ranking.ProblemCount != 1 || ranking.TotalUsers != 2 || len(ranking.Items) != 2 {
+		t.Fatalf("tag ranking: %+v", ranking)
+	}
+	if ranking.Items[0].UID != 7 || ranking.Items[0].Username != "alice" {
+		t.Fatalf("tag ranking first: %+v", ranking.Items[0])
+	}
+	ranking, err = repo.TagRanking(ctx, "math", 1, 20, "bob")
+	if err != nil || ranking.MatchedCount != 1 || ranking.Items[0].UID != 8 {
+		t.Fatalf("tag ranking search: ranking=%+v err=%v", ranking, err)
 	}
 }
