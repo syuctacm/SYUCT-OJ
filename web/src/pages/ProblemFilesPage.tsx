@@ -1,222 +1,217 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to data and event adapters; do not re-create the DOM in JSX.
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   deleteProblemAssets,
   getProblemAssets,
   uploadProblemAssets,
-  type ProblemAsset,
   type ProblemAssetList,
 } from '../api.ts'
-import { ProblemSidebar } from '../components/ProblemSidebar.tsx'
+import { useAuth } from '../auth.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
 
-type AssetKind = 'testdata' | 'additional'
+type AssetKind = 'testdata' | 'additional_file'
 
-function formatSize(size: number) {
-  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MiB`
-  if (size >= 1024) return `${(size / 1024).toFixed(1)} KiB`
-  return `${size} B`
-}
-
-function AssetTable({
-  kind,
-  assets,
-  selected,
-  onToggle,
-  onToggleAll,
-}: {
-  kind: AssetKind
-  assets: ProblemAsset[]
-  selected: Set<string>
-  onToggle: (name: string) => void
-  onToggleAll: () => void
-}) {
-  return (
-    <div className="section__body no-padding files" data-type={kind === 'testdata' ? 'testdata' : 'additional_file'}>
-      {assets.length ? (
-        <table className="data-table">
-          <colgroup>
-            <col className="col--checkbox" />
-            <col className="col--name" />
-            <col className="col--size" />
-            <col className="col--operation" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th className="col--checkbox">
-                <label className="compact checkbox">
-                  <input
-                    type="checkbox"
-                    checked={assets.length > 0 && assets.every((asset) => selected.has(asset.name))}
-                    onChange={onToggleAll}
-                  />
-                </label>
-              </th>
-              <th className="col--name">文件名</th>
-              <th className="col--size">大小</th>
-              <th className="col--operation"><span className="icon icon-wrench" /></th>
-            </tr>
-          </thead>
-          <tbody>
-            {assets.map((asset) => (
-              <tr data-filename={asset.name} data-size={asset.size} key={asset.name}>
-                <td className="col--checkbox">
-                  <label className="compact checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(asset.name)}
-                      onChange={() => onToggle(asset.name)}
-                    />
-                  </label>
-                </td>
-                <td className="col--name"><a href={asset.downloadUrl}>{asset.name}</a></td>
-                <td className="col--size">{formatSize(asset.size)}</td>
-                <td className="col--operation">
-                  <a href={asset.downloadUrl} className="icon icon-download" aria-label={`下载 ${asset.name}`} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <div className="nothing-placeholder compact"><div className="nothing-icon" />当前没有文件</div>
-      )}
-    </div>
-  )
+function configSummary(problem: ProblemAssetList['problem']) {
+  return {
+    type: problem.problemType || 'default',
+    timeMin: String(problem.timeLimit || '1000').replace(/ms$/i, ''),
+    timeMax: String(problem.timeLimit || '1000').replace(/ms$/i, ''),
+    memoryMin: String(problem.memoryLimit || '256').replace(/[a-z]+$/i, ''),
+    memoryMax: String(problem.memoryLimit || '256').replace(/[a-z]+$/i, ''),
+  }
 }
 
 export function ProblemFilesPage() {
   const { pid = '' } = useParams()
+  const { user } = useAuth()
   const [data, setData] = useState<ProblemAssetList | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
-  const [selected, setSelected] = useState<Record<AssetKind, Set<string>>>({
-    testdata: new Set(),
-    additional: new Set(),
-  })
-  const testdataInput = useRef<HTMLInputElement>(null)
-  const additionalInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setError('')
-    getProblemAssets(pid).then(setData).catch((err: unknown) => setError(err instanceof Error ? err.message : '题目文件加载失败'))
+    getProblemAssets(pid)
+      .then(setData)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : '题目文件加载失败'))
   }, [pid])
 
-  function toggle(kind: AssetKind, name: string) {
-    setSelected((current) => {
-      const next = new Set(current[kind])
-      if (next.has(name)) next.delete(name)
-      else next.add(name)
-      return { ...current, [kind]: next }
-    })
-  }
-
-  function toggleAll(kind: AssetKind) {
-    if (!data) return
-    const assets = kind === 'testdata' ? data.testdata : data.additional
-    setSelected((current) => {
-      const allSelected = assets.length > 0 && assets.every((asset) => current[kind].has(asset.name))
-      return { ...current, [kind]: allSelected ? new Set<string>() : new Set(assets.map((asset) => asset.name)) }
-    })
-  }
-
-  async function upload(kind: AssetKind, event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? [])
-    event.target.value = ''
-    if (!files.length) return
-    setBusy(`upload-${kind}`)
-    setError('')
-    try {
-      const next = await uploadProblemAssets(pid, kind, files)
-      setData(next)
-      setSelected((current) => ({ ...current, [kind]: new Set<string>() }))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '文件上传失败')
-    } finally {
-      setBusy('')
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    const cleanups: Array<() => void> = []
+    const listen = <K extends keyof HTMLElementEventMap>(
+      element: Element,
+      type: K,
+      listener: (event: HTMLElementEventMap[K]) => void,
+    ) => {
+      element.addEventListener(type, listener as EventListener)
+      cleanups.push(() => element.removeEventListener(type, listener as EventListener))
     }
-  }
 
-  async function removeSelected(kind: AssetKind) {
-    const names = Array.from(selected[kind])
-    if (!names.length) return
-    setBusy(`delete-${kind}`)
-    setError('')
-    try {
-      const next = await deleteProblemAssets(pid, kind, names)
-      setData(next)
-      setSelected((current) => ({ ...current, [kind]: new Set<string>() }))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '文件删除失败')
-    } finally {
-      setBusy('')
+    // Unsupported by the Go API: create, rename, batch download and testdata generation.
+    root.querySelector('.generate')?.closest('.section')?.remove()
+    root.querySelectorAll('[name="create_testdata"], [name="create_file"], [name="rename_selected"], [name="download_selected"]')
+      .forEach((element) => element.remove())
+    root.querySelectorAll('th.col--operation, td.col--operation').forEach((element) => element.remove())
+    root.querySelectorAll('[name="file_rename"], [name="file_remove"]').forEach((element) => element.remove())
+
+    root.querySelectorAll('input[data-checkbox-toggle]').forEach((input) => {
+      listen(input, 'change', () => {
+        const kind = input.getAttribute('data-checkbox-toggle') ?? ''
+        root.querySelectorAll<HTMLInputElement>(`input[data-checkbox-group="${kind}"]`).forEach((checkbox) => {
+          checkbox.checked = (input as HTMLInputElement).checked
+        })
+      })
+    })
+
+    root.querySelectorAll<HTMLButtonElement>('[name="upload_file"]').forEach((button) => {
+      listen(button, 'click', () => {
+        const kind = (button.closest('[data-type]')?.getAttribute('data-type') as AssetKind | null) ?? 'testdata'
+        const picker = document.createElement('input')
+        picker.type = 'file'
+        picker.multiple = true
+        picker.onchange = async () => {
+          if (!picker.files?.length) return
+          setBusy(`upload-${kind}`)
+          setError('')
+          try {
+            const result = await uploadProblemAssets(pid, kind === 'testdata' ? 'testdata' : 'additional', Array.from(picker.files))
+            setData(result)
+          } catch (err) {
+            setError(err instanceof Error ? err.message : '文件上传失败')
+          } finally {
+            setBusy('')
+          }
+        }
+        picker.click()
+      })
+    })
+
+    root.querySelectorAll<HTMLButtonElement>('[name="remove_selected"]').forEach((button) => {
+      listen(button, 'click', async () => {
+        const kind = (button.closest('[data-type]')?.getAttribute('data-type') as AssetKind | null) ?? 'testdata'
+        const names = Array.from(root.querySelectorAll<HTMLInputElement>(`input[data-checkbox-group="${kind}"]:checked`))
+          .map((checkbox) => checkbox.closest('tr')?.getAttribute('data-filename') ?? '')
+          .filter(Boolean)
+        if (!names.length || !window.confirm(`确认删除选中的 ${names.length} 个文件？`)) return
+        setBusy(`delete-${kind}`)
+        setError('')
+        try {
+          const result = await deleteProblemAssets(pid, kind === 'testdata' ? 'testdata' : 'additional', names)
+          setData(result)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : '文件删除失败')
+        } finally {
+          setBusy('')
+        }
+      })
+    })
+
+    return () => cleanups.forEach((cleanup) => cleanup())
+  }, [pid])
+
+  const context = useMemo(() => {
+    if (!data) return null
+    const problem = data.problem
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    return {
+      page_name: 'problem_files',
+      pdoc: {
+        ...problem,
+        tag: problem.tags ?? [],
+        config: configSummary(problem),
+      },
+      testdata: data.testdata,
+      additional_file: data.additional,
+      reference: false,
+      udict: {},
+      owner_udoc: problem.owner ? {
+        _id: problem.owner,
+        uname: `UID ${problem.owner}`,
+        avatar: '',
+        hasPriv: () => false,
+        hasPerm: () => false,
+      } : null,
+      handler: {
+        user: {
+          _id: user?.id ?? 0,
+          viewLang: 'zh',
+          _dudoc: { join: true },
+          hasPerm: (permission: number) => Boolean(user) && [1, 2, 3, 4].includes(permission),
+          hasPriv: () => Boolean(user),
+          own: () => Boolean(user && (problem.owner === user.id || isAdmin)),
+        },
+        ctx: { setting: { get: () => '' } },
+        request: { headers: { 'user-agent': navigator.userAgent } },
+        session: { legacy: false },
+      },
+      perm: {
+        PERM_EDIT_PROBLEM: 1,
+        PERM_EDIT_PROBLEM_SELF: 2,
+        PERM_SUBMIT_PROBLEM: 3,
+        PERM_READ_PROBLEM_DATA: 4,
+        PERM_VIEW_DISCUSSION: 5,
+        PERM_CREATE_DISCUSSION: 6,
+        PERM_REJUDGE_PROBLEM: 7,
+        PERM_VIEW_PROBLEM_SOLUTION: 8,
+      },
+      PRIV: { PRIV_USER_PROFILE: 1, PRIV_READ_PROBLEM_DATA: 2, PRIV_REGISTER_USER: 3 },
+      STATUS: { STATUS_ACCEPTED: 1 },
+      psdoc: { status: 1 },
+      tdocs: [],
+      ctdocs: [],
+      htdocs: [],
+      discussionCount: 0,
+      solutionCount: 0,
+      UiContext: { cdn_prefix: '/' },
+      avatarUrl: (value?: string) => value || '/logo.png',
+      model: {
+        builtin: { LEVELS: {} },
+        system: { get: (key: string) => key === 'server.login' },
+        setting: { SETTINGS_BY_KEY: {} },
+      },
+      lib: { difficulty: () => 0 },
+      utils: { getAlphabeticId: () => '' },
+      UserContext: user,
     }
-  }
+  }, [data, user])
 
   if (error && !data) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   }
-  if (!data) {
+  if (!data || !context) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder"><div className="nothing-icon" />加载中...</div></div></div>
   }
 
   return (
-    <div className="row">
-      <div className="medium-5 columns" data-type="testdata">
-        <div className="section">
-          <div className="section__header">
-            <h1 className="section__title">测试数据</h1>
-            <div className="section__tools">
-              <button className="primary rounded button" type="button" onClick={() => testdataInput.current?.click()} disabled={Boolean(busy)}>
-                上传
-              </button>
-              <input ref={testdataInput} type="file" multiple hidden onChange={(event) => upload('testdata', event)} />
-            </div>
-          </div>
-          <AssetTable
-            kind="testdata"
-            assets={data.testdata}
-            selected={selected.testdata}
-            onToggle={(name) => toggle('testdata', name)}
-            onToggleAll={() => toggleAll('testdata')}
-          />
-          <div className="section__body">
-            <button className="rounded button" type="button" onClick={() => removeSelected('testdata')} disabled={!selected.testdata.size || Boolean(busy)}>
-              删除选中
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="medium-4 columns" data-type="additional_file">
-        <div className="section">
-          <div className="section__header">
-            <h1 className="section__title">附加文件</h1>
-            <div className="section__tools">
-              <button className="primary rounded button" type="button" onClick={() => additionalInput.current?.click()} disabled={Boolean(busy)}>
-                上传
-              </button>
-              <input ref={additionalInput} type="file" multiple hidden onChange={(event) => upload('additional', event)} />
-            </div>
-          </div>
-          <AssetTable
-            kind="additional"
-            assets={data.additional}
-            selected={selected.additional}
-            onToggle={(name) => toggle('additional', name)}
-            onToggleAll={() => toggleAll('additional')}
-          />
-          <div className="section__body">
-            <button className="rounded button" type="button" onClick={() => removeSelected('additional')} disabled={!selected.additional.size || Boolean(busy)}>
-              删除选中
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="medium-3 columns">
-        <ProblemSidebar problem={data.problem} pageName="problem_files" />
-      </div>
-      {error ? <div className="columns"><blockquote className="warn"><p>{error}</p></blockquote></div> : null}
-    </div>
+    <>
+      {error ? <div className="row"><div className="columns"><blockquote className="warn"><p>{error}</p></blockquote></div></div> : null}
+      {busy ? <div className="row"><div className="columns"><blockquote className="note"><p>正在处理文件...</p></blockquote></div></div> : null}
+      <HydroTemplate
+        template="problem_files.html"
+        context={context}
+        url={(name, args = {}) => {
+          const id = encodeURIComponent(String(args.pid ?? data.problem.pid ?? data.problem.docId))
+          const query = (args.query ?? {}) as Record<string, unknown>
+          if (name === 'problem_file_download') {
+            const type = query.type === 'additional_file' ? 'additional' : String(query.type ?? 'testdata')
+            return `/api/v1/problems/${encodeURIComponent(String(args.pid ?? data.problem.docId))}/assets/download?name=${encodeURIComponent(String(args.filename ?? ''))}&type=${encodeURIComponent(type)}`
+          }
+          const routes: Record<string, string> = {
+            problem_main: query.q ? `/p?q=${encodeURIComponent(String(query.q))}` : '/p',
+            problem_detail: `/p/${id}`,
+            problem_submit: `/p/${id}/submit`,
+            problem_files: `/p/${id}/files`,
+            problem_config: `/p/${id}/config`,
+            problem_edit: `/p/${id}/edit`,
+            problem_statistics: `/p/${id}`,
+            record_main: `/record${query.pid ? `?pid=${encodeURIComponent(String(query.pid))}` : ''}`,
+            user_detail: `/user/${encodeURIComponent(String(args.uid ?? ''))}`,
+          }
+          return routes[name] ?? '/'
+        }}
+        onReady={handleReady}
+      />
+    </>
   )
 }
