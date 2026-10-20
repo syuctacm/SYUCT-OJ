@@ -10,6 +10,8 @@
 | `/p/:pid/submit` | 提交代码 |
 | `/contest` | 比赛列表 |
 | `/contest/:tid` | 比赛详情 |
+| `/homework` | 作业列表 |
+| `/homework/:tid` | 作业详情 |
 | `/training` | 训练列表 |
 | `/training/:tid` | 训练详情 |
 | `/record` | 当前用户提交记录 |

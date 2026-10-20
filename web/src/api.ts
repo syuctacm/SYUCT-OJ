@@ -207,3 +207,13 @@ export async function getTraining(tid: string): Promise<Training> {
   const result = await request<Envelope<Training>>(`/api/v1/trainings/${encodeURIComponent(tid)}`)
   return result.data
 }
+
+export async function getHomeworks(): Promise<Contest[]> {
+  const result = await request<Envelope<{ items: Contest[]; total: number }>>('/api/v1/homeworks')
+  return result.data.items
+}
+
+export async function getHomework(tid: string): Promise<Contest> {
+  const result = await request<Envelope<Contest>>(`/api/v1/homeworks/${encodeURIComponent(tid)}`)
+  return result.data
+}

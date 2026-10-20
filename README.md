@@ -175,3 +175,10 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `GET /api/v1/trainings/:tid`
 
 训练列表和详情读取 Hydro `document` 集合，详见 [docs/training.md](./docs/training.md)。
+
+## 作业接口
+
+- `GET /api/v1/homeworks`
+- `GET /api/v1/homeworks/:tid`
+
+作业使用 `docType=30`、`rule=homework` 的文档，详见 [docs/homework.md](./docs/homework.md)。
