@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, type MouseEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { renderHydroTemplate, type HydroRenderOptions } from '../upstream/render.ts'
 
 type Props = HydroRenderOptions & {
@@ -10,6 +10,7 @@ type Props = HydroRenderOptions & {
 
 export function HydroTemplate({ template, className, context, url, urlForFile, onReady }: Props) {
   const navigate = useNavigate()
+  const location = useLocation()
   const root = useRef<HTMLDivElement>(null)
   const html = useMemo(
     () => renderHydroTemplate(template, { context, url, urlForFile }),
@@ -26,7 +27,13 @@ export function HydroTemplate({ template, className, context, url, urlForFile, o
     const anchor = (event.target as Element).closest('a')
     if (!anchor) return
     const href = anchor.getAttribute('href')
-    if (!href || !href.startsWith('/') || href.startsWith('/api/')) return
+    if (!href) return
+    if (href.startsWith('?')) {
+      event.preventDefault()
+      navigate(`${location.pathname}${href}`)
+      return
+    }
+    if (!href.startsWith('/') || href.startsWith('/api/')) return
     if (anchor.target && anchor.target !== '_self') return
     event.preventDefault()
     navigate(href)
