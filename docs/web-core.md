@@ -8,6 +8,8 @@
 | `/p` | 题库列表与搜索 |
 | `/p/:pid` | 题目详情 |
 | `/p/:pid/submit` | 提交代码 |
+| `/contest` | 比赛列表 |
+| `/contest/:tid` | 比赛详情 |
 | `/record` | 当前用户提交记录 |
 | `/record/:rid` | 提交状态轮询 |
 | `/login` | 用户登录 |

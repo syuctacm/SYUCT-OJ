@@ -159,3 +159,10 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 ## 前端核心页面
 
 已实现 `/login`、`/p`、`/p/:pid`、`/p/:pid/submit`、`/record/:rid`。本地联调时可以把 Vite 的 API 代理指向 `SERVER_PORT` 对应的后端端口。
+
+## 比赛接口
+
+- `GET /api/v1/contests`
+- `GET /api/v1/contests/:tid`
+
+比赛列表和详情读取 Hydro `document` 集合，详见 [docs/contests.md](./docs/contests.md)。
