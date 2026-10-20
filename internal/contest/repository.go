@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
+	"github.com/syuctacm/syuct-oj/internal/filemeta"
 	"github.com/syuctacm/syuct-oj/internal/problem"
 )
 
@@ -72,6 +73,7 @@ type Contest struct {
 	AllowPrint           bool               `bson:"allowPrint,omitempty" json:"allowPrint"`
 	AllowTeam            bool               `bson:"allowTeam,omitempty" json:"allowTeam"`
 	KeepScoreboardHidden bool               `bson:"keepScoreboardHidden,omitempty" json:"keepScoreboardHidden"`
+	Files                []filemeta.File    `bson:"files,omitempty" json:"files,omitempty"`
 	InvitationCode       string             `bson:"_code,omitempty" json:"invitationCode,omitempty"`
 }
 
@@ -459,6 +461,58 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 		rows[i].Rank = i + 1
 	}
 	return item, rows, nil
+}
+
+func (r *Repository) FileOwner(ctx context.Context, tid string) (int64, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return 0, err
+	}
+	return item.Owner, nil
+}
+
+func (r *Repository) Files(ctx context.Context, tid string) ([]filemeta.File, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, err
+	}
+	files := append([]filemeta.File(nil), item.Files...)
+	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
+	return files, nil
+}
+
+func (r *Repository) UpsertFile(ctx context.Context, tid string, file filemeta.File) error {
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return ErrNotFound
+	}
+	if err := filemeta.Upsert(ctx, r.coll, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeContest,
+		"$or": []bson.M{{"docId": oid}, {"_id": oid}},
+	}, "files", file); err != nil {
+		if err == filemeta.ErrNotFound {
+			return ErrNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+func (r *Repository) DeleteFiles(ctx context.Context, tid string, names []string) error {
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return ErrNotFound
+	}
+	if err := filemeta.Delete(ctx, r.coll, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeContest,
+		"$or": []bson.M{{"docId": oid}, {"_id": oid}},
+	}, "files", names); err != nil {
+		if err == filemeta.ErrNotFound {
+			return ErrNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *Repository) Get(ctx context.Context, tid string) (*Contest, error) {

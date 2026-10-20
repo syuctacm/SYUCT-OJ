@@ -27,6 +27,7 @@ Hydro 中作业是 `document` 集合里 `docType=30`、`rule=homework` 的文档
 - `/homework/new`：创建作业
 - `/homework/:tid/edit`：编辑作业
 - `/homework/:tid`：作业说明和题目列表
+- `/homework/:tid/files`：作业公开文件
 
 列表读取 `beginAt`、`endAt` 和 `penaltySince`，详情通过作业题目接口读取题目标题、统计和难度。`LegacyForm` 按 Hydro `components/form.html` 宏输出原版 `.row`、`.columns`、`.form__item`、`.textbox-container` 等结构，页面本身不再手写近似表单样式。
 
@@ -35,5 +36,4 @@ Hydro 中作业是 `document` 集合里 `docType=30`、`rule=homework` 的文档
 - 作业分组和 assign 访问控制
 - 作业题目依赖和进度
 - 作业提交和罚时规则
-- 作业文件上传
 - Markdown 编辑器图片上传接入作业文件接口

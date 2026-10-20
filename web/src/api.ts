@@ -107,6 +107,39 @@ export type ProblemAsset = {
   downloadUrl: string
 }
 
+export type ActivityFile = {
+  id: string
+  name: string
+  size: number
+  etag?: string
+  lastModified: string
+  downloadUrl: string
+}
+
+export type ActivityFileResource = 'contests' | 'homeworks' | 'trainings'
+
+export async function getActivityFiles(resource: ActivityFileResource, tid: string): Promise<ActivityFile[]> {
+  const result = await request<Envelope<{ items: ActivityFile[]; total: number }>>(`/api/v1/${resource}/${encodeURIComponent(tid)}/files`)
+  return result.data.items
+}
+
+export async function uploadActivityFiles(resource: ActivityFileResource, tid: string, files: File[]): Promise<ActivityFile[]> {
+  const body = new FormData()
+  for (const file of files) body.append('files', file)
+  const result = await request<Envelope<{ items: ActivityFile[]; total: number }>>(`/api/v1/${resource}/${encodeURIComponent(tid)}/files`, {
+    method: 'POST',
+    body,
+  })
+  return result.data.items
+}
+
+export async function deleteActivityFiles(resource: ActivityFileResource, tid: string, names: string[]): Promise<void> {
+  await request<void>(`/api/v1/${resource}/${encodeURIComponent(tid)}/files`, {
+    method: 'DELETE',
+    body: JSON.stringify({ names }),
+  })
+}
+
 export type ProblemAssetList = {
   problem: ProblemDetail
   testdata: ProblemAsset[]

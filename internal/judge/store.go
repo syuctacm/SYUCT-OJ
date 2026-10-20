@@ -104,6 +104,54 @@ func (s *FileStore) DeleteAdditionalFile(domainID, pid, name string) error {
 	return removeFile(path)
 }
 
+func (s *FileStore) PutContestFile(domainID, tid, name string, reader io.Reader) (StoredFile, error) {
+	path, err := s.path("contest", domainID, tid, "public", name)
+	if err != nil {
+		return StoredFile{}, err
+	}
+	return writeFileWithMetadata(path, name, reader)
+}
+
+func (s *FileStore) OpenContestFile(domainID, tid, name string) (io.ReadCloser, error) {
+	path, err := s.path("contest", domainID, tid, "public", name)
+	if err != nil {
+		return nil, err
+	}
+	return os.Open(path)
+}
+
+func (s *FileStore) DeleteContestFile(domainID, tid, name string) error {
+	path, err := s.path("contest", domainID, tid, "public", name)
+	if err != nil {
+		return err
+	}
+	return removeFile(path)
+}
+
+func (s *FileStore) PutTrainingFile(domainID, tid, name string, reader io.Reader) (StoredFile, error) {
+	path, err := s.path("training", domainID, tid, name)
+	if err != nil {
+		return StoredFile{}, err
+	}
+	return writeFileWithMetadata(path, name, reader)
+}
+
+func (s *FileStore) OpenTrainingFile(domainID, tid, name string) (io.ReadCloser, error) {
+	path, err := s.path("training", domainID, tid, name)
+	if err != nil {
+		return nil, err
+	}
+	return os.Open(path)
+}
+
+func (s *FileStore) DeleteTrainingFile(domainID, tid, name string) error {
+	path, err := s.path("training", domainID, tid, name)
+	if err != nil {
+		return err
+	}
+	return removeFile(path)
+}
+
 func (s *FileStore) SaveUpload(rid, name string, reader io.Reader) error {
 	path, err := s.path("uploads", rid, name)
 	if err != nil {

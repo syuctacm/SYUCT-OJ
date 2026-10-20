@@ -70,7 +70,10 @@ export function HomeworkDetailPage() {
             <ol className="menu">
               <li className="menu__item"><a className="menu__link" href="#homework-problems"><span className="icon icon-homework" /> 题目列表</a></li>
               {user && (user.id === homework.owner || ((user.priv ?? 0) & 1) !== 0) ? (
-                <li className="menu__item"><Link className="menu__link" to={`/homework/${encodeURIComponent(homework.docId)}/edit`}><span className="icon icon-edit" /> 编辑作业</Link></li>
+                <>
+                  <li className="menu__item"><Link className="menu__link" to={`/homework/${encodeURIComponent(homework.docId)}/edit`}><span className="icon icon-edit" /> 编辑作业</Link></li>
+                  <li className="menu__item"><Link className="menu__link" to={`/homework/${encodeURIComponent(homework.docId)}/files`}><span className="icon icon-file" /> 作业文件</Link></li>
+                </>
               ) : null}
               <li className="menu__item"><Link className="menu__link" to={`/record?tid=${encodeURIComponent(homework.docId)}`}><span className="icon icon-flag" /> 提交记录</Link></li>
               <li className="menu__item"><Link className="menu__link" to="/discuss"><span className="icon icon-comment--text" /> 讨论</Link></li>
