@@ -73,6 +73,14 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	if len(items) != 2 || items[0].Title != "New Contest" {
 		t.Fatalf("unexpected contest list: %+v", items)
 	}
+	items, err = repo.ListFiltered(ctx, "New", "")
+	if err != nil || len(items) != 1 || items[0].Title != "New Contest" {
+		t.Fatalf("contest search: items=%+v err=%v", items, err)
+	}
+	items, err = repo.ListFiltered(ctx, "", "acm")
+	if err != nil || len(items) != 1 || items[0].Title != "Old Contest" {
+		t.Fatalf("contest rule filter: items=%+v err=%v", items, err)
+	}
 	found, err := repo.Get(ctx, newID.Hex())
 	if err != nil {
 		t.Fatalf("get: %v", err)

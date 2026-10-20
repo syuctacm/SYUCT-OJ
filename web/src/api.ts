@@ -174,6 +174,7 @@ export type Contest = {
   beginAt: string
   endAt: string
   rule: string
+  owner: number
   attend: number
   pids: number[] | null
   duration?: number
@@ -182,8 +183,12 @@ export type Contest = {
   unlocked?: boolean
 }
 
-export async function getContests(): Promise<Contest[]> {
-  const result = await request<Envelope<{ items: Contest[]; total: number }>>('/api/v1/contests')
+export async function getContests(query = '', rule = ''): Promise<Contest[]> {
+  const params = new URLSearchParams()
+  if (query.trim()) params.set('q', query.trim())
+  if (rule) params.set('rule', rule)
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const result = await request<Envelope<{ items: Contest[]; total: number }>>(`/api/v1/contests${suffix}`)
   return result.data.items
 }
 

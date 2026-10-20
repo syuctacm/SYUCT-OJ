@@ -3,8 +3,10 @@ package contest
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -29,6 +31,7 @@ type Contest struct {
 	BeginAt  time.Time     `bson:"beginAt" json:"beginAt"`
 	EndAt    time.Time     `bson:"endAt" json:"endAt"`
 	Rule     string        `bson:"rule" json:"rule"`
+	Owner    int64         `bson:"owner" json:"owner"`
 	Attend   int64         `bson:"attend" json:"attend"`
 	PIDs     []int64       `bson:"pids" json:"pids"`
 	Duration int           `bson:"duration" json:"duration"`
@@ -66,15 +69,26 @@ func NewRepository(db *mongo.Database) *Repository {
 }
 
 func (r *Repository) List(ctx context.Context) ([]Contest, error) {
+	return r.ListFiltered(ctx, "", "")
+}
+
+func (r *Repository) ListFiltered(ctx context.Context, query, rule string) ([]Contest, error) {
 	projection := bson.M{
 		"docId": 1, "title": 1, "beginAt": 1, "endAt": 1,
-		"rule": 1, "attend": 1, "pids": 1, "duration": 1, "rated": 1,
+		"rule": 1, "owner": 1, "attend": 1, "pids": 1, "duration": 1, "rated": 1,
 	}
-	cursor, err := r.coll.Find(ctx, bson.M{
+	filter := bson.M{
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeContest,
 		"rule":     bson.M{"$ne": "homework"},
-	}, options.Find().
+	}
+	if query = strings.TrimSpace(query); query != "" {
+		filter["title"] = bson.M{"$regex": regexp.QuoteMeta(query), "$options": "i"}
+	}
+	if rule = strings.TrimSpace(rule); rule != "" {
+		filter["rule"] = rule
+	}
+	cursor, err := r.coll.Find(ctx, filter, options.Find().
 		SetProjection(projection).
 		SetSort(bson.D{{Key: "beginAt", Value: -1}}))
 	if err != nil {

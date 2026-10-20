@@ -24,7 +24,7 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *ContestHandler) list(c *gin.Context) {
-	items, err := h.repo.List(c.Request.Context())
+	items, err := h.repo.ListFiltered(c.Request.Context(), c.Query("q"), c.Query("rule"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list contests"})
 		return
