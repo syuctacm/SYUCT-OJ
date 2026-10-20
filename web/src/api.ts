@@ -243,6 +243,41 @@ export async function getSubmissions(filter: SubmissionFilter = {}): Promise<Sub
   return result.data
 }
 
+export type ContestEditInput = {
+  title: string
+  content: string
+  beginAt: string
+  endAt: string
+  rule: string
+  pids: number[]
+  duration: number
+  rated: boolean
+  penaltySince?: string
+  lockAt?: string
+  unlocked: boolean
+}
+
+export async function getContestEditor(tid: string): Promise<Contest> {
+  const result = await request<Envelope<Contest>>(`/api/v1/contests/${encodeURIComponent(tid)}/edit`)
+  return result.data
+}
+
+export async function createContest(input: ContestEditInput): Promise<Contest> {
+  const result = await request<Envelope<Contest>>('/api/v1/contests', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return result.data
+}
+
+export async function updateContest(tid: string, input: ContestEditInput): Promise<Contest> {
+  const result = await request<Envelope<Contest>>(`/api/v1/contests/${encodeURIComponent(tid)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  return result.data
+}
+
 export type Contest = {
   id: string
   docId: string

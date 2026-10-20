@@ -23,6 +23,20 @@ const (
 
 var ErrNotFound = fmt.Errorf("contest not found")
 
+type EditInput struct {
+	Title        string     `json:"title"`
+	Content      string     `json:"content"`
+	BeginAt      time.Time  `json:"beginAt"`
+	EndAt        time.Time  `json:"endAt"`
+	Rule         string     `json:"rule"`
+	PIDs         []int64    `json:"pids"`
+	Duration     int        `json:"duration"`
+	Rated        bool       `json:"rated"`
+	PenaltySince *time.Time `json:"penaltySince,omitempty"`
+	LockAt       *time.Time `json:"lockAt,omitempty"`
+	Unlocked     bool       `json:"unlocked"`
+}
+
 type Contest struct {
 	ID           bson.ObjectID `bson:"_id" json:"id"`
 	DocID        bson.ObjectID `bson:"docId" json:"docId"`
@@ -66,6 +80,108 @@ func NewRepository(db *mongo.Database) *Repository {
 		coll:     db.Collection("document"),
 		records:  db.Collection("record"),
 		problems: problem.NewRepository(db),
+	}
+}
+
+func (r *Repository) Create(ctx context.Context, owner int64, input EditInput) (*Contest, error) {
+	if err := r.validateEdit(ctx, input); err != nil {
+		return nil, err
+	}
+	oid := bson.NewObjectID()
+	duration := input.Duration
+	if duration <= 0 {
+		duration = int(input.EndAt.Sub(input.BeginAt).Hours())
+	}
+	document := bson.M{
+		"_id": oid, "docId": oid, "domainId": DomainSystem, "docType": DocumentTypeContest,
+		"title": strings.TrimSpace(input.Title), "content": input.Content,
+		"beginAt": input.BeginAt, "endAt": input.EndAt, "rule": input.Rule,
+		"owner": owner, "attend": int64(0), "pids": input.PIDs, "duration": duration,
+		"rated": input.Rated, "unlocked": input.Unlocked,
+	}
+	if input.PenaltySince != nil {
+		document["penaltySince"] = *input.PenaltySince
+	}
+	if input.LockAt != nil {
+		document["lockAt"] = *input.LockAt
+	}
+	if _, err := r.coll.InsertOne(ctx, document); err != nil {
+		return nil, err
+	}
+	return r.Get(ctx, oid.Hex())
+}
+
+func (r *Repository) Update(ctx context.Context, tid string, input EditInput) (*Contest, error) {
+	if err := r.validateEdit(ctx, input); err != nil {
+		return nil, err
+	}
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	duration := input.Duration
+	if duration <= 0 {
+		duration = int(input.EndAt.Sub(input.BeginAt).Hours())
+	}
+	set := bson.M{
+		"title": strings.TrimSpace(input.Title), "content": input.Content,
+		"beginAt": input.BeginAt, "endAt": input.EndAt, "rule": input.Rule,
+		"pids": input.PIDs, "duration": duration, "rated": input.Rated,
+		"unlocked": input.Unlocked,
+	}
+	unset := bson.M{}
+	if input.PenaltySince != nil {
+		set["penaltySince"] = *input.PenaltySince
+	} else {
+		unset["penaltySince"] = ""
+	}
+	if input.LockAt != nil {
+		set["lockAt"] = *input.LockAt
+	} else {
+		unset["lockAt"] = ""
+	}
+	update := bson.M{"$set": set}
+	if len(unset) > 0 {
+		update["$unset"] = unset
+	}
+	result, err := r.coll.UpdateOne(ctx,
+		bson.M{"domainId": DomainSystem, "docType": DocumentTypeContest, "$or": []bson.M{{"docId": oid}, {"_id": oid}}},
+		update,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, ErrNotFound
+	}
+	return r.Get(ctx, tid)
+}
+
+func (r *Repository) validateEdit(ctx context.Context, input EditInput) error {
+	if strings.TrimSpace(input.Title) == "" {
+		return fmt.Errorf("title is required")
+	}
+	if !validRule(input.Rule) {
+		return fmt.Errorf("invalid contest rule %q", input.Rule)
+	}
+	if input.BeginAt.IsZero() || input.EndAt.IsZero() || !input.EndAt.After(input.BeginAt) {
+		return fmt.Errorf("end time must be after begin time")
+	}
+	if input.EndAt.Sub(input.BeginAt) > 30*24*time.Hour {
+		return fmt.Errorf("contest duration must not exceed 30 days")
+	}
+	if input.LockAt != nil && (input.LockAt.Before(input.BeginAt) || input.LockAt.After(input.EndAt)) {
+		return fmt.Errorf("lock time must be inside the contest window")
+	}
+	return r.problems.ValidateDocIDs(ctx, input.PIDs)
+}
+
+func validRule(rule string) bool {
+	switch rule {
+	case "acm", "oi", "ioi", "strictioi", "ledo":
+		return true
+	default:
+		return false
 	}
 }
 

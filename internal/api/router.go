@@ -40,7 +40,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	}
 	if contestRepo != nil {
 		contestGroup := router.Group("/")
-		handler.NewContestHandler(contestRepo).RegisterRoutes(contestGroup)
+		handler.NewContestHandler(contestRepo, sessions, userRepo).RegisterRoutes(contestGroup)
 		handler.NewHomeworkHandler(contestRepo).RegisterRoutes(contestGroup)
 	}
 	if trainingRepo != nil {

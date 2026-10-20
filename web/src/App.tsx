@@ -4,6 +4,7 @@ import { LegacyDomainRedirect } from './components/LegacyDomainRedirect.tsx'
 import { AdminPage } from './pages/AdminPage.tsx'
 import { AdminUsersPage } from './pages/AdminUsersPage.tsx'
 import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
+import { ContestEditPage } from './pages/ContestEditPage.tsx'
 import { ContestsPage } from './pages/ContestsPage.tsx'
 import { DiscussionCreatePage } from './pages/DiscussionCreatePage.tsx'
 import { DiscussionDetailPage } from './pages/DiscussionDetailPage.tsx'
@@ -41,6 +42,8 @@ export default function App() {
         <Route path="/p/:pid" element={<ProblemDetailPage />} />
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
         <Route path="/contest" element={<ContestsPage />} />
+        <Route path="/contest/new" element={<ContestEditPage mode="create" />} />
+        <Route path="/contest/:tid/edit" element={<ContestEditPage mode="edit" />} />
         <Route path="/contest/:tid" element={<ContestDetailPage />} />
         <Route path="/discuss" element={<DiscussionsPage />} />
         <Route path="/discuss/new" element={<DiscussionCreatePage />} />

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getContests, type Contest } from '../api.ts'
+import { useAuth } from '../auth.tsx'
 
 const ruleNames: Record<string, string> = {
   acm: 'ACM',
@@ -46,6 +47,7 @@ function ImportantContest({ contest, view, title }: { contest: Contest; view: 'l
 }
 
 export function ContestsPage() {
+  const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const query = searchParams.get('q') ?? ''
   const rule = searchParams.get('rule') ?? ''
@@ -137,7 +139,17 @@ export function ContestsPage() {
           </div>
         </div>
       </div>
-      <div className="medium-3 columns" />
+      <div className="medium-3 columns">
+        {user && ((user.priv ?? 0) & 1) !== 0 ? (
+          <div className="section side">
+            <div className="section__header"><h1 className="section__title">创建比赛</h1></div>
+            <ol className="menu">
+              <li className="menu__item"><Link className="menu__link" to="/contest/new"><span className="icon icon-add" /> 新建比赛</Link></li>
+            </ol>
+            <div className="section__body"><div className="typo supplementary"><p>你有权限创建比赛。</p></div></div>
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
