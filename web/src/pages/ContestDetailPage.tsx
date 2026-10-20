@@ -59,7 +59,10 @@ export function ContestDetailPage() {
           <div className="section__header">
             <h1 className="section__title">{contest.title}</h1>
             {user && (user.id === contest.owner || ((user.priv ?? 0) & 1) !== 0) ? (
-              <div className="section__tools"><Link className="rounded button" to={`/contest/${encodeURIComponent(contest.docId)}/edit`}>编辑比赛</Link></div>
+              <div className="section__tools">
+                <Link className="rounded button" to={`/contest/${encodeURIComponent(contest.docId)}/files`}>文件</Link>
+                <Link className="rounded button" to={`/contest/${encodeURIComponent(contest.docId)}/edit`}>编辑比赛</Link>
+              </div>
             ) : null}
           </div>
           <div className="section__body">

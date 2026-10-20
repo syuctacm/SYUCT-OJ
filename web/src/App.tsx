@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout.tsx'
 import { LegacyDomainRedirect } from './components/LegacyDomainRedirect.tsx'
 import { AdminPage } from './pages/AdminPage.tsx'
+import { ActivityFilesPage } from './pages/ActivityFilesPage.tsx'
 import { AdminUsersPage } from './pages/AdminUsersPage.tsx'
 import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
 import { ContestEditPage } from './pages/ContestEditPage.tsx'
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/contest" element={<ContestsPage />} />
         <Route path="/contest/new" element={<ContestEditPage mode="create" />} />
         <Route path="/contest/:tid/edit" element={<ContestEditPage mode="edit" />} />
+        <Route path="/contest/:tid/files" element={<ActivityFilesPage kind="contest" />} />
         <Route path="/contest/:tid" element={<ContestDetailPage />} />
         <Route path="/discuss" element={<DiscussionsPage />} />
         <Route path="/discuss/new" element={<DiscussionCreatePage />} />
@@ -55,10 +57,12 @@ export default function App() {
         <Route path="/homework" element={<HomeworksPage />} />
         <Route path="/homework/new" element={<HomeworkEditPage mode="create" />} />
         <Route path="/homework/:tid/edit" element={<HomeworkEditPage mode="edit" />} />
+        <Route path="/homework/:tid/files" element={<ActivityFilesPage kind="homework" />} />
         <Route path="/homework/:tid" element={<HomeworkDetailPage />} />
         <Route path="/training" element={<TrainingsPage />} />
         <Route path="/training/new" element={<TrainingEditPage mode="create" />} />
         <Route path="/training/:tid/edit" element={<TrainingEditPage mode="edit" />} />
+        <Route path="/training/:tid/files" element={<ActivityFilesPage kind="training" />} />
         <Route path="/training/:tid" element={<TrainingDetailPage />} />
         <Route path="/record" element={<RecordsPage />} />
         <Route path="/record/:rid" element={<SubmissionPage />} />

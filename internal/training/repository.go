@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -12,6 +13,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+
+	"github.com/syuctacm/syuct-oj/internal/filemeta"
 )
 
 const (
@@ -47,17 +50,18 @@ type EditInput struct {
 }
 
 type Training struct {
-	ID           bson.ObjectID `bson:"_id" json:"id"`
-	DocID        bson.ObjectID `bson:"docId" json:"docId"`
-	Title        string        `bson:"title" json:"title"`
-	Description  string        `bson:"description" json:"description,omitempty"`
-	Content      string        `bson:"content" json:"content,omitempty"`
-	Owner        int64         `bson:"owner" json:"owner"`
-	Attend       int64         `bson:"attend" json:"attend"`
-	Pin          bool          `bson:"pin" json:"pin"`
-	DAG          []Node        `bson:"-" json:"dag,omitempty"`
-	SectionCount int           `bson:"-" json:"sectionCount"`
-	ProblemCount int           `bson:"-" json:"problemCount"`
+	ID           bson.ObjectID   `bson:"_id" json:"id"`
+	DocID        bson.ObjectID   `bson:"docId" json:"docId"`
+	Title        string          `bson:"title" json:"title"`
+	Description  string          `bson:"description" json:"description,omitempty"`
+	Content      string          `bson:"content" json:"content,omitempty"`
+	Owner        int64           `bson:"owner" json:"owner"`
+	Attend       int64           `bson:"attend" json:"attend"`
+	Pin          bool            `bson:"pin" json:"pin"`
+	Files        []filemeta.File `bson:"files,omitempty" json:"files,omitempty"`
+	DAG          []Node          `bson:"-" json:"dag,omitempty"`
+	SectionCount int             `bson:"-" json:"sectionCount"`
+	ProblemCount int             `bson:"-" json:"problemCount"`
 }
 
 type Problem struct {
@@ -92,15 +96,16 @@ type Detail struct {
 }
 
 type rawTraining struct {
-	ID          bson.ObjectID `bson:"_id"`
-	DocID       bson.ObjectID `bson:"docId"`
-	Title       string        `bson:"title"`
-	Description string        `bson:"description"`
-	Content     string        `bson:"content"`
-	Owner       int64         `bson:"owner"`
-	Attend      int64         `bson:"attend"`
-	Pin         any           `bson:"pin"`
-	DAG         []rawNode     `bson:"dag"`
+	ID          bson.ObjectID   `bson:"_id"`
+	DocID       bson.ObjectID   `bson:"docId"`
+	Title       string          `bson:"title"`
+	Description string          `bson:"description"`
+	Content     string          `bson:"content"`
+	Owner       int64           `bson:"owner"`
+	Attend      int64           `bson:"attend"`
+	Pin         any             `bson:"pin"`
+	Files       []filemeta.File `bson:"files"`
+	DAG         []rawNode       `bson:"dag"`
 }
 
 type rawNode struct {
@@ -288,6 +293,58 @@ func (r *Repository) resolveProblemDocID(ctx context.Context, value any) (int64,
 		return 0, err
 	}
 	return doc.DocID, nil
+}
+
+func (r *Repository) FileOwner(ctx context.Context, tid string) (int64, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return 0, err
+	}
+	return item.Owner, nil
+}
+
+func (r *Repository) Files(ctx context.Context, tid string) ([]filemeta.File, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, err
+	}
+	files := append([]filemeta.File(nil), item.Files...)
+	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
+	return files, nil
+}
+
+func (r *Repository) UpsertFile(ctx context.Context, tid string, file filemeta.File) error {
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return ErrNotFound
+	}
+	if err := filemeta.Upsert(ctx, r.documents, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeTraining,
+		"$or": []bson.M{{"docId": oid}, {"_id": oid}},
+	}, "files", file); err != nil {
+		if err == filemeta.ErrNotFound {
+			return ErrNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+func (r *Repository) DeleteFiles(ctx context.Context, tid string, names []string) error {
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return ErrNotFound
+	}
+	if err := filemeta.Delete(ctx, r.documents, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeTraining,
+		"$or": []bson.M{{"docId": oid}, {"_id": oid}},
+	}, "files", names); err != nil {
+		if err == filemeta.ErrNotFound {
+			return ErrNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *Repository) List(ctx context.Context) ([]Training, error) {
@@ -554,7 +611,7 @@ func (raw rawTraining) toTraining() Training {
 	}
 	return Training{
 		ID: raw.ID, DocID: raw.DocID, Title: raw.Title, Description: raw.Description,
-		Content: raw.Content, Owner: raw.Owner, Attend: raw.Attend, Pin: pin, DAG: dag,
+		Content: raw.Content, Owner: raw.Owner, Attend: raw.Attend, Pin: pin, Files: raw.Files, DAG: dag,
 	}
 }
 

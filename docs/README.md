@@ -14,6 +14,7 @@
 - [训练 API 与页面](./training.md)
 - [作业 API 与页面](./homework.md)
 - [讨论 API 与页面](./discussion.md)
+- [比赛 / 作业 / 训练文件](./activity-files.md)
 - [用户主页](./user-profile.md)
 - [后台概览](./admin.md)
 - [标签统计与榜单](./tag-stat.md)

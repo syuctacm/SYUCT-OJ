@@ -38,13 +38,21 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	if submissionHandler != nil {
 		submissionHandler.RegisterRoutes(router.Group("/"))
 	}
+	var activityStore *judge.FileStore
+	if judgeHandler != nil {
+		activityStore = judgeHandler.Store()
+	}
 	if contestRepo != nil {
 		contestGroup := router.Group("/")
 		handler.NewContestHandler(contestRepo, sessions, userRepo).RegisterRoutes(contestGroup)
 		handler.NewHomeworkHandler(contestRepo, sessions, userRepo).RegisterRoutes(contestGroup)
+		handler.NewActivityFileHandler(contestRepo, activityStore, sessions, userRepo, "contest", "contests").RegisterRoutes(contestGroup)
+		handler.NewActivityFileHandler(contestRepo, activityStore, sessions, userRepo, "contest", "homeworks").RegisterRoutes(contestGroup)
 	}
 	if trainingRepo != nil {
-		handler.NewTrainingHandler(trainingRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
+		trainingGroup := router.Group("/")
+		handler.NewTrainingHandler(trainingRepo, sessions, userRepo).RegisterRoutes(trainingGroup)
+		handler.NewActivityFileHandler(trainingRepo, activityStore, sessions, userRepo, "training", "trainings").RegisterRoutes(trainingGroup)
 	}
 	if discussionRepo != nil {
 		handler.NewDiscussionHandler(discussionRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
