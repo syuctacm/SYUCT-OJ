@@ -7,6 +7,8 @@ import { ProblemDetailPage } from './pages/ProblemDetailPage.tsx'
 import { ProblemsPage } from './pages/ProblemsPage.tsx'
 import { RecordsPage } from './pages/RecordsPage.tsx'
 import { SubmissionPage } from './pages/SubmissionPage.tsx'
+import { TrainingDetailPage } from './pages/TrainingDetailPage.tsx'
+import { TrainingsPage } from './pages/TrainingsPage.tsx'
 import { SubmitPage } from './pages/SubmitPage.tsx'
 
 export default function App() {
@@ -19,6 +21,8 @@ export default function App() {
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
         <Route path="/contest" element={<ContestsPage />} />
         <Route path="/contest/:tid" element={<ContestDetailPage />} />
+        <Route path="/training" element={<TrainingsPage />} />
+        <Route path="/training/:tid" element={<TrainingDetailPage />} />
         <Route path="/record" element={<RecordsPage />} />
         <Route path="/record/:rid" element={<SubmissionPage />} />
         <Route path="/login" element={<LoginPage />} />

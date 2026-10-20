@@ -188,3 +188,22 @@ export async function getContestScoreboard(tid: string): Promise<ContestScoreboa
   const result = await request<Envelope<ContestScoreboard>>(`/api/v1/contests/${encodeURIComponent(tid)}/scoreboard`)
   return result.data
 }
+
+export type Training = {
+  id: string
+  docId: string
+  title: string
+  description?: string
+  content?: string
+  pin: boolean
+}
+
+export async function getTrainings(): Promise<Training[]> {
+  const result = await request<Envelope<{ items: Training[]; total: number }>>('/api/v1/trainings')
+  return result.data.items
+}
+
+export async function getTraining(tid: string): Promise<Training> {
+  const result = await request<Envelope<Training>>(`/api/v1/trainings/${encodeURIComponent(tid)}`)
+  return result.data
+}
