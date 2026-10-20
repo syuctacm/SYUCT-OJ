@@ -8,7 +8,7 @@ MONGO_PASSWORD=${MONGO_ROOT_PASSWORD:-syuct_dev_password}
 MONGO_DATABASE=${MONGO_DATABASE:-syuct_oj}
 JUDGE_FILE_ROOT=${JUDGE_FILE_ROOT:-"$ROOT/data/judge-files"}
 
-data_dir="$JUDGE_FILE_ROOT/problems/system/9001"
+data_dir="$JUDGE_FILE_ROOT/problem/system/9001/testdata"
 mkdir -p "$data_dir"
 printf '7 8\n' > "$data_dir/1.in"
 printf '15\n' > "$data_dir/1.out"

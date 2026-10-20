@@ -6,6 +6,10 @@
 |---|---|---|
 | GET | `/api/v1/problems` | 题目列表、分页、搜索和筛选 |
 | GET | `/api/v1/problems/:pid` | 题目详情，支持 `pid`、`docId` 或 ObjectId |
+| GET | `/api/v1/problems/:pid/assets` | 测试数据和附加文件列表 |
+| POST | `/api/v1/problems/:pid/assets` | multipart 上传文件 |
+| DELETE | `/api/v1/problems/:pid/assets` | 批量删除文件 |
+| GET | `/api/v1/problems/:pid/assets/download` | 下载文件 |
 
 ## 列表参数
 
@@ -41,6 +45,24 @@
 - `partials/problem_sidebar.html`：提交入口和题目信息侧栏
 
 详情 API 额外返回 `problemType`、`timeLimit` 和 `memoryLimit`，由 Hydro 题目 `config` 生成展示信息。
+
+题目文件页对应 `problem_files.html` / `partials/problem_files.html`：
+
+- `/p/:pid/files`
+- 测试数据与附加文件分栏
+- 多文件上传、下载和批量删除
+- 仅管理员或题目所有者可访问
+
+## 文件存储
+
+存储布局与 Hydro 对齐：
+
+```text
+problem/system/<docId>/testdata/<name>
+problem/system/<docId>/additional_file/<name>
+```
+
+上传 `config.yaml` 或 `config.yml` 时，内容会同步写入题目的 `config` 字段，供判题机读取。
 
 ## 响应
 

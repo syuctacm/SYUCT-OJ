@@ -12,6 +12,7 @@ import { HomePage } from './pages/HomePage.tsx'
 import { HomeworksPage } from './pages/HomeworksPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
 import { ProblemDetailPage } from './pages/ProblemDetailPage.tsx'
+import { ProblemFilesPage } from './pages/ProblemFilesPage.tsx'
 import { ProblemsPage } from './pages/ProblemsPage.tsx'
 import { RecordsPage } from './pages/RecordsPage.tsx'
 import { SubmissionPage } from './pages/SubmissionPage.tsx'
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/p" element={<ProblemsPage />} />
         <Route path="/p/tag/:tag" element={<TagRankingPage />} />
+        <Route path="/p/:pid/files" element={<ProblemFilesPage />} />
         <Route path="/p/:pid" element={<ProblemDetailPage />} />
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
         <Route path="/contest" element={<ContestsPage />} />

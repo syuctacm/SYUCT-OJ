@@ -11,6 +11,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/login') return { name: 'user_login', layout: 'immersive', title: '登录' }
   if (pathname === '/p') return basic('problem_main', '题库')
   if (pathname.startsWith('/p/tag/')) return basic('problem_tag', '标签榜单')
+  if (/^\/p\/[^/]+\/files\/?$/.test(pathname)) return basic('problem_files', '题目文件')
   if (/^\/p\/[^/]+\/submit\/?$/.test(pathname)) return basic('problem_submit', '提交题目')
   if (/^\/p\/[^/]+\/?$/.test(pathname)) return basic('problem_detail', '题目详情')
   if (pathname === '/record') return basic('record_main', '评测记录')

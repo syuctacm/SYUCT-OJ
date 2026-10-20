@@ -155,7 +155,7 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
 
-密码校验兼容 Hydro 的 PBKDF2 格式，详见 [docs/auth.md](./docs/auth.md)。Session 当前为内存实现，仅用于本地开发。
+密码校验兼容 Hydro 的 PBKDF2 格式，详见 [docs/auth.md](./docs/auth.md)。Session 持久化在 MongoDB，API 重启后仍然有效。
 
 ## 题目接口
 
@@ -163,6 +163,8 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `GET /api/v1/problems/:pid`
 - `GET /api/v1/problem-tags`
 - `GET /api/v1/problem-tags/:tag/ranking`
+- `GET/POST/DELETE /api/v1/problems/:pid/assets`
+- `GET /api/v1/problems/:pid/assets/download`
 
 接口直接读取本地 MongoDB 的 `document` 集合，详见 [docs/problems.md](./docs/problems.md)。
 
@@ -176,7 +178,7 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 
 ## 前端核心页面
 
-已实现 `/login`、`/p`、`/p/:pid`、`/p/:pid/submit`、`/record/:rid`。本地联调时可以把 Vite 的 API 代理指向 `SERVER_PORT` 对应的后端端口。
+已实现登录、首页、题库、题目详情/提交/文件、记录、比赛、训练、作业、讨论、用户主页和后台页面。本地联调时把 Vite 的 API 代理指向 `SERVER_PORT` 对应的后端端口。
 
 ## 比赛接口
 

@@ -4,7 +4,7 @@ import { formatMemoryLimit, formatTimeLimit } from '../problem-format.ts'
 
 type ProblemSidebarProps = {
   problem: ProblemDetail
-  pageName: 'problem_detail' | 'problem_submit'
+  pageName: 'problem_detail' | 'problem_submit' | 'problem_files'
 }
 
 export function ProblemSidebar({ problem, pageName }: ProblemSidebarProps) {
@@ -25,6 +25,11 @@ export function ProblemSidebar({ problem, pageName }: ProblemSidebarProps) {
             <li className="menu__item scratchpad--hide">
               <Link className={`menu__link${pageName === 'problem_submit' ? ' active' : ''}`} to={`${problemPath}/submit`}>
                 <span className="icon icon-send" /> 提交
+              </Link>
+            </li>
+            <li className="menu__item">
+              <Link className={`menu__link${pageName === 'problem_files' ? ' active' : ''}`} to={`${problemPath}/files`}>
+                <span className="icon icon-file" /> 文件
               </Link>
             </li>
           </ol>

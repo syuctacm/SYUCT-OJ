@@ -1,28 +1,54 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
+	"io"
+	"mime"
 	"net/http"
+	"net/url"
+	"path"
+	"sort"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
+	"github.com/syuctacm/syuct-oj/internal/judge"
 	"github.com/syuctacm/syuct-oj/internal/problem"
+	"github.com/syuctacm/syuct-oj/internal/user"
+)
+
+const (
+	maxProblemFiles       = 100
+	maxProblemFilesSize   = 256 << 20
+	maxProblemMultipart   = 32 << 20
+	problemFileKindData   = "testdata"
+	problemFileKindAttach = "additional"
 )
 
 type ProblemHandler struct {
 	repo     *problem.Repository
 	sessions *auth.SessionManager
+	users    *user.Repository
+	store    *judge.FileStore
 }
 
-func NewProblemHandler(repo *problem.Repository, sessions *auth.SessionManager) *ProblemHandler {
-	return &ProblemHandler{repo: repo, sessions: sessions}
+func NewProblemHandler(repo *problem.Repository, sessions *auth.SessionManager, users *user.Repository, store *judge.FileStore) *ProblemHandler {
+	return &ProblemHandler{repo: repo, sessions: sessions, users: users, store: store}
 }
 
 func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/problems", h.list)
 	router.GET("/api/v1/problem-tags", h.tags)
 	router.GET("/api/v1/problem-tags/:tag/ranking", h.tagRanking)
+	router.GET("/api/v1/problems/:pid/assets", h.listAssets)
+	router.POST("/api/v1/problems/:pid/assets", h.uploadAssets)
+	router.DELETE("/api/v1/problems/:pid/assets", h.deleteAssets)
+	router.GET("/api/v1/problems/:pid/assets/download", h.downloadAsset)
 	router.GET("/api/v1/problems/:pid", h.get)
 }
 
@@ -84,4 +110,326 @@ func (h *ProblemHandler) get(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": pdoc})
+}
+
+type problemAsset struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Size         int64     `json:"size"`
+	ETag         string    `json:"etag,omitempty"`
+	LastModified time.Time `json:"lastModified"`
+	DownloadURL  string    `json:"downloadUrl"`
+}
+
+type problemAssetList struct {
+	Problem    *problem.Problem `json:"problem"`
+	Testdata   []problemAsset   `json:"testdata"`
+	Additional []problemAsset   `json:"additional"`
+}
+
+func (h *ProblemHandler) listAssets(c *gin.Context) {
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": assetList(c.Param("pid"), pdoc),
+	})
+}
+
+func (h *ProblemHandler) uploadAssets(c *gin.Context) {
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	if h.store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "problem file storage is unavailable"})
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxProblemFilesSize)
+	if err := c.Request.ParseMultipartForm(maxProblemMultipart); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid multipart upload"})
+		return
+	}
+	kind := c.PostForm("type")
+	if kind == "" {
+		kind = problemFileKindData
+	}
+	if !validProblemFileKind(kind) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file type"})
+		return
+	}
+	headers := c.Request.MultipartForm.File["files"]
+	if len(headers) == 0 {
+		headers = c.Request.MultipartForm.File["file"]
+	}
+	if len(headers) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one file is required"})
+		return
+	}
+	existing := assetsForKind(pdoc, kind)
+	if len(existing)+len(headers) > maxProblemFiles {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", maxProblemFiles)})
+		return
+	}
+	var totalSize int64
+	for _, existingFile := range existing {
+		totalSize += existingFile.Size
+	}
+	for _, header := range headers {
+		totalSize += header.Size
+	}
+	if totalSize > maxProblemFilesSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "problem files are too large"})
+		return
+	}
+
+	for _, header := range headers {
+		name, err := sanitizeAssetName(path.Base(strings.ReplaceAll(header.Filename, "\\", "/")))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		source, err := header.Open()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "unable to open uploaded file"})
+			return
+		}
+		var stored judge.StoredFile
+		if kind == problemFileKindData {
+			stored, err = h.store.PutProblemFile(problem.DomainSystem, strconv.FormatInt(pdoc.DocID, 10), name, source)
+		} else {
+			stored, err = h.store.PutAdditionalFile(problem.DomainSystem, strconv.FormatInt(pdoc.DocID, 10), name, source)
+		}
+		_ = source.Close()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save uploaded file"})
+			return
+		}
+		file := problem.ProblemFile{
+			ID:           problemFileID(pdoc.DocID, kind, name),
+			Name:         name,
+			Size:         stored.Size,
+			ETag:         stored.ETag,
+			LastModified: stored.LastModified,
+		}
+		if err := h.repo.UpsertFile(c.Request.Context(), pdoc.DocID, kind, file); err != nil {
+			h.deleteStoredFile(kind, pdoc.DocID, name)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update problem file metadata"})
+			return
+		}
+		if kind == problemFileKindData && isConfigFile(name) {
+			if err := h.updateProblemConfig(c, pdoc.DocID, name); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update problem config"})
+				return
+			}
+		}
+	}
+	updated, err := h.repo.GetForEditor(c.Request.Context(), c.Param("pid"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to reload problem files"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": assetList(c.Param("pid"), updated)})
+}
+
+func (h *ProblemHandler) deleteAssets(c *gin.Context) {
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	var request struct {
+		Type  string   `json:"type"`
+		Names []string `json:"names"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || len(request.Names) == 0 || !validProblemFileKind(request.Type) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type and names are required"})
+		return
+	}
+	if len(request.Names) > maxProblemFiles {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", maxProblemFiles)})
+		return
+	}
+	names := make([]string, 0, len(request.Names))
+	for _, value := range request.Names {
+		name, err := sanitizeAssetName(value)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		names = append(names, name)
+	}
+	if err := h.repo.DeleteFiles(c.Request.Context(), pdoc.DocID, request.Type, names); err != nil && !errors.Is(err, problem.ErrNotFound) {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update problem file metadata"})
+		return
+	}
+	for _, name := range names {
+		h.deleteStoredFile(request.Type, pdoc.DocID, name)
+		if request.Type == problemFileKindData && isConfigFile(name) {
+			_ = h.repo.UpdateConfig(c.Request.Context(), pdoc.DocID, "")
+		}
+	}
+	updated, err := h.repo.GetForEditor(c.Request.Context(), c.Param("pid"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to reload problem files"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": assetList(c.Param("pid"), updated)})
+}
+
+func (h *ProblemHandler) downloadAsset(c *gin.Context) {
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	if h.store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "problem file storage is unavailable"})
+		return
+	}
+	kind := c.Query("type")
+	if !validProblemFileKind(kind) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file type"})
+		return
+	}
+	name, err := sanitizeAssetName(c.Query("name"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	var reader io.ReadCloser
+	if kind == problemFileKindData {
+		reader, err = h.store.OpenProblemFile(problem.DomainSystem, strconv.FormatInt(pdoc.DocID, 10), name)
+	} else {
+		reader, err = h.store.OpenAdditionalFile(problem.DomainSystem, strconv.FormatInt(pdoc.DocID, 10), name)
+	}
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		return
+	}
+	defer reader.Close()
+	contentDisposition := mime.FormatMediaType("attachment", map[string]string{"filename": path.Base(name)})
+	c.Header("Content-Disposition", contentDisposition)
+	c.Header("Content-Type", "application/octet-stream")
+	_, _ = io.Copy(c.Writer, reader)
+}
+
+func (h *ProblemHandler) requireEditor(c *gin.Context) (*problem.Problem, bool) {
+	if h.sessions == nil || h.users == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, false
+	}
+	session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
+	if !ok || session.Kind != "user" || session.UserID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, false
+	}
+	u, err := h.users.FindByID(c.Request.Context(), session.UserID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, false
+	}
+	pdoc, err := h.repo.GetForEditor(c.Request.Context(), c.Param("pid"))
+	if err != nil {
+		if errors.Is(err, problem.ErrNotFound) || errors.Is(err, mongo.ErrNoDocuments) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load problem"})
+		}
+		return nil, false
+	}
+	if pdoc.Owner != session.UserID && u.Priv&1 == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return nil, false
+	}
+	return pdoc, true
+}
+
+func (h *ProblemHandler) updateProblemConfig(c *gin.Context, docID int64, name string) error {
+	reader, err := h.store.OpenProblemFile(problem.DomainSystem, strconv.FormatInt(docID, 10), name)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	value, err := io.ReadAll(io.LimitReader(reader, 2<<20))
+	if err != nil {
+		return err
+	}
+	return h.repo.UpdateConfig(c.Request.Context(), docID, string(value))
+}
+
+func (h *ProblemHandler) deleteStoredFile(kind string, docID int64, name string) {
+	if h.store == nil {
+		return
+	}
+	pid := strconv.FormatInt(docID, 10)
+	if kind == problemFileKindData {
+		_ = h.store.DeleteProblemFile(problem.DomainSystem, pid, name)
+	} else {
+		_ = h.store.DeleteAdditionalFile(problem.DomainSystem, pid, name)
+	}
+}
+
+func assetList(pid string, pdoc *problem.Problem) problemAssetList {
+	return problemAssetList{
+		Problem:    pdoc,
+		Testdata:   assetViews(pid, problemFileKindData, pdoc.Data),
+		Additional: assetViews(pid, problemFileKindAttach, pdoc.AdditionalFiles),
+	}
+}
+
+func assetViews(pid, kind string, files []problem.ProblemFile) []problemAsset {
+	result := make([]problemAsset, 0, len(files))
+	for _, file := range files {
+		result = append(result, problemAsset{
+			ID:           file.ID,
+			Name:         file.Name,
+			Size:         file.Size,
+			ETag:         file.ETag,
+			LastModified: file.LastModified,
+			DownloadURL:  "/api/v1/problems/" + url.PathEscape(pid) + "/assets/download?type=" + url.QueryEscape(kind) + "&name=" + url.QueryEscape(file.Name),
+		})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+	return result
+}
+
+func assetsForKind(pdoc *problem.Problem, kind string) []problem.ProblemFile {
+	if kind == problemFileKindData {
+		return pdoc.Data
+	}
+	return pdoc.AdditionalFiles
+}
+
+func validProblemFileKind(kind string) bool {
+	return kind == problemFileKindData || kind == problemFileKindAttach
+}
+
+func sanitizeAssetName(value string) (string, error) {
+	value = strings.TrimSpace(strings.ReplaceAll(value, "\\", "/"))
+	if value == "" {
+		return "", errors.New("filename is required")
+	}
+	cleaned := path.Clean(value)
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") || strings.ContainsRune(cleaned, '\x00') {
+		return "", fmt.Errorf("invalid filename %q", value)
+	}
+	return cleaned, nil
+}
+
+func isConfigFile(name string) bool {
+	switch strings.ToLower(path.Base(name)) {
+	case "config.yaml", "config.yml":
+		return true
+	default:
+		return false
+	}
+}
+
+func problemFileID(docID int64, kind, name string) string {
+	folder := "testdata"
+	if kind == problemFileKindAttach {
+		folder = "additional_file"
+	}
+	return fmt.Sprintf("problem/%s/%d/%s/%s", problem.DomainSystem, docID, folder, name)
 }

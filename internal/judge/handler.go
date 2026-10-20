@@ -23,6 +23,10 @@ func NewHandler(username, password string, sessions *auth.SessionManager, store 
 	return &Handler{username: username, password: password, sessions: sessions, store: store, hub: hub}
 }
 
+func (h *Handler) Store() *FileStore {
+	return h.store
+}
+
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/login", h.login)
 

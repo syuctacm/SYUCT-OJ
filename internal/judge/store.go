@@ -1,15 +1,25 @@
 package judge
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type FileStore struct {
 	root string
+}
+
+type StoredFile struct {
+	Name         string
+	Size         int64
+	ETag         string
+	LastModified time.Time
 }
 
 func NewFileStore(root string) *FileStore {
@@ -37,19 +47,61 @@ func (s *FileStore) OpenSubmission(id string) (io.ReadCloser, error) {
 }
 
 func (s *FileStore) SaveProblemFile(domainID, pid, name string, reader io.Reader) error {
-	path, err := s.path("problems", domainID, pid, name)
+	_, err := s.PutProblemFile(domainID, pid, name, reader)
+	return err
+}
+
+func (s *FileStore) PutProblemFile(domainID, pid, name string, reader io.Reader) (StoredFile, error) {
+	path, err := s.path("problem", domainID, pid, "testdata", name)
 	if err != nil {
-		return err
+		return StoredFile{}, err
 	}
-	return writeFile(path, reader)
+	return writeFileWithMetadata(path, name, reader)
 }
 
 func (s *FileStore) OpenProblemFile(domainID, pid, name string) (io.ReadCloser, error) {
-	path, err := s.path("problems", domainID, pid, name)
+	path, err := s.path("problem", domainID, pid, "testdata", name)
 	if err != nil {
 		return nil, err
 	}
 	return os.Open(path)
+}
+
+func (s *FileStore) DeleteProblemFile(domainID, pid, name string) error {
+	path, err := s.path("problem", domainID, pid, "testdata", name)
+	if err != nil {
+		return err
+	}
+	return removeFile(path)
+}
+
+func (s *FileStore) SaveAdditionalFile(domainID, pid, name string, reader io.Reader) error {
+	_, err := s.PutAdditionalFile(domainID, pid, name, reader)
+	return err
+}
+
+func (s *FileStore) PutAdditionalFile(domainID, pid, name string, reader io.Reader) (StoredFile, error) {
+	path, err := s.path("problem", domainID, pid, "additional_file", name)
+	if err != nil {
+		return StoredFile{}, err
+	}
+	return writeFileWithMetadata(path, name, reader)
+}
+
+func (s *FileStore) OpenAdditionalFile(domainID, pid, name string) (io.ReadCloser, error) {
+	path, err := s.path("problem", domainID, pid, "additional_file", name)
+	if err != nil {
+		return nil, err
+	}
+	return os.Open(path)
+}
+
+func (s *FileStore) DeleteAdditionalFile(domainID, pid, name string) error {
+	path, err := s.path("problem", domainID, pid, "additional_file", name)
+	if err != nil {
+		return err
+	}
+	return removeFile(path)
 }
 
 func (s *FileStore) SaveUpload(rid, name string, reader io.Reader) error {
@@ -75,14 +127,42 @@ func (s *FileStore) path(parts ...string) (string, error) {
 }
 
 func writeFile(path string, reader io.Reader) error {
+	_, err := writeFileWithMetadata(path, filepath.Base(path), reader)
+	return err
+}
+
+func writeFileWithMetadata(path, name string, reader io.Reader) (StoredFile, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return err
+		return StoredFile{}, err
 	}
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o640)
 	if err != nil {
+		return StoredFile{}, err
+	}
+	hash := md5.New()
+	size, copyErr := io.Copy(io.MultiWriter(file, hash), reader)
+	closeErr := file.Close()
+	if copyErr != nil {
+		return StoredFile{}, copyErr
+	}
+	if closeErr != nil {
+		return StoredFile{}, closeErr
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return StoredFile{}, err
+	}
+	return StoredFile{
+		Name:         name,
+		Size:         size,
+		ETag:         hex.EncodeToString(hash.Sum(nil)),
+		LastModified: info.ModTime().UTC(),
+	}, nil
+}
+
+func removeFile(path string) error {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	defer file.Close()
-	_, err = io.Copy(file, reader)
-	return err
+	return nil
 }
