@@ -129,7 +129,14 @@ docker compose -f deploy/compose.dev.yaml --profile judge up -d --build judge
 ./scripts/real-judge-smoke.sh
 ```
 
-真实 `hydrojudge 4.0.6` 已完成 C++/Python 编译运行和完整状态回写。Session 当前仍是内存实现，仅用于本地开发。
+断线恢复验证：
+
+```bash
+JUDGE_TASK_LEASE=3s go run ./cmd/api
+./scripts/real-judge-recovery-smoke.sh
+```
+
+真实 `hydrojudge 4.0.6` 已完成 C++/Python 编译运行、完整状态回写和判题机断线重投。Session 当前仍是内存实现，仅用于本地开发。
 
 ## 域数据迁移工具
 

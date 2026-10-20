@@ -7,21 +7,22 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type Hub struct {
 	mu            sync.Mutex
 	conns         map[*connection]struct{}
-	queue         []any
 	languages     map[string]any
 	upgrader      websocket.Upgrader
-	resultHandler func(map[string]any)
+	resultHandler func(map[string]any) error
 }
 
 type connection struct {
 	ws      *websocket.Conn
 	writeMu sync.Mutex
 	started bool
+	tasks   map[string]struct{}
 	hub     *Hub
 }
 
@@ -44,7 +45,7 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("judge websocket upgrade failed", "error", err)
 		return
 	}
-	conn := &connection{ws: ws, hub: h}
+	conn := &connection{ws: ws, hub: h, tasks: make(map[string]struct{})}
 	h.mu.Lock()
 	h.conns[conn] = struct{}{}
 	h.mu.Unlock()
@@ -88,7 +89,19 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			resultHandler := h.resultHandler
 			h.mu.Unlock()
 			if resultHandler != nil {
-				resultHandler(payload)
+				if err := resultHandler(payload); err != nil {
+					slog.Warn("unable to process judge result", "key", key, "error", err)
+					continue
+				}
+			}
+			if key == "end" {
+				if rid, ok := payload["rid"].(string); ok {
+					h.mu.Lock()
+					for active := range h.conns {
+						delete(active.tasks, rid)
+					}
+					h.mu.Unlock()
+				}
 			}
 		}
 	}
@@ -100,18 +113,39 @@ func (h *Hub) Enqueue(task any) bool {
 	for conn := range h.conns {
 		if conn.started {
 			if err := conn.writeJSON(map[string]any{"task": task}); err == nil {
+				if rid := taskRID(task); rid != "" {
+					conn.tasks[rid] = struct{}{}
+				}
 				return true
 			}
 		}
 	}
-	h.queue = append(h.queue, task)
 	return false
 }
 
-func (h *Hub) SetResultHandler(handler func(map[string]any)) {
+func (h *Hub) SetResultHandler(handler func(map[string]any) error) {
 	h.mu.Lock()
 	h.resultHandler = handler
 	h.mu.Unlock()
+}
+
+func (h *Hub) ActiveRIDs() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	seen := map[string]struct{}{}
+	for conn := range h.conns {
+		if !conn.started {
+			continue
+		}
+		for rid := range conn.tasks {
+			seen[rid] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(seen))
+	for rid := range seen {
+		result = append(result, rid)
+	}
+	return result
 }
 
 func (h *Hub) HasStarted() bool {
@@ -129,13 +163,6 @@ func (h *Hub) start(conn *connection) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	conn.started = true
-	for len(h.queue) > 0 {
-		task := h.queue[0]
-		h.queue = h.queue[1:]
-		if err := conn.writeJSON(map[string]any{"task": task}); err != nil {
-			return
-		}
-	}
 }
 
 func (c *connection) writeJSON(value any) error {
@@ -148,4 +175,28 @@ func (c *connection) writeText(value string) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 	return c.ws.WriteMessage(websocket.TextMessage, []byte(value))
+}
+
+func taskRID(task any) string {
+	switch value := task.(type) {
+	case Task:
+		return value.Rid
+	case map[string]any:
+		return objectIDString(value["rid"])
+	case bson.M:
+		return objectIDString(value["rid"])
+	default:
+		return ""
+	}
+}
+
+func objectIDString(value any) string {
+	switch id := value.(type) {
+	case bson.ObjectID:
+		return id.Hex()
+	case string:
+		return id
+	default:
+		return ""
+	}
 }

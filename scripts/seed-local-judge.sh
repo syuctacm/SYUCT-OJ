@@ -24,7 +24,7 @@ db.document.updateOne(
       content: "读取两个整数并输出它们的和。",
       hidden: false,
       owner: NumberLong("1"),
-      config: "type: default\ntime: 5000ms\nmemory: 256m\nsubtasks:\n  - score: 100\n    type: min\n    cases:\n      - input: 1.in\n        output: 1.out\n",
+      config: "type: default\ntime: 30000ms\nmemory: 256m\nsubtasks:\n  - score: 100\n    type: min\n    cases:\n      - input: 1.in\n        output: 1.out\n",
       data: [
         { _id: "problem/system/9001/1.in", name: "1.in", size: NumberLong("4"), etag: "local-v1", lastModified: now },
         { _id: "problem/system/9001/1.out", name: "1.out", size: NumberLong("3"), etag: "local-v1", lastModified: now }
