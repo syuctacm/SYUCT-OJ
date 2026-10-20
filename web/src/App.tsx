@@ -3,6 +3,7 @@ import { Layout } from './components/Layout.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
 import { ProblemDetailPage } from './pages/ProblemDetailPage.tsx'
 import { ProblemsPage } from './pages/ProblemsPage.tsx'
+import { RecordsPage } from './pages/RecordsPage.tsx'
 import { SubmissionPage } from './pages/SubmissionPage.tsx'
 import { SubmitPage } from './pages/SubmitPage.tsx'
 
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/p" element={<ProblemsPage />} />
         <Route path="/p/:pid" element={<ProblemDetailPage />} />
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
+        <Route path="/record" element={<RecordsPage />} />
         <Route path="/record/:rid" element={<SubmissionPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<Navigate to="/p" replace />} />

@@ -115,3 +115,16 @@ export async function getSubmission(rid: string): Promise<Submission> {
   const result = await request<Envelope<Submission>>(`/api/v1/submissions/${encodeURIComponent(rid)}`)
   return result.data
 }
+
+export type SubmissionPage = {
+  items: Submission[]
+  total: number
+  page: number
+  limit: number
+}
+
+export async function getSubmissions(page = 1, limit = 20): Promise<SubmissionPage> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  const result = await request<Envelope<SubmissionPage>>(`/api/v1/submissions?${params.toString()}`)
+  return result.data
+}

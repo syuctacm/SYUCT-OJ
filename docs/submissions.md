@@ -5,9 +5,10 @@
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | POST | `/api/v1/submissions` | 创建提交并写入 judge task |
+| GET | `/api/v1/submissions` | 当前用户的提交记录列表 |
 | GET | `/api/v1/submissions/:rid` | 查询提交状态和结果 |
 
-创建提交需要用户 Session。
+创建提交和查询自己的记录列表需要用户 Session。
 
 ## 请求
 
