@@ -8,6 +8,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import {
+  FormAutocomplete,
   FormCheckbox,
   FormSelect,
   FormText,
@@ -247,6 +248,7 @@ export function ContestEditPage({ mode }: { mode: 'create' | 'edit' }) {
                   value={form.beginDate}
                   date
                   onChange={(event) => updateField('beginDate', event.target.value)}
+                  onValueChange={(value) => updateField('beginDate', value)}
                 />
                 <FormText
                   columns={3}
@@ -257,6 +259,7 @@ export function ContestEditPage({ mode }: { mode: 'create' | 'edit' }) {
                   value={form.beginTime}
                   time
                   onChange={(event) => updateField('beginTime', event.target.value)}
+                  onValueChange={(value) => updateField('beginTime', value)}
                 />
                 <FormText
                   columns={2}
@@ -277,33 +280,35 @@ export function ContestEditPage({ mode }: { mode: 'create' | 'edit' }) {
                   disabled
                 />
               </div>
-              <FormText
+              <FormAutocomplete
                 columns={12}
+                kind="problems"
                 label="题目"
                 name="pids"
                 value={form.pids}
                 placeholder="用逗号分隔"
-                onChange={(event) => updateField('pids', event.target.value)}
+                onChange={(value) => updateField('pids', value)}
               />
               <FormTextarea
                 label="说明"
                 name="content"
                 value={form.content}
                 markdown
-                onChange={(event) => updateField('content', event.target.value)}
+                onValueChange={(value) => updateField('content', value)}
               />
             </div>
             <div style={{ paddingTop: 0 }} className="section__header">
               <h2 className="section__title">权限控制</h2>
             </div>
             <div className="section__body">
-              <FormText
+              <FormAutocomplete
                 columns={12}
+                kind="users"
                 label="比赛管理员"
                 name="maintainer"
                 helpText="允许管理此比赛"
                 value={form.maintainer}
-                onChange={(event) => updateField('maintainer', event.target.value)}
+                onChange={(value) => updateField('maintainer', value)}
               />
               <div className="row">
                 <FormSelect
@@ -319,14 +324,15 @@ export function ContestEditPage({ mode }: { mode: 'create' | 'edit' }) {
                   <option value="assign">指定用户或分组</option>
                 </FormSelect>
                 <div style={{ display: form.permission === 'assign' ? undefined : 'none' }} data-perm="assign">
-                  <FormText
+                  <FormAutocomplete
                     columns={9}
                     row={false}
+                    kind="assign"
                     label="分配给"
                     name="assign"
                     placeholder="分组 / 用户 ID"
                     value={form.assign}
-                    onChange={(event) => updateField('assign', event.target.value)}
+                    onChange={(value) => updateField('assign', value)}
                   />
                 </div>
                 <div style={{ display: form.permission === 'invite' ? undefined : 'none' }} data-perm="invite">
@@ -346,13 +352,14 @@ export function ContestEditPage({ mode }: { mode: 'create' | 'edit' }) {
               <h2 className="section__title">比赛设置</h2>
             </div>
             <div className="section__body">
-              <FormText
+              <FormAutocomplete
                 columns={12}
+                kind="langs"
                 label="提交语言限制"
                 name="langs"
                 value={form.langs}
                 placeholder="用逗号分隔"
-                onChange={(event) => updateField('langs', event.target.value)}
+                onChange={(value) => updateField('langs', value)}
               />
               <div className="row">
                 <FormCheckbox

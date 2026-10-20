@@ -24,6 +24,44 @@ export type ProblemSummary = {
   }
 }
 
+export type UserChoice = {
+  id: number
+  username: string
+  displayName?: string
+  avatar?: string
+}
+
+export type GroupChoice = {
+  name: string
+  uids: number[]
+}
+
+export async function searchUsers(query: string): Promise<UserChoice[]> {
+  const params = new URLSearchParams({ search: query })
+  const result = await request<Envelope<{ items: UserChoice[] }>>(`/api/v1/users?${params.toString()}`)
+  return result.data.items
+}
+
+export async function getUsersByIDs(ids: number[]): Promise<UserChoice[]> {
+  if (!ids.length) return []
+  const params = new URLSearchParams({ auto: ids.join(',') })
+  const result = await request<Envelope<{ items: UserChoice[] }>>(`/api/v1/users?${params.toString()}`)
+  return result.data.items
+}
+
+export async function searchGroups(query: string): Promise<GroupChoice[]> {
+  const params = new URLSearchParams({ search: query })
+  const result = await request<Envelope<{ items: GroupChoice[] }>>(`/api/v1/groups?${params.toString()}`)
+  return result.data.items
+}
+
+export async function getGroupsByNames(names: string[]): Promise<GroupChoice[]> {
+  if (!names.length) return []
+  const params = new URLSearchParams({ names: names.join(',') })
+  const result = await request<Envelope<{ items: GroupChoice[] }>>(`/api/v1/groups?${params.toString()}`)
+  return result.data.items
+}
+
 export type ProblemEditInput = {
   pid: string
   title: string
@@ -198,6 +236,11 @@ export async function getProblems(query = '', page = 1, sort = 'default', tag = 
 export async function getProblem(pid: string): Promise<ProblemDetail> {
   const result = await request<Envelope<ProblemDetail>>(`/api/v1/problems/${encodeURIComponent(pid)}`)
   return result.data
+}
+
+export async function getProblemsByDocIDs(ids: number[]): Promise<ProblemDetail[]> {
+  const items = await Promise.all(ids.map((id) => getProblem(String(id))))
+  return items
 }
 
 export async function createSubmission(pid: string, lang: string, code: string, contestId = ''): Promise<Submission> {

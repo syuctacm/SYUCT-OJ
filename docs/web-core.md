@@ -54,6 +54,10 @@
 - `web/src/legacy/`：从旧站原样迁移的独立插件 CSS，例如 Activity Calendar
 - 页面使用 `.section`、`.section__header`、`.section__body`、`.section__footer`、`.data-table`、`.button`、`.textbox` 等原版类名
 - `web/src/components/LegacyForm.tsx` 直接对应 Hydro `templates/components/form.html`，统一输出 `.row`、`.columns`、`.form__item`、`.textbox-container`、`.select-container`、`.textarea-container` 和 `.checkbox-container`
+- `web/src/legacy-pickers.ts` 移植 `ui-default` 的 flatpickr 日期控件与 15 分钟间隔时间下拉
+- `web/src/components/LegacyMarkdownEditor.tsx` 复用 `md-editor-rt`，并移植 Hydro 的 Markdown-it KaTeX、脚注、高亮、图片尺寸、媒体和 XSS 插件
+- `web/src/components/autocomplete/` 移植 Hydro `@hydrooj/components` 的自动补全，用于题目、用户、分组和语言选择
+- `web/public/modules/katex/` 提供原主题 CSS 引用的 KaTeX 字体
 - 导航、移动端侧滑菜单、页脚使用 `ui-default` 对应的 DOM 结构和类名
 - `web/src/page-meta.ts` 根据路由设置原模板的 `data-page`、`data-layout` 和 `page--*` 类
 - 页面组件自己输出顶层 `.row`，`Layout` 的 `.main` 不再额外添加网格容器
@@ -93,6 +97,7 @@ VITE_API_PROXY=http://127.0.0.1:18080 pnpm dev
 
 ## 尚未完成
 
-- 原版 KaTeX、代码高亮和富媒体渲染插件
+- Markdown 编辑器图片上传接入题目/比赛/作业文件接口
+- 语言自动补全改为读取服务端语言配置
 - 原版全部下拉菜单和前端插件行为
 - 自动截图回归基线

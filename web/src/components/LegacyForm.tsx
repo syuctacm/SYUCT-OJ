@@ -1,4 +1,15 @@
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import type { ChangeEventHandler, CSSProperties, ReactNode } from 'react'
+import { attachDatePicker, attachTimePicker } from '../legacy-pickers.ts'
+import { AssignSelectAutoComplete } from './autocomplete/AssignSelectAutoComplete.tsx'
+import { LanguageSelectAutoComplete } from './autocomplete/LanguageSelectAutoComplete.tsx'
+import { ProblemSelectAutoComplete } from './autocomplete/ProblemSelectAutoComplete.tsx'
+import { UserSelectAutoComplete } from './autocomplete/UserSelectAutoComplete.tsx'
+
+const LegacyMarkdownEditor = lazy(async () => {
+  const module = await import('./LegacyMarkdownEditor.tsx')
+  return { default: module.LegacyMarkdownEditor }
+})
 
 type FormFieldProps = {
   columns?: number
@@ -44,6 +55,7 @@ type FormTextProps = CommonFieldProps & {
   time?: boolean
   style?: CSSProperties
   onChange?: ChangeEventHandler<HTMLInputElement>
+  onValueChange?: (value: string) => void
 }
 
 export function FormText({
@@ -58,9 +70,18 @@ export function FormText({
   time,
   style,
   onChange,
+  onValueChange,
   ...field
 }: FormTextProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const valueChangeRef = useRef(onValueChange)
+  valueChangeRef.current = onValueChange
   const legacyName = { name: `form_item_${name}` }
+  useEffect(() => {
+    if (!inputRef.current || disabled) return
+    if (date) return attachDatePicker(inputRef.current, (value) => valueChangeRef.current?.(value))
+    if (time) return attachTimePicker(inputRef.current, (value) => valueChangeRef.current?.(value))
+  }, [date, time, disabled])
   const pickerAttrs = {
     ...(date ? { 'data-pick-date': '' } : {}),
     ...(time ? { 'data-pick-time': '' } : {}),
@@ -69,6 +90,7 @@ export function FormText({
     <FormField {...field}>
       <div className="textbox-container" {...legacyName}>
         <input
+          ref={inputRef}
           type={type}
           name={name}
           value={value}
@@ -95,6 +117,7 @@ type FormTextareaProps = CommonFieldProps & {
   markdown?: boolean
   style?: CSSProperties
   onChange?: ChangeEventHandler<HTMLTextAreaElement>
+  onValueChange?: (value: string) => void
 }
 
 export function FormTextarea({
@@ -106,9 +129,34 @@ export function FormTextarea({
   markdown,
   style,
   onChange,
+  onValueChange,
   ...field
 }: FormTextareaProps) {
   const legacyName = { name: `form_item_${name}` }
+  if (markdown) {
+    return (
+      <FormField {...field}>
+        <div className="textarea-container" {...legacyName}>
+          <textarea
+            name={name}
+            className="textbox"
+            value={value}
+            readOnly
+            hidden
+            data-markdown=""
+          />
+          <Suspense fallback={<div className="nothing-placeholder compact">加载编辑器...</div>}>
+            <LegacyMarkdownEditor
+              value={value}
+              placeholder={placeholder}
+              disabled={disabled}
+              onChange={(nextValue) => onValueChange?.(nextValue)}
+            />
+          </Suspense>
+        </div>
+      </FormField>
+    )
+  }
   return (
     <FormField {...field}>
       <div className="textarea-container" {...legacyName}>
@@ -119,8 +167,47 @@ export function FormTextarea({
           disabled={disabled}
           required={required}
           style={style}
-          data-markdown={markdown ? '' : undefined}
           value={value}
+          onChange={onChange}
+        />
+      </div>
+    </FormField>
+  )
+}
+
+type FormAutocompleteProps = CommonFieldProps & {
+  kind: 'problems' | 'users' | 'assign' | 'langs'
+  value: string
+  placeholder?: string
+  disabled?: boolean
+  onChange: (value: string) => void
+}
+
+export function FormAutocomplete({
+  kind,
+  value,
+  placeholder,
+  disabled,
+  onChange,
+  ...field
+}: FormAutocompleteProps) {
+  const legacyName = { name: `form_item_${field.name}` }
+  const selectedKeys = value.split(',').map((item) => item.trim()).filter(Boolean)
+  const Autocomplete = {
+    problems: ProblemSelectAutoComplete,
+    users: UserSelectAutoComplete,
+    assign: AssignSelectAutoComplete,
+    langs: LanguageSelectAutoComplete,
+  }[kind]
+  return (
+    <FormField {...field}>
+      <div className="textbox-container" {...legacyName}>
+        <input className="textbox autocomplete-dummy" name={field.name} value={value} readOnly />
+        <Autocomplete
+          selectedKeys={selectedKeys}
+          multi
+          disabled={disabled}
+          placeholder={placeholder}
           onChange={onChange}
         />
       </div>
