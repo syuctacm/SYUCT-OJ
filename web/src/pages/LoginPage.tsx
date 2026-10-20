@@ -25,21 +25,21 @@ export function LoginPage() {
   }
 
   return (
-    <div className="auth-card panel">
-      <div className="panel-header">
-        <h1 className="panel-title">登录</h1>
+    <div className="auth-card section">
+      <div className="section__header">
+        <h1 className="section__title">登录</h1>
       </div>
-      <form className="panel-body form-stack" onSubmit={handleSubmit}>
+      <form className="section__body form-stack" onSubmit={handleSubmit}>
         <label className="field">
           <span>用户名或邮箱</span>
-          <input className="input" value={username} onChange={(event) => setUsername(event.target.value)} autoFocus />
+          <input className="textbox" value={username} onChange={(event) => setUsername(event.target.value)} autoFocus />
         </label>
         <label className="field">
           <span>密码</span>
-          <input className="input" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+          <input className="textbox" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
         </label>
         {error ? <p className="form-error">{error}</p> : null}
-        <button className="button button-primary" type="submit" disabled={submitting}>
+        <button className="rounded primary button" type="submit" disabled={submitting}>
           {submitting ? '登录中...' : '登录'}
         </button>
         <p className="form-hint"><Link to="/p">先看看题库</Link></p>

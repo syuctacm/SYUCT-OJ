@@ -68,25 +68,25 @@ export function DiscussionDetailPage() {
     }
   }
 
-  if (loading) return <section className="panel"><div className="empty-state">加载中...</div></section>
-  if (error) return <section className="panel"><div className="empty-state error-state">{error}</div></section>
-  if (!discussion) return <section className="panel"><div className="empty-state">讨论不存在</div></section>
+  if (loading) return <section className="section"><div className="empty-state">加载中...</div></section>
+  if (error) return <section className="section"><div className="empty-state error-state">{error}</div></section>
+  if (!discussion) return <section className="section"><div className="empty-state">讨论不存在</div></section>
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">DISCUSSION</p>
-          <h1 className="panel-title">{discussion.title}</h1>
-          <p className="panel-subtitle">
+          <h1 className="section__title">{discussion.title}</h1>
+          <p className="supplementary">
             <Link to={`/user/${discussion.owner}`}>UID {discussion.owner}</Link>
             {' · '}{discussion.nReply} 回复 · {discussion.views} 浏览
             {discussion.lock ? ' · 已锁定' : ''}
           </p>
         </div>
-        <Link className="button" to="/discuss">返回讨论区</Link>
+        <Link className="rounded button" to="/discuss">返回讨论区</Link>
       </div>
-      <div className="panel-body problem-content">
+      <div className="section__body problem-content">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{discussion.content || '暂无内容'}</ReactMarkdown>
       </div>
 
@@ -135,7 +135,7 @@ export function DiscussionDetailPage() {
             <label className="field">
               <span>写下回复</span>
               <textarea
-                className="textarea discussion-reply-input"
+                className="textbox discussion-reply-input"
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
                 onKeyDown={(event) => {
@@ -149,7 +149,7 @@ export function DiscussionDetailPage() {
             </label>
             {replyError ? <p className="form-error">{replyError}</p> : null}
             <div>
-              <button className="button button-primary" type="submit" disabled={submitting}>
+              <button className="rounded primary button" type="submit" disabled={submitting}>
                 {submitting ? '回复中...' : '发表回复'}
               </button>
             </div>

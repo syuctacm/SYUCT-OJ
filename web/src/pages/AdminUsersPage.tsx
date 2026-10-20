@@ -47,24 +47,24 @@ export function AdminUsersPage() {
     }
   }
 
-  if (!user || ((user.priv ?? 0) & 1) === 0) return <section className="panel"><div className="empty-state error-state">需要管理员权限</div></section>
+  if (!user || ((user.priv ?? 0) & 1) === 0) return <section className="section"><div className="empty-state error-state">需要管理员权限</div></section>
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">ADMIN · USERS</p>
-          <h1 className="panel-title">用户管理</h1>
+          <h1 className="section__title">用户管理</h1>
         </div>
         <form className="search" onSubmit={search}>
-          <input className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="用户名 / 邮箱 / 姓名 / 学号" />
-          <button className="button" type="submit">搜索</button>
+          <input className="textbox" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="用户名 / 邮箱 / 姓名 / 学号" />
+          <button className="rounded button" type="submit">搜索</button>
         </form>
       </div>
       {loading ? <div className="empty-state">加载中...</div> : null}
       {error ? <div className="empty-state error-state">{error}</div> : null}
       {!loading && !error ? (
-        <div className="table-wrap">
+        <div className="section__table-container">
           <table className="data-table">
             <thead><tr><th className="col-id">UID</th><th>用户名</th><th>姓名</th><th>学号</th><th>邮箱</th><th>权限</th><th>操作</th><th>注册时间</th></tr></thead>
             <tbody>
@@ -85,7 +85,7 @@ export function AdminUsersPage() {
           {data?.items.length === 0 ? <div className="empty-state">没有匹配用户</div> : null}
         </div>
       ) : null}
-      <div className="panel-footer">
+      <div className="section__footer">
         共 {data?.total ?? 0} 个用户 · <Link to="/admin">返回后台概览</Link>
       </div>
     </section>

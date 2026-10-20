@@ -24,21 +24,21 @@ export function ProblemsPage() {
   }
 
   return (
-    <section className="panel">
-      <div className="panel-header problem-list-header">
+    <section className="section">
+      <div className="section__header problem-list-header">
         <div>
-          <h1 className="panel-title">题库</h1>
-          <p className="panel-subtitle">SYUCT ACM 训练题库</p>
+          <h1 className="section__title">题库</h1>
+          <p className="supplementary">SYUCT ACM 训练题库</p>
         </div>
         <form className="search" onSubmit={handleSearch}>
-          <input className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索题号或标题" />
-          <button className="button" type="submit">搜索</button>
+          <input className="textbox" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索题号或标题" />
+          <button className="rounded button" type="submit">搜索</button>
         </form>
       </div>
       {loading ? <div className="empty-state">加载中...</div> : null}
       {error ? <div className="empty-state error-state">{error}</div> : null}
       {page && !loading ? (
-        <div className="table-wrap">
+        <div className="section__table-container">
           <table className="data-table">
             <thead>
               <tr>
@@ -64,7 +64,7 @@ export function ProblemsPage() {
           {page.items.length === 0 ? <div className="empty-state">没有找到题目</div> : null}
         </div>
       ) : null}
-      <div className="panel-footer">共 {page?.total ?? 0} 道题</div>
+      <div className="section__footer">共 {page?.total ?? 0} 道题</div>
     </section>
   )
 }

@@ -1,8 +1,22 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth.tsx'
+
+const navClass = ({ isActive }: { isActive: boolean }) => `nav__item${isActive ? ' nav--active' : ''}`
 
 export function Layout() {
   const { user, logout } = useAuth()
+  const location = useLocation()
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('slideout-open', menuOpen)
+    return () => document.documentElement.classList.remove('slideout-open')
+  }, [menuOpen])
 
   async function handleLogout() {
     await logout()
@@ -10,40 +24,103 @@ export function Layout() {
 
   return (
     <>
-      <header className="site-header">
-        <div className="container header-inner">
-          <NavLink to="/p" className="brand">
-            <img src="/logo.png" alt="" className="brand-logo" />
-            <span>SYUCT <strong>ACM</strong></span>
-          </NavLink>
-          <nav className="site-nav">
-            <NavLink to="/p" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>题库</NavLink>
-            <NavLink to="/contest" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>比赛</NavLink>
-            <NavLink to="/training" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>训练</NavLink>
-            <NavLink to="/homework" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>作业</NavLink>
-            <NavLink to="/discuss" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>讨论</NavLink>
-            {user && ((user.priv ?? 0) & 1) !== 0 ? <NavLink to="/admin" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>后台</NavLink> : null}
-            <NavLink to="/record" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>提交记录</NavLink>
-            <a className="nav-link" href="https://oj.syuctacm.cn" target="_blank" rel="noreferrer">旧 OJ</a>
-          </nav>
-          <div className="account">
+      <nav className="nav slideout-menu" id="menu">
+        <div className="row"><div className="columns clearfix">
+          <ol className="nav__list nav__list--main clearfix">
+            <li className="nav__list-item">
+              <NavLink to="/p"><img className="nav__logo" src="/nav_logo_dark.png" alt="SYUCT ACM" /></NavLink>
+            </li>
+            <li className="nav__list-item"><NavLink to="/p" className={navClass}>题库</NavLink></li>
+            <li className="nav__list-item"><NavLink to="/training" className={navClass}>训练</NavLink></li>
+            <li className="nav__list-item"><NavLink to="/contest" className={navClass}>比赛</NavLink></li>
+            <li className="nav__list-item"><NavLink to="/homework" className={navClass}>作业</NavLink></li>
+            <li className="nav__list-item"><NavLink to="/discuss" className={navClass}>讨论</NavLink></li>
+            <li className="nav__list-item"><NavLink to="/record" className={navClass}>评测记录</NavLink></li>
+          </ol>
+          <ol className="nav__list nav__list--secondary clearfix">
             {user ? (
               <>
-                <NavLink to={`/user/${user.id}`} className="account-name">{user.displayName || user.username}</NavLink>
-                <button className="link-button" onClick={handleLogout}>退出</button>
+                {((user.priv ?? 0) & 1) !== 0 ? (
+                  <li className="nav__list-item"><NavLink to="/admin" className={navClass}>后台</NavLink></li>
+                ) : null}
+                <li className="nav__list-item"><NavLink to={`/user/${user.id}`} className={navClass}>{user.displayName || user.username}</NavLink></li>
+                <li className="nav__list-item"><button type="button" className="nav__item legacy-nav-button" onClick={handleLogout}>退出</button></li>
               </>
             ) : (
-              <NavLink to="/login" className="nav-link">登录</NavLink>
+              <li className="nav__list-item"><NavLink to="/login" className={navClass}>登录</NavLink></li>
             )}
+          </ol>
+        </div></div>
+      </nav>
+
+      <div className="slideout-panel" id="panel">
+        <div className="slideout-overlay" onClick={() => setMenuOpen(false)} />
+        <div className="header--mobile">
+          <div className="row"><div className="columns clearfix">
+            <div className="float-left">
+              <NavLink className="header--mobile__domain" to="/p" target="_self">
+                <img src="/nav_logo_dark.png" alt="SYUCT ACM" />
+              </NavLink>
+            </div>
+            <div className="float-right">
+              <button type="button" className="header__hamburger" aria-label="打开菜单" onClick={() => setMenuOpen((open) => !open)}>
+                <div className={`hamburger hamburger--spin${menuOpen ? ' is-active' : ''}`}>
+                  <span className="hamburger-box"><span className="hamburger-inner" /></span>
+                </div>
+              </button>
+            </div>
+          </div></div>
+        </div>
+
+        <div className="main">
+          <div className="row">
+            <Outlet />
           </div>
         </div>
-      </header>
-      <main className="container site-main">
-        <Outlet />
-      </main>
-      <footer className="site-footer">
-        <div className="container">SYUCT ACM · 沈阳化工大学 ACM-ICPC 集训队</div>
-      </footer>
+
+        <div className="footer">
+          <div className="row"><div className="columns">
+            <div className="row footer__links">
+              <div className="medium-3 large-2 columns footer__category">
+                <h1>状态</h1>
+                <ul className="footer__category__list">
+                  <li className="footer__category__item"><NavLink to="/record">评测记录</NavLink></li>
+                </ul>
+              </div>
+              <div className="medium-3 large-2 columns footer__category">
+                <h1>开发</h1>
+                <ul className="footer__category__list">
+                  <li className="footer__category__item"><a href="https://github.com/hydro-dev/Hydro" target="_blank" rel="noreferrer">Open Source</a></li>
+                </ul>
+              </div>
+              <div className="medium-3 large-2 columns footer__category">
+                <h1>支持</h1>
+                <ul className="footer__category__list">
+                  <li className="footer__category__item"><NavLink to="/discuss">帮助与反馈</NavLink></li>
+                </ul>
+              </div>
+              <div className="medium-3 large-2 columns footer__category end">
+                <h1>关于</h1>
+                <ul className="footer__category__list">
+                  <li className="footer__category__item">SYUCT ACM</li>
+                </ul>
+              </div>
+            </div>
+            <div className="footer__extra-link clearfix">
+              <div className="footer__extra-left">
+                <ol className="clearfix">
+                  <li className="footer__extra-link-item">沈阳化工大学 ACM-ICPC 集训队</li>
+                </ol>
+              </div>
+              <div className="footer__extra-right">
+                <ol className="clearfix">
+                  <li className="footer__extra-link-item">Powered by <a href="https://hydro.js.org">Hydro</a> Community</li>
+                </ol>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
     </>
   )
 }

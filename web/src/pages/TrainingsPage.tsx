@@ -15,17 +15,17 @@ export function TrainingsPage() {
   }, [])
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">TRAINING</p>
-          <h1 className="panel-title">训练</h1>
+          <h1 className="section__title">训练</h1>
         </div>
       </div>
       {loading ? <div className="empty-state">加载中...</div> : null}
       {error ? <div className="empty-state error-state">{error}</div> : null}
       {!loading && !error ? (
-        <div className="table-wrap">
+        <div className="section__table-container">
           <table className="data-table">
             <thead><tr><th>训练计划</th><th>简介</th><th>状态</th></tr></thead>
             <tbody>
@@ -41,7 +41,7 @@ export function TrainingsPage() {
           {items.length === 0 ? <div className="empty-state">暂无训练计划</div> : null}
         </div>
       ) : null}
-      <div className="panel-footer">共 {items.length} 个训练计划</div>
+      <div className="section__footer">共 {items.length} 个训练计划</div>
     </section>
   )
 }

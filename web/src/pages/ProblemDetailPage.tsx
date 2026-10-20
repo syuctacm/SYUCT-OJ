@@ -17,17 +17,17 @@ export function ProblemDetailPage() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '题目加载失败'))
   }, [pid])
 
-  if (error) return <section className="panel"><div className="empty-state error-state">{error}</div></section>
-  if (!problem) return <section className="panel"><div className="empty-state">加载中...</div></section>
+  if (error) return <section className="section"><div className="empty-state error-state">{error}</div></section>
+  if (!problem) return <section className="section"><div className="empty-state">加载中...</div></section>
 
   return (
-    <article className="panel">
-      <div className="panel-header">
+    <article className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">PROBLEM {problem.pid || problem.docId}</p>
-          <h1 className="panel-title">{problem.title}</h1>
+          <h1 className="section__title">{problem.title}</h1>
         </div>
-        <Link className="button button-primary" to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}/submit`}>提交代码</Link>
+        <Link className="rounded primary button" to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}/submit`}>提交代码</Link>
       </div>
       <div className="problem-meta">
         <span>通过 {problem.nAccept}</span>
@@ -35,7 +35,7 @@ export function ProblemDetailPage() {
         <span>难度 {problem.difficulty || '-'}</span>
         {problem.tags?.map((tag) => <span className="tag" key={tag}>{tag}</span>)}
       </div>
-      <div className="panel-body problem-content">
+      <div className="section__body problem-content">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{problem.content || '暂无题目内容'}</ReactMarkdown>
       </div>
     </article>
