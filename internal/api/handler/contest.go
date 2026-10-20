@@ -19,6 +19,7 @@ func NewContestHandler(repo *contest.Repository) *ContestHandler {
 func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/contests", h.list)
 	router.GET("/api/v1/contests/:tid", h.get)
+	router.GET("/api/v1/contests/:tid/problems", h.problems)
 }
 
 func (h *ContestHandler) list(c *gin.Context) {
@@ -28,6 +29,15 @@ func (h *ContestHandler) list(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"items": items, "total": len(items)}})
+}
+
+func (h *ContestHandler) problems(c *gin.Context) {
+	item, problems, err := h.repo.Problems(c.Request.Context(), c.Param("tid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"contest": item, "problems": problems}})
 }
 
 func (h *ContestHandler) get(c *gin.Context) {

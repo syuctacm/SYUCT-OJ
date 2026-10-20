@@ -43,8 +43,15 @@ func TestContestRepositoryIntegration(t *testing.T) {
 			"_id": bson.NewObjectID(), "domainId": "system", "docType": 30,
 			"docId": newID, "title": "New Contest", "rule": "oi",
 			"beginAt": time.Now().Add(-2 * time.Hour), "endAt": time.Now().Add(-1 * time.Hour),
-			"attend": int64(20), "pids": []int64{3},
+			"attend": int64(20), "pids": []int64{2, 1},
 		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Collection("document").InsertMany(ctx, []any{
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(1), "pid": "P1", "title": "First"},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(2), "pid": "P2", "title": "Second"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -61,8 +68,15 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	if found.Title != "New Contest" || len(found.PIDs) != 1 {
+	if found.Title != "New Contest" || len(found.PIDs) != 2 {
 		t.Fatalf("unexpected contest: %+v", found)
+	}
+	_, problems, err := repo.Problems(ctx, newID.Hex())
+	if err != nil {
+		t.Fatalf("contest problems: %v", err)
+	}
+	if len(problems) != 2 || problems[0].DocID != 2 || problems[1].DocID != 1 {
+		t.Fatalf("unexpected contest problem order: %+v", problems)
 	}
 	if _, err := repo.Get(ctx, "invalid"); err != contest.ErrNotFound {
 		t.Fatalf("invalid id error = %v", err)

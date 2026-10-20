@@ -8,6 +8,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+
+	"github.com/syuctacm/syuct-oj/internal/problem"
 )
 
 const (
@@ -32,11 +34,12 @@ type Contest struct {
 }
 
 type Repository struct {
-	coll *mongo.Collection
+	coll     *mongo.Collection
+	problems *problem.Repository
 }
 
 func NewRepository(db *mongo.Database) *Repository {
-	return &Repository{coll: db.Collection("document")}
+	return &Repository{coll: db.Collection("document"), problems: problem.NewRepository(db)}
 }
 
 func (r *Repository) List(ctx context.Context) ([]Contest, error) {
@@ -59,6 +62,18 @@ func (r *Repository) List(ctx context.Context) ([]Contest, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+func (r *Repository) Problems(ctx context.Context, tid string) (*Contest, []problem.Problem, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, nil, err
+	}
+	problems, err := r.problems.GetManyByDocIDs(ctx, item.PIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+	return item, problems, nil
 }
 
 func (r *Repository) Get(ctx context.Context, tid string) (*Contest, error) {

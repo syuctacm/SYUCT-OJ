@@ -152,3 +152,13 @@ export async function getContest(tid: string): Promise<Contest> {
   const result = await request<Envelope<Contest>>(`/api/v1/contests/${encodeURIComponent(tid)}`)
   return result.data
 }
+
+export type ContestProblemPage = {
+  contest: Contest
+  problems: ProblemSummary[]
+}
+
+export async function getContestProblems(tid: string): Promise<ContestProblemPage> {
+  const result = await request<Envelope<ContestProblemPage>>(`/api/v1/contests/${encodeURIComponent(tid)}/problems`)
+  return result.data
+}

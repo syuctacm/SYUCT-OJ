@@ -115,6 +115,41 @@ func (r *Repository) List(ctx context.Context, opts ListOptions) (*ListResult, e
 	return &ListResult{Items: items, Total: total, Page: opts.Page, Limit: opts.Limit}, nil
 }
 
+func (r *Repository) GetManyByDocIDs(ctx context.Context, ids []int64) ([]Problem, error) {
+	if len(ids) == 0 {
+		return []Problem{}, nil
+	}
+	projection := bson.M{
+		"docId": 1, "pid": 1, "title": 1, "tag": 1,
+		"difficulty": 1, "nSubmit": 1, "nAccept": 1, "hidden": 1, "sort": 1,
+	}
+	cursor, err := r.coll.Find(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeProblem,
+		"hidden":   bson.M{"$ne": true},
+		"docId":    bson.M{"$in": ids},
+	}, options.Find().SetProjection(projection))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	found := make([]Problem, 0, len(ids))
+	if err := cursor.All(ctx, &found); err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]Problem, len(found))
+	for _, p := range found {
+		byID[p.DocID] = p
+	}
+	result := make([]Problem, 0, len(ids))
+	for _, id := range ids {
+		if p, ok := byID[id]; ok {
+			result = append(result, p)
+		}
+	}
+	return result, nil
+}
+
 func (r *Repository) Get(ctx context.Context, identifier string) (*Problem, error) {
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" {
