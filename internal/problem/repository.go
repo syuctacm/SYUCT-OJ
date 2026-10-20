@@ -72,13 +72,41 @@ type ListResult struct {
 	Limit int       `json:"limit"`
 }
 
+type TagStat struct {
+	Tag      string `json:"tag"`
+	Count    int64  `json:"count"`
+	IsSource bool   `json:"isSource"`
+}
+
+type TagRankingItem struct {
+	Rank        int    `json:"rank"`
+	UID         int64  `json:"uid"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName,omitempty"`
+	Solved      int64  `json:"solved"`
+	Submissions int64  `json:"submissions"`
+}
+
+type TagRanking struct {
+	Tag          string           `json:"tag"`
+	ProblemCount int64            `json:"problemCount"`
+	TotalUsers   int64            `json:"totalUsers"`
+	MatchedCount int64            `json:"matchedCount"`
+	Page         int              `json:"page"`
+	Limit        int              `json:"limit"`
+	Items        []TagRankingItem `json:"items"`
+}
+
 type Repository struct {
 	coll    *mongo.Collection
 	records *mongo.Collection
+	users   *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
-	return &Repository{coll: db.Collection("document"), records: db.Collection("record")}
+	return &Repository{
+		coll: db.Collection("document"), records: db.Collection("record"), users: db.Collection("user"),
+	}
 }
 
 func (r *Repository) List(ctx context.Context, opts ListOptions) (*ListResult, error) {
@@ -290,4 +318,202 @@ func normalizeListOptions(opts ListOptions) ListOptions {
 		opts.Sort = "default"
 	}
 	return opts
+}
+
+var sourceTags = map[string]bool{
+	"SYUCT": true, "牛客竞赛": true, "校赛": true, "第十三届校赛": true, "四省赛": true,
+}
+
+func (r *Repository) TagStats(ctx context.Context) ([]TagStat, error) {
+	cursor, err := r.coll.Aggregate(ctx, mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "hidden": bson.M{"$ne": true}}}},
+		{{Key: "$unwind", Value: "$tag"}},
+		{{Key: "$group", Value: bson.M{"_id": "$tag", "count": bson.M{"$sum": 1}}}},
+		{{Key: "$sort", Value: bson.D{{Key: "count", Value: -1}, {Key: "_id", Value: 1}}}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var raw []struct {
+		Tag   string `bson:"_id"`
+		Count int64  `bson:"count"`
+	}
+	if err := cursor.All(ctx, &raw); err != nil {
+		return nil, err
+	}
+	algorithmTags := make([]TagStat, 0, len(raw))
+	source := make([]TagStat, 0)
+	for _, item := range raw {
+		tag := strings.TrimSpace(item.Tag)
+		if tag == "" {
+			continue
+		}
+		value := TagStat{Tag: tag, Count: item.Count, IsSource: sourceTags[tag]}
+		if value.IsSource {
+			source = append(source, value)
+		} else {
+			algorithmTags = append(algorithmTags, value)
+		}
+	}
+	return append(algorithmTags, source...), nil
+}
+
+func (r *Repository) TagRanking(ctx context.Context, tag string, page, limit int, query string) (*TagRanking, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	tag = strings.TrimSpace(tag)
+	query = strings.TrimSpace(query)
+	result := &TagRanking{Tag: tag, Page: page, Limit: limit, Items: []TagRankingItem{}}
+	problemCursor, err := r.coll.Find(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeProblem, "tag": tag, "hidden": bson.M{"$ne": true},
+	}, options.Find().SetProjection(bson.M{"docId": 1}))
+	if err != nil {
+		return nil, err
+	}
+	var problemDocs []struct {
+		DocID int64 `bson:"docId"`
+	}
+	if err := problemCursor.All(ctx, &problemDocs); err != nil {
+		problemCursor.Close(ctx)
+		return nil, err
+	}
+	problemCursor.Close(ctx)
+	docIDs := make([]int64, 0, len(problemDocs))
+	for _, item := range problemDocs {
+		docIDs = append(docIDs, item.DocID)
+	}
+	result.ProblemCount = int64(len(docIDs))
+	if len(docIDs) == 0 {
+		return result, nil
+	}
+	recordCursor, err := r.records.Aggregate(ctx, mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{"domainId": DomainSystem, "pid": bson.M{"$in": docIDs}, "status": 1}}},
+		{{Key: "$group", Value: bson.M{"_id": "$uid", "solved": bson.M{"$sum": 1}}}},
+		{{Key: "$sort", Value: bson.D{{Key: "solved", Value: -1}, {Key: "_id", Value: 1}}}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	var solved []struct {
+		UID    int64 `bson:"_id"`
+		Solved int64 `bson:"solved"`
+	}
+	if err := recordCursor.All(ctx, &solved); err != nil {
+		recordCursor.Close(ctx)
+		return nil, err
+	}
+	recordCursor.Close(ctx)
+	result.TotalUsers = int64(len(solved))
+	ranked := make([]TagRankingItem, 0, len(solved))
+	for index, item := range solved {
+		ranked = append(ranked, TagRankingItem{Rank: index + 1, UID: item.UID, Solved: item.Solved})
+	}
+	if query != "" {
+		uidSet, err := r.matchUsers(ctx, query)
+		if err != nil {
+			return nil, err
+		}
+		filtered := make([]TagRankingItem, 0, len(ranked))
+		for _, item := range ranked {
+			if uidSet[item.UID] {
+				filtered = append(filtered, item)
+			}
+		}
+		ranked = filtered
+	}
+	result.MatchedCount = int64(len(ranked))
+	start := (page - 1) * limit
+	if start >= len(ranked) {
+		return result, nil
+	}
+	end := start + limit
+	if end > len(ranked) {
+		end = len(ranked)
+	}
+	pageItems := ranked[start:end]
+	uids := make([]int64, 0, len(pageItems))
+	for _, item := range pageItems {
+		uids = append(uids, item.UID)
+	}
+	var users []struct {
+		ID          int64  `bson:"_id"`
+		Username    string `bson:"uname"`
+		DisplayName string `bson:"displayName"`
+	}
+	userCursor, err := r.users.Find(ctx, bson.M{"_id": bson.M{"$in": uids}}, options.Find().SetProjection(bson.M{"uname": 1, "displayName": 1}))
+	if err != nil {
+		return nil, err
+	}
+	if err := userCursor.All(ctx, &users); err != nil {
+		userCursor.Close(ctx)
+		return nil, err
+	}
+	userCursor.Close(ctx)
+	userMap := make(map[int64]TagRankingItem, len(users))
+	for _, item := range users {
+		userMap[item.ID] = TagRankingItem{UID: item.ID, Username: item.Username, DisplayName: item.DisplayName}
+	}
+	var submissions []struct {
+		UID   int64 `bson:"_id"`
+		Count int64 `bson:"count"`
+	}
+	submissionCursor, err := r.records.Aggregate(ctx, mongo.Pipeline{
+		{{Key: "$match", Value: bson.M{"domainId": DomainSystem, "pid": bson.M{"$in": docIDs}, "uid": bson.M{"$in": uids}}}},
+		{{Key: "$group", Value: bson.M{"_id": "$uid", "count": bson.M{"$sum": 1}}}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := submissionCursor.All(ctx, &submissions); err != nil {
+		submissionCursor.Close(ctx)
+		return nil, err
+	}
+	submissionCursor.Close(ctx)
+	submissionMap := make(map[int64]int64, len(submissions))
+	for _, item := range submissions {
+		submissionMap[item.UID] = item.Count
+	}
+	for _, item := range pageItems {
+		if user, ok := userMap[item.UID]; ok {
+			item.Username = user.Username
+			item.DisplayName = user.DisplayName
+		}
+		item.Submissions = submissionMap[item.UID]
+		if item.Submissions < item.Solved {
+			item.Submissions = item.Solved
+		}
+		result.Items = append(result.Items, item)
+	}
+	return result, nil
+}
+
+func (r *Repository) matchUsers(ctx context.Context, query string) (map[int64]bool, error) {
+	result := map[int64]bool{}
+	or := []bson.M{{"uname": bson.M{"$regex": regexp.QuoteMeta(query), "$options": "i"}}}
+	if uid, err := strconv.ParseInt(query, 10, 64); err == nil {
+		or = append(or, bson.M{"_id": uid})
+	}
+	cursor, err := r.users.Find(ctx, bson.M{"$or": or}, options.Find().SetProjection(bson.M{"_id": 1}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var users []struct {
+		ID int64 `bson:"_id"`
+	}
+	if err := cursor.All(ctx, &users); err != nil {
+		return nil, err
+	}
+	for _, item := range users {
+		result[item.ID] = true
+	}
+	return result, nil
 }

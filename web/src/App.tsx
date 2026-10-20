@@ -19,6 +19,7 @@ import { UserProfilePage } from './pages/UserProfilePage.tsx'
 import { TrainingDetailPage } from './pages/TrainingDetailPage.tsx'
 import { TrainingsPage } from './pages/TrainingsPage.tsx'
 import { SubmitPage } from './pages/SubmitPage.tsx'
+import { TagRankingPage } from './pages/TagRankingPage.tsx'
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/p" element={<ProblemsPage />} />
+        <Route path="/p/tag/:tag" element={<TagRankingPage />} />
         <Route path="/p/:pid" element={<ProblemDetailPage />} />
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
         <Route path="/contest" element={<ContestsPage />} />

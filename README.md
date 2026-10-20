@@ -145,6 +145,8 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 
 - `GET /api/v1/problems`
 - `GET /api/v1/problems/:pid`
+- `GET /api/v1/problem-tags`
+- `GET /api/v1/problem-tags/:tag/ranking`
 
 接口直接读取本地 MongoDB 的 `document` 集合，详见 [docs/problems.md](./docs/problems.md)。
 

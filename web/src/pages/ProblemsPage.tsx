@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getProblems, type ProblemPage, type ProblemSummary } from '../api.ts'
+import { getProblemTags, getProblems, type ProblemPage, type ProblemSummary, type ProblemTagStat } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { Pager } from '../components/Pager.tsx'
 import { statusLabel } from '../status.ts'
@@ -27,10 +27,16 @@ export function ProblemsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showTags, setShowTags] = useState(false)
+  const [tagStats, setTagStats] = useState<ProblemTagStat[]>([])
+  const [tagsExpanded, setTagsExpanded] = useState(false)
 
   useEffect(() => {
     setInput(query)
   }, [query])
+
+  useEffect(() => {
+    getProblemTags().then(setTagStats).catch(() => setTagStats([]))
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -53,14 +59,6 @@ export function ProblemsPage() {
     event.preventDefault()
     updateParams({ q: input.trim(), tag, sort })
   }
-
-  const tagCounts = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const problem of page?.items ?? []) {
-      for (const value of problem.tags ?? []) counts.set(value, (counts.get(value) ?? 0) + 1)
-    }
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
-  }, [page])
 
   const luckyProblem = page?.items.length ? page.items[Math.floor(Math.random() * page.items.length)] : null
 
@@ -159,15 +157,27 @@ export function ProblemsPage() {
         <div className="section side">
           <div className="section__header edit-mode-hide"><h1 className="section__title">标签统计</h1></div>
           <div className="section__body">
-            <ul className="group-list">
-              {tagCounts.map(([value, count]) => (
-                <li className="group-list__item" key={value}>
-                  <Link className="typo-a" to={`/p?tag=${encodeURIComponent(value)}`}>{value}</Link>
-                  {' '}
-                  <span className="supplementary">{count} 题</span>
-                </li>
-              ))}
-            </ul>
+            <table className="data-table tag-stat-table">
+              <tbody>
+                {tagStats.map((item, index) => (
+                  <tr className={index >= 12 && !tagsExpanded ? 'tag-stat-row tag-stat-extra' : 'tag-stat-row'} key={item.tag} style={index >= 12 && !tagsExpanded ? { display: 'none' } : undefined}>
+                    <td>
+                      <Link className="typo-a" to={`/p?tag=${encodeURIComponent(item.tag)}`}>{item.tag}</Link>
+                      {item.isSource ? <span className="supplementary"> (来源)</span> : null}
+                    </td>
+                    <td className="supplementary text-right">{item.count} 题</td>
+                    <td className="text-right"><Link className="typo-a" to={`/p/tag/${encodeURIComponent(item.tag)}`}>榜单</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {tagStats.length > 12 ? (
+              <p style={{ paddingTop: 8 }}>
+                <button type="button" className="button expanded" onClick={() => setTagsExpanded((value) => !value)}>
+                  {tagsExpanded ? '收起部分标签' : `展开全部标签 (${tagStats.length})`}
+                </button>
+              </p>
+            ) : null}
           </div>
           <div className="section__body edit-mode-hide">
             {luckyProblem ? (

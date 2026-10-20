@@ -403,6 +403,44 @@ export async function createDiscussionReply(did: string, content: string): Promi
   return result.data
 }
 
+
+export type ProblemTagStat = {
+  tag: string
+  count: number
+  isSource: boolean
+}
+
+export async function getProblemTags(): Promise<ProblemTagStat[]> {
+  const result = await request<Envelope<{ items: ProblemTagStat[] }>>('/api/v1/problem-tags')
+  return result.data.items
+}
+
+export type TagRankingItem = {
+  rank: number
+  uid: number
+  username: string
+  displayName?: string
+  solved: number
+  submissions: number
+}
+
+export type TagRanking = {
+  tag: string
+  problemCount: number
+  totalUsers: number
+  matchedCount: number
+  page: number
+  limit: number
+  items: TagRankingItem[]
+}
+
+export async function getTagRanking(tag: string, page = 1, query = ''): Promise<TagRanking> {
+  const params = new URLSearchParams({ page: String(page), limit: '20' })
+  if (query.trim()) params.set('q', query.trim())
+  const result = await request<Envelope<TagRanking>>(`/api/v1/problem-tags/${encodeURIComponent(tag)}/ranking?${params.toString()}`)
+  return result.data
+}
+
 export type PublicUser = {
   id: number
   username: string
