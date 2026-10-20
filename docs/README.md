@@ -14,3 +14,4 @@
 - [作业 API 与页面](./homework.md)
 - [讨论 API 与页面](./discussion.md)
 - [用户主页](./user-profile.md)
+- [后台概览](./admin.md)

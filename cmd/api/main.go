@@ -59,6 +59,7 @@ func main() {
 	discussionRepo := discussion.NewRepository(db)
 	submissionRepo := submission.NewRepository(db, problemRepo)
 	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions, contestRepo)
+	adminHandler := handler.NewAdminHandler(db, userRepo, sessions)
 	hub.SetResultHandler(func(payload map[string]any) {
 		if err := submissionRepo.ApplyJudgeResult(context.Background(), payload); err != nil {
 			slog.Warn("unable to apply judge result", "error", err)
@@ -69,7 +70,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           api.NewRouter(cfg, db, judgeHandler, authHandler, problemRepo, submissionHandler, contestRepo, trainingRepo, discussionRepo, userRepo),
+		Handler:           api.NewRouter(cfg, db, judgeHandler, authHandler, problemRepo, submissionHandler, contestRepo, trainingRepo, discussionRepo, userRepo, adminHandler),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

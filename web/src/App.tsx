@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout.tsx'
+import { AdminPage } from './pages/AdminPage.tsx'
 import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
 import { ContestsPage } from './pages/ContestsPage.tsx'
 import { DiscussionDetailPage } from './pages/DiscussionDetailPage.tsx'
@@ -21,6 +22,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Navigate to="/p" replace />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/p" element={<ProblemsPage />} />
         <Route path="/p/:pid" element={<ProblemDetailPage />} />
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
