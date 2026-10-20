@@ -92,8 +92,9 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     urlForFile: options.urlForFile ?? ((filename: string) => filename),
     size,
     isIE: () => false,
-    set: (target: RenderContext, values: RenderContext) => {
-      Object.assign(target, values)
+    set: (target: RenderContext, keyOrValues: string | RenderContext, value?: unknown) => {
+      if (typeof keyOrValues === 'string') target[keyOrValues] = value
+      else Object.assign(target, keyOrValues)
       return ''
     },
     ...options.context,
