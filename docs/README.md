@@ -6,3 +6,4 @@
 - [OJ 开发规范](../AGENTS-OJ.md)
 - [hydrojudge 兼容层](./judge-compat.md)
 - [用户认证](./auth.md)
+- [题目 API](./problems.md)
