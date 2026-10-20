@@ -229,6 +229,26 @@ export type Discussion = {
   views: number
   pin: boolean
   highlight: boolean
+  lock: boolean
+}
+
+export type DiscussionTailReply = {
+  id: string
+  owner: number
+  content: string
+  edited: boolean
+  createdAt: string
+}
+
+export type DiscussionReply = {
+  id: string
+  docId: string
+  parentId: string
+  owner: number
+  content: string
+  edited: boolean
+  replies?: DiscussionTailReply[]
+  createdAt: string
 }
 
 export async function getDiscussions(): Promise<Discussion[]> {
@@ -238,6 +258,19 @@ export async function getDiscussions(): Promise<Discussion[]> {
 
 export async function getDiscussion(did: string): Promise<Discussion> {
   const result = await request<Envelope<Discussion>>(`/api/v1/discussions/${encodeURIComponent(did)}`)
+  return result.data
+}
+
+export async function getDiscussionReplies(did: string): Promise<DiscussionReply[]> {
+  const result = await request<Envelope<{ items: DiscussionReply[]; total: number }>>(`/api/v1/discussions/${encodeURIComponent(did)}/replies`)
+  return result.data.items
+}
+
+export async function createDiscussionReply(did: string, content: string): Promise<DiscussionReply> {
+  const result = await request<Envelope<DiscussionReply>>(`/api/v1/discussions/${encodeURIComponent(did)}/replies`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
   return result.data
 }
 

@@ -86,7 +86,7 @@ func TestSubmissionJudgeLoopIntegration(t *testing.T) {
 	pumpCtx, pumpCancel := context.WithCancel(context.Background())
 	defer pumpCancel()
 	go judge.NewTaskPump(db, hub).Run(pumpCtx)
-	router := api.NewRouter(config.Config{CORSOrigins: []string{"http://localhost"}}, db, judgeHandler, authHandler, problemRepo, submissionHandler, nil, nil, nil, userRepo, nil)
+	router := api.NewRouter(config.Config{CORSOrigins: []string{"http://localhost"}}, db, judgeHandler, authHandler, problemRepo, submissionHandler, nil, nil, nil, userRepo, nil, sessions)
 	server := httptest.NewServer(router)
 	defer server.Close()
 

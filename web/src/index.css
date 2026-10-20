@@ -79,9 +79,11 @@ button, input, select, textarea { font: inherit; }
 .status-20, .status-21, .status-22 { color: #b7791f; }
 .code-view, .compiler-output { border-top: 1px solid #edf0f3; }
 @media (max-width: 700px) {
-  .header-inner { min-height: 58px; gap: 14px; }
-  .site-nav { gap: 12px; }
-  .site-nav .nav-link:nth-child(3) { display: none; }
+  .header-inner { min-height: 58px; gap: 12px; flex-wrap: wrap; padding: 10px 0; }
+  .site-nav { order: 3; flex: 0 0 100%; gap: 18px; overflow-x: auto; white-space: nowrap; padding-bottom: 2px; scrollbar-width: none; }
+  .site-nav::-webkit-scrollbar { display: none; }
+  .site-nav .nav-link { flex: 0 0 auto; }
+  .account { margin-left: auto; }
   .account-name { display: none; }
   .site-main { padding-top: 18px; }
   .panel-header { align-items: flex-start; flex-direction: column; }
@@ -114,3 +116,17 @@ button, input, select, textarea { font: inherit; }
 @media (max-width: 700px) { .admin-grid { grid-template-columns: repeat(2, 1fr); } }
 
 .admin-actions { display: flex; gap: 10px; padding: 16px 24px; border-bottom: 1px solid #edf0f3; }
+
+.discussion-replies-header { padding: 18px 24px; border-top: 1px solid #edf0f3; border-bottom: 1px solid #edf0f3; background: #f8f9fb; }
+.discussion-replies-header h2 { margin: 0; color: #1d2733; font-size: 16px; }
+.discussion-reply-list { display: flex; flex-direction: column; }
+.discussion-reply { padding: 20px 24px; border-bottom: 1px solid #edf0f3; }
+.discussion-reply-meta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; color: #7b8794; font-size: 12px; }
+.discussion-reply-content { padding: 0; }
+.discussion-reply-content > :first-child { margin-top: 0; }
+.discussion-reply-content > :last-child { margin-bottom: 0; }
+.discussion-tail-replies { margin-top: 16px; padding-left: 16px; border-left: 3px solid #e3e9ef; }
+.discussion-tail-reply { padding: 12px 0; }
+.discussion-tail-reply + .discussion-tail-reply { border-top: 1px solid #edf0f3; }
+.discussion-reply-compose { padding: 22px 24px; background: #fafbfd; }
+.discussion-reply-input { min-height: 150px; }
