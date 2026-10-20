@@ -91,10 +91,15 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     url: options.url ?? defaultUrl,
     urlForFile: options.urlForFile ?? ((filename: string) => filename),
     size,
+    isIE: () => false,
+    set: (target: RenderContext, values: RenderContext) => {
+      Object.assign(target, values)
+      return ''
+    },
     ...options.context,
   }
   return env.renderString(
-    `{% import "components/form.html" as form with context %}{% include "${template}" %}`,
+    `{% import "components/form.html" as form with context %}{% import "components/noscript_note.html" as noscript_note with context %}{% include "${template}" %}`,
     context,
   )
 }

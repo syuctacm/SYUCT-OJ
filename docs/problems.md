@@ -64,12 +64,14 @@
 - 直接编辑 YAML 配置
 - 保存前校验 YAML 对象
 
-题目文件页对应 `problem_files.html` / `partials/problem_files.html`：
+题目文件页由 `HydroTemplate` 直接渲染 `problem_files.html` / `partials/problem_files.html`：
 
 - `/p/:pid/files`
 - 测试数据与附加文件分栏
-- 多文件上传、下载和批量删除
+- 多文件上传、单文件下载和批量删除
+- 配置入口和原版题目信息侧栏
 - 仅管理员或题目所有者可访问
+- 后端尚未实现的创建、重命名、批量下载和生成测试数据控件会从页面移除
 
 ## 文件存储
 
