@@ -4,9 +4,28 @@ import remarkGfm from 'remark-gfm'
 import { Link, useParams } from 'react-router-dom'
 import { getContestProblems, getContestScoreboard, type Contest, type ProblemSummary, type ScoreboardRow } from '../api.ts'
 
-function formatTime(value: string) {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN', { hour12: false })
+const ruleNames: Record<string, string> = {
+  acm: 'ACM',
+  oi: 'OI',
+  ioi: 'IOI',
+  ledo: 'Ledo',
+  strictioi: 'Strict IOI',
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+}
+
+function durationOf(contest: Contest) {
+  if (contest.duration) return contest.duration
+  return Math.max(0, Math.round((new Date(contest.endAt).getTime() - new Date(contest.beginAt).getTime()) / 3600000))
+}
+
+function contestStatus(contest: Contest) {
+  const now = Date.now()
+  if (now < new Date(contest.beginAt).getTime()) return '即将开始'
+  if (now > new Date(contest.endAt).getTime()) return '已结束'
+  return '进行中'
 }
 
 export function ContestDetailPage() {
@@ -26,68 +45,102 @@ export function ContestDetailPage() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '比赛加载失败'))
   }, [tid])
 
-  if (error) return <section className="section"><div className="empty-state error-state">{error}</div></section>
-  if (!contest) return <section className="section"><div className="empty-state">加载中...</div></section>
+  if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  if (!contest) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
 
+  const status = contestStatus(contest)
+  const locked = Boolean(contest.lockAt && !contest.unlocked && new Date(contest.lockAt).getTime() <= Date.now())
   return (
-    <section className="section">
-      <div className="section__header">
-        <div>
-          <p className="eyebrow">CONTEST</p>
-          <h1 className="section__title">{contest.title}</h1>
+    <>
+      <div className="medium-9 columns">
+        <div className="section">
+          <div className="section__header"><h1 className="section__title">{contest.title}</h1></div>
+          <div className="section__body">
+            <span className="problem__tag-item">{locked ? '榜单已封存' : status}</span>
+            <span className="problem__tag-item icon icon-award">{ruleNames[contest.rule] || contest.rule}</span>
+            <span className="problem__tag-item">开始: {formatDate(contest.beginAt)}</span>
+            <span className="problem__tag-item icon icon-schedule">{durationOf(contest)} 小时</span>
+            <span className="problem__tag-item">主办: <Link to={`/user/${contest.owner}`}>UID {contest.owner}</Link></span>
+            <span className="problem__tag-item icon icon-user--multiple">{contest.attend}</span>
+          </div>
         </div>
-        <Link className="rounded button" to="/contest">返回比赛</Link>
+        <div className="section">
+          <div className="section__body typo richmedia">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{contest.content || '暂无比赛说明'}</ReactMarkdown>
+            {status === '进行中' ? <blockquote className="warn"><p>比赛结束后将进行代码相似度检查。</p></blockquote> : null}
+          </div>
+        </div>
+
+        <div className="section" id="contest-problems">
+          <div className="section__header"><h1 className="section__title">比赛题目</h1></div>
+          <div className="section__body no-padding">
+            {problems.length ? (
+              <table className="data-table">
+                <colgroup><col className="col--status" /><col className="col--problem" /><col className="col--ac-tried" /><col className="col--difficulty" /></colgroup>
+                <thead><tr><th className="col--status">状态</th><th className="col--problem">题目</th><th className="col--ac-tried">通过 / 尝试</th><th className="col--difficulty">难度</th></tr></thead>
+                <tbody>
+                  {problems.map((problem, index) => (
+                    <tr key={problem.id}>
+                      <td className="col--status record-status--border">{String.fromCharCode(65 + index)}</td>
+                      <td className="col--problem col--problem-name"><Link to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}`}><b>{problem.pid}</b>&nbsp;&nbsp;{problem.title}</Link></td>
+                      <td className="col--ac-tried">{problem.nAccept} / {problem.nSubmit}</td>
+                      <td className="col--difficulty">{problem.difficulty || '(None)'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <div className="nothing-placeholder">这场比赛尚未配置题目</div>}
+          </div>
+        </div>
+
+        <div className="section" id="contest-scoreboard">
+          <div className="section__header"><h1 className="section__title">榜单</h1></div>
+          <div className="section__body no-padding">
+            <table className="data-table">
+              <thead><tr><th className="col--rank">排名</th><th className="col--user">用户</th><th className="col--solved">过题</th><th className="col--time">罚时</th>{contest.pids?.map((pid) => <th className="col--problem" key={pid}>#{pid}</th>)}</tr></thead>
+              <tbody>
+                {scoreboard.map((row) => (
+                  <tr key={row.uid}>
+                    <td className="col--rank">{row.rank}</td>
+                    <td className="col--user"><Link to={`/user/${row.uid}`}>UID {row.uid}</Link></td>
+                    <td className="col--solved">{row.solved}</td>
+                    <td className="col--time">{row.penalty}</td>
+                    {contest.pids?.map((pid) => {
+                      const cell = row.problems[String(pid)]
+                      return <td key={pid} className={`col--problem${cell?.solved ? ' record-status--text pass' : ''}`}>{cell?.solved ? `${cell.attempts}/${cell.time}` : cell?.attempts ? `-${cell.attempts}` : '-'}</td>
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {scoreboard.length === 0 ? <div className="nothing-placeholder">暂无榜单数据</div> : null}
+          </div>
+        </div>
       </div>
-      <div className="contest-meta">
-        <span>赛制 {contest.rule || '-'}</span>
-        <span>开始 {formatTime(contest.beginAt)}</span>
-        <span>结束 {formatTime(contest.endAt)}</span>
-        <span>参赛 {contest.attend}</span>
-        <span>题目 {contest.pids?.length ?? 0}</span>
-        {contest.lockAt && !contest.unlocked && new Date(contest.lockAt).getTime() <= Date.now() ? <span className="tag">榜单已封存</span> : null}
+      <div className="medium-3 columns">
+        <div className="section side">
+          <div>
+            <ol className="menu">
+              <li className="menu__item"><a className="menu__link" href="#contest-problems"><span className="icon icon-unordered_list" /> 题目列表</a></li>
+              <li className="menu__item"><a className="menu__link" href="#contest-scoreboard"><span className="icon icon-statistics" /> 榜单</a></li>
+              <li className="menu__item"><Link className="menu__link" to={`/record?tid=${encodeURIComponent(contest.docId)}`}><span className="icon icon-flag" /> 全部提交</Link></li>
+              <li className="menu__item"><Link className="menu__link" to="/discuss"><span className="icon icon-comment--text" /> 讨论</Link></li>
+            </ol>
+          </div>
+          <div className="section__body typo">
+            <dl className="large horizontal">
+              <dt>状态</dt><dd>{status}</dd>
+              <dt>赛制</dt><dd>{ruleNames[contest.rule] || contest.rule}</dd>
+              <dt>题目</dt><dd>{contest.pids?.length ?? 0}</dd>
+              <dt>开始</dt><dd>{formatDate(contest.beginAt)}</dd>
+              <dt>结束</dt><dd>{formatDate(contest.endAt)}</dd>
+              <dt>时长</dt><dd>{durationOf(contest)} 小时</dd>
+              <dt>主办</dt><dd><Link to={`/user/${contest.owner}`}>UID {contest.owner}</Link></dd>
+              <dt>参赛</dt><dd>{contest.attend}</dd>
+            </dl>
+          </div>
+        </div>
       </div>
-      <div className="section__body problem-content">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{contest.content || '暂无比赛说明'}</ReactMarkdown>
-      </div>
-      <div className="section__header"><h2 className="section__title">比赛榜单</h2></div>
-      <div className="section__table-container">
-        <table className="data-table">
-          <thead><tr><th className="col-id">排名</th><th>UID</th><th>过题</th><th>罚时</th>{contest.pids?.map((pid) => <th key={pid}>#{pid}</th>)}</tr></thead>
-          <tbody>
-            {scoreboard.map((row) => (
-              <tr key={row.uid}>
-                <td className="mono">{row.rank}</td>
-                <td className="mono">{row.uid}</td>
-                <td className="mono">{row.solved}</td>
-                <td className="mono">{row.penalty}</td>
-                {contest.pids?.map((pid) => {
-                  const cell = row.problems[String(pid)]
-                  return <td key={pid} className={`scoreboard-cell${cell?.solved ? ' solved' : ''}`}>{cell?.solved ? `${cell.attempts}/${cell.time}` : cell?.attempts ? `-${cell.attempts}` : '-'}</td>
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {scoreboard.length === 0 ? <div className="empty-state">暂无榜单数据</div> : null}
-      </div>
-      <div className="section__header"><h2 className="section__title">比赛题目</h2></div>
-      <div className="section__table-container">
-        <table className="data-table">
-          <thead><tr><th className="col-id">编号</th><th>题目</th><th className="col-difficulty">难度</th><th className="col-stat">通过 / 提交</th><th>操作</th></tr></thead>
-          <tbody>
-            {problems.map((problem) => (
-              <tr key={problem.id}>
-                <td className="mono">{problem.pid || problem.docId}</td>
-                <td><Link className="problem-link" to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}`}>{problem.title}</Link></td>
-                <td className="center">{problem.difficulty || '-'}</td>
-                <td className="center mono">{problem.nAccept} / {problem.nSubmit}</td>
-                <td><Link className="rounded button" to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}/submit?contest=${encodeURIComponent(contest.docId)}`}>提交</Link></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {problems.length === 0 ? <div className="empty-state">这场比赛的题目尚未配置</div> : null}
-      </div>
-    </section>
+    </>
   )
 }
