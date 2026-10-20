@@ -24,35 +24,55 @@ const (
 var ErrNotFound = fmt.Errorf("contest not found")
 
 type EditInput struct {
-	Title        string     `json:"title"`
-	Content      string     `json:"content"`
-	BeginAt      time.Time  `json:"beginAt"`
-	EndAt        time.Time  `json:"endAt"`
-	Rule         string     `json:"rule"`
-	PIDs         []int64    `json:"pids"`
-	Duration     int        `json:"duration"`
-	Rated        bool       `json:"rated"`
-	PenaltySince *time.Time `json:"penaltySince,omitempty"`
-	LockAt       *time.Time `json:"lockAt,omitempty"`
-	Unlocked     bool       `json:"unlocked"`
+	Title                string             `json:"title"`
+	Content              string             `json:"content"`
+	BeginAt              time.Time          `json:"beginAt"`
+	EndAt                time.Time          `json:"endAt"`
+	Rule                 string             `json:"rule"`
+	PIDs                 []int64            `json:"pids"`
+	Duration             int                `json:"duration"`
+	Rated                bool               `json:"rated"`
+	PenaltySince         *time.Time         `json:"penaltySince,omitempty"`
+	PenaltyRules         map[string]float64 `json:"penaltyRules,omitempty"`
+	LockAt               *time.Time         `json:"lockAt,omitempty"`
+	Unlocked             bool               `json:"unlocked"`
+	Maintainer           []int64            `json:"maintainer,omitempty"`
+	Assign               []string           `json:"assign,omitempty"`
+	Langs                []string           `json:"langs,omitempty"`
+	AutoHide             *bool              `json:"autoHide,omitempty"`
+	AllowViewCode        *bool              `json:"allowViewCode,omitempty"`
+	AllowPrint           *bool              `json:"allowPrint,omitempty"`
+	AllowTeam            *bool              `json:"allowTeam,omitempty"`
+	KeepScoreboardHidden *bool              `json:"keepScoreboardHidden,omitempty"`
+	InvitationCode       *string            `json:"invitationCode,omitempty"`
 }
 
 type Contest struct {
-	ID           bson.ObjectID `bson:"_id" json:"id"`
-	DocID        bson.ObjectID `bson:"docId" json:"docId"`
-	Title        string        `bson:"title" json:"title"`
-	Content      string        `bson:"content" json:"content,omitempty"`
-	BeginAt      time.Time     `bson:"beginAt" json:"beginAt"`
-	EndAt        time.Time     `bson:"endAt" json:"endAt"`
-	Rule         string        `bson:"rule" json:"rule"`
-	Owner        int64         `bson:"owner" json:"owner"`
-	Attend       int64         `bson:"attend" json:"attend"`
-	PIDs         []int64       `bson:"pids" json:"pids"`
-	Duration     int           `bson:"duration" json:"duration"`
-	Rated        bool          `bson:"rated" json:"rated"`
-	PenaltySince *time.Time    `bson:"penaltySince,omitempty" json:"penaltySince,omitempty"`
-	LockAt       *time.Time    `bson:"lockAt,omitempty" json:"lockAt,omitempty"`
-	Unlocked     bool          `bson:"unlocked,omitempty" json:"unlocked,omitempty"`
+	ID                   bson.ObjectID      `bson:"_id" json:"id"`
+	DocID                bson.ObjectID      `bson:"docId" json:"docId"`
+	Title                string             `bson:"title" json:"title"`
+	Content              string             `bson:"content" json:"content,omitempty"`
+	BeginAt              time.Time          `bson:"beginAt" json:"beginAt"`
+	EndAt                time.Time          `bson:"endAt" json:"endAt"`
+	Rule                 string             `bson:"rule" json:"rule"`
+	Owner                int64              `bson:"owner" json:"owner"`
+	Attend               int64              `bson:"attend" json:"attend"`
+	PIDs                 []int64            `bson:"pids" json:"pids"`
+	Duration             int                `bson:"duration" json:"duration"`
+	Rated                bool               `bson:"rated" json:"rated"`
+	PenaltySince         *time.Time         `bson:"penaltySince,omitempty" json:"penaltySince,omitempty"`
+	PenaltyRules         map[string]float64 `bson:"penaltyRules,omitempty" json:"penaltyRules,omitempty"`
+	LockAt               *time.Time         `bson:"lockAt,omitempty" json:"lockAt,omitempty"`
+	Unlocked             bool               `bson:"unlocked,omitempty" json:"unlocked,omitempty"`
+	Maintainer           []int64            `bson:"maintainer,omitempty" json:"maintainer,omitempty"`
+	Assign               []string           `bson:"assign,omitempty" json:"assign,omitempty"`
+	Langs                []string           `bson:"langs,omitempty" json:"langs,omitempty"`
+	AutoHide             bool               `bson:"autoHide,omitempty" json:"autoHide"`
+	AllowViewCode        bool               `bson:"allowViewCode,omitempty" json:"allowViewCode"`
+	AllowPrint           bool               `bson:"allowPrint,omitempty" json:"allowPrint"`
+	AllowTeam            bool               `bson:"allowTeam,omitempty" json:"allowTeam"`
+	KeepScoreboardHidden bool               `bson:"keepScoreboardHidden,omitempty" json:"keepScoreboardHidden"`
+	InvitationCode       string             `bson:"_code,omitempty" json:"invitationCode,omitempty"`
 }
 
 type ProblemCell struct {
@@ -105,6 +125,36 @@ func (r *Repository) Create(ctx context.Context, owner int64, input EditInput) (
 	if input.LockAt != nil {
 		document["lockAt"] = *input.LockAt
 	}
+	if input.PenaltyRules != nil {
+		document["penaltyRules"] = input.PenaltyRules
+	}
+	if input.Maintainer != nil {
+		document["maintainer"] = input.Maintainer
+	}
+	if input.Assign != nil {
+		document["assign"] = input.Assign
+	}
+	if input.Langs != nil {
+		document["langs"] = input.Langs
+	}
+	if input.AutoHide != nil {
+		document["autoHide"] = *input.AutoHide
+	}
+	if input.AllowViewCode != nil {
+		document["allowViewCode"] = *input.AllowViewCode
+	}
+	if input.AllowPrint != nil {
+		document["allowPrint"] = *input.AllowPrint
+	}
+	if input.AllowTeam != nil {
+		document["allowTeam"] = *input.AllowTeam
+	}
+	if input.KeepScoreboardHidden != nil {
+		document["keepScoreboardHidden"] = *input.KeepScoreboardHidden
+	}
+	if input.InvitationCode != nil && *input.InvitationCode != "" {
+		document["_code"] = *input.InvitationCode
+	}
 	if _, err := r.coll.InsertOne(ctx, document); err != nil {
 		return nil, err
 	}
@@ -140,6 +190,40 @@ func (r *Repository) Update(ctx context.Context, tid string, input EditInput) (*
 	} else {
 		unset["lockAt"] = ""
 	}
+	if input.PenaltyRules != nil {
+		set["penaltyRules"] = input.PenaltyRules
+	}
+	if input.Maintainer != nil {
+		set["maintainer"] = input.Maintainer
+	}
+	if input.Assign != nil {
+		set["assign"] = input.Assign
+	}
+	if input.Langs != nil {
+		set["langs"] = input.Langs
+	}
+	if input.AutoHide != nil {
+		set["autoHide"] = *input.AutoHide
+	}
+	if input.AllowViewCode != nil {
+		set["allowViewCode"] = *input.AllowViewCode
+	}
+	if input.AllowPrint != nil {
+		set["allowPrint"] = *input.AllowPrint
+	}
+	if input.AllowTeam != nil {
+		set["allowTeam"] = *input.AllowTeam
+	}
+	if input.KeepScoreboardHidden != nil {
+		set["keepScoreboardHidden"] = *input.KeepScoreboardHidden
+	}
+	if input.InvitationCode != nil {
+		if *input.InvitationCode == "" {
+			unset["_code"] = ""
+		} else {
+			set["_code"] = *input.InvitationCode
+		}
+	}
 	update := bson.M{"$set": set}
 	if len(unset) > 0 {
 		update["$unset"] = unset
@@ -167,8 +251,15 @@ func (r *Repository) validateEdit(ctx context.Context, input EditInput) error {
 	if input.BeginAt.IsZero() || input.EndAt.IsZero() || !input.EndAt.After(input.BeginAt) {
 		return fmt.Errorf("end time must be after begin time")
 	}
-	if input.EndAt.Sub(input.BeginAt) > 30*24*time.Hour {
-		return fmt.Errorf("contest duration must not exceed 30 days")
+	maxDuration := 30 * 24 * time.Hour
+	if input.Rule == "homework" {
+		maxDuration = 366 * 24 * time.Hour
+	}
+	if input.EndAt.Sub(input.BeginAt) > maxDuration {
+		return fmt.Errorf("contest duration must not exceed %d days", int(maxDuration/(24*time.Hour)))
+	}
+	if input.PenaltySince != nil && (input.PenaltySince.Before(input.BeginAt) || input.PenaltySince.After(input.EndAt)) {
+		return fmt.Errorf("penalty time must be inside the homework window")
 	}
 	if input.LockAt != nil && (input.LockAt.Before(input.BeginAt) || input.LockAt.After(input.EndAt)) {
 		return fmt.Errorf("lock time must be inside the contest window")
@@ -178,7 +269,7 @@ func (r *Repository) validateEdit(ctx context.Context, input EditInput) error {
 
 func validRule(rule string) bool {
 	switch rule {
-	case "acm", "oi", "ioi", "strictioi", "ledo":
+	case "acm", "oi", "ioi", "strictioi", "ledo", "homework":
 		return true
 	default:
 		return false
