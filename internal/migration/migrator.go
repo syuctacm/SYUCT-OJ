@@ -3,6 +3,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -35,6 +36,8 @@ var maxFields = map[string]struct{}{
 	"level":     {},
 }
 
+var storagePrefixes = []string{"problem", "contest", "training"}
+
 type Options struct {
 	Sources []string
 	Target  string
@@ -46,6 +49,7 @@ type CollectionReport struct {
 	Domain     string `json:"domain"`
 	Matched    int64  `json:"matched"`
 	Modified   int64  `json:"modified,omitempty"`
+	Remaining  *int64 `json:"remaining,omitempty"`
 }
 
 type DomainReport struct {
@@ -54,16 +58,29 @@ type DomainReport struct {
 	Archived bool   `json:"archived,omitempty"`
 }
 
+type Residual struct {
+	Collection string `json:"collection"`
+	Domain     string `json:"domain"`
+	Count      int64  `json:"count"`
+}
+
+type ValidationReport struct {
+	OK        bool       `json:"ok"`
+	Residuals []Residual `json:"residuals,omitempty"`
+}
+
 type Report struct {
-	DryRun      bool               `json:"dry_run"`
-	Target      string             `json:"target"`
-	Sources     []string           `json:"sources"`
-	StartedAt   time.Time          `json:"started_at"`
-	EndedAt     time.Time          `json:"ended_at,omitempty"`
-	Collections []CollectionReport `json:"collections"`
-	Domains     []DomainReport     `json:"domains"`
-	UsersMerged int64              `json:"users_merged"`
-	Warnings    []string           `json:"warnings,omitempty"`
+	DryRun         bool               `json:"dry_run"`
+	Target         string             `json:"target"`
+	Sources        []string           `json:"sources"`
+	StartedAt      time.Time          `json:"started_at"`
+	EndedAt        time.Time          `json:"ended_at,omitempty"`
+	Collections    []CollectionReport `json:"collections"`
+	Domains        []DomainReport     `json:"domains"`
+	UsersMerged    int64              `json:"users_merged"`
+	UsersRemaining *int64             `json:"users_remaining,omitempty"`
+	Validation     *ValidationReport  `json:"validation,omitempty"`
+	Warnings       []string           `json:"warnings,omitempty"`
 }
 
 func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error) {
@@ -77,7 +94,7 @@ func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error)
 		Sources:   sources,
 		StartedAt: time.Now().UTC(),
 		Warnings: []string{
-			"storage paths are not rewritten by this tool; filesystem/object-storage migration must be handled separately",
+			"physical object-storage migration is not performed; only logical storage.path prefixes are rewritten",
 		},
 	}
 	if !opts.DryRun {
@@ -96,10 +113,19 @@ func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error)
 				Matched:    count,
 			})
 		}
+		storageCount, err := countStoragePaths(ctx, db, source)
+		if err != nil {
+			return nil, err
+		}
+		report.Collections = append(report.Collections, CollectionReport{
+			Collection: "storage.path",
+			Domain:     source,
+			Matched:    storageCount,
+		})
 
 		domainFound := false
 		var domainDoc bson.M
-		err := db.Collection("domain").FindOne(ctx, bson.M{"$or": []bson.M{{"_id": source}, {"lower": source}}}).Decode(&domainDoc)
+		err = db.Collection("domain").FindOne(ctx, bson.M{"$or": []bson.M{{"_id": source}, {"lower": source}}}).Decode(&domainDoc)
 		if err == nil {
 			domainFound = true
 		} else if err != mongo.ErrNoDocuments {
@@ -128,6 +154,13 @@ func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error)
 		}
 		report.UsersMerged += merged
 
+		storageModified, storageRemaining, err := migrateStoragePaths(ctx, db, source, target)
+		if err != nil {
+			return nil, err
+		}
+		updateReport(report.Collections, "storage.path", source, storageModified)
+		setReportRemaining(report.Collections, "storage.path", source, storageRemaining)
+
 		if domainFound {
 			if _, err := db.Collection("domain.legacy").ReplaceOne(ctx, bson.M{"_id": domainDoc["_id"]}, domainDoc, options.Replace().SetUpsert(true)); err != nil {
 				return nil, fmt.Errorf("archive domain %s: %w", source, err)
@@ -142,6 +175,22 @@ func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error)
 			}
 		}
 	}
+	if !opts.DryRun {
+		residuals, err := collectResiduals(ctx, db, sources)
+		if err != nil {
+			return nil, err
+		}
+		report.Validation = &ValidationReport{OK: len(residuals) == 0, Residuals: residuals}
+		setAllReportRemaining(report.Collections, residuals)
+		usersRemaining, err := countDomainUsers(ctx, db, sources)
+		if err != nil {
+			return nil, err
+		}
+		report.UsersRemaining = &usersRemaining
+		if !report.Validation.OK {
+			report.Warnings = append(report.Warnings, "migration finished with residual source-domain data; inspect validation.residuals")
+		}
+	}
 	report.EndedAt = time.Now().UTC()
 	sort.Slice(report.Collections, func(i, j int) bool {
 		if report.Collections[i].Domain == report.Collections[j].Domain {
@@ -150,6 +199,126 @@ func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error)
 		return report.Collections[i].Domain < report.Collections[j].Domain
 	})
 	return report, nil
+}
+
+func storagePathFilter(source string) bson.M {
+	pattern := fmt.Sprintf("^(%s)/%s/", strings.Join(storagePrefixes, "|"), regexp.QuoteMeta(source))
+	return bson.M{"path": bson.M{"$regex": pattern}}
+}
+
+func countStoragePaths(ctx context.Context, db *mongo.Database, source string) (int64, error) {
+	count, err := db.Collection("storage").CountDocuments(ctx, storagePathFilter(source))
+	if err != nil {
+		return 0, fmt.Errorf("count storage.path/%s: %w", source, err)
+	}
+	return count, nil
+}
+
+func migrateStoragePaths(ctx context.Context, db *mongo.Database, source, target string) (int64, int64, error) {
+	coll := db.Collection("storage")
+	cursor, err := coll.Find(ctx, storagePathFilter(source), options.Find().SetProjection(bson.M{"path": 1}))
+	if err != nil {
+		return 0, 0, fmt.Errorf("read storage.path/%s: %w", source, err)
+	}
+	defer cursor.Close(ctx)
+	var docs []struct {
+		ID   any    `bson:"_id"`
+		Path string `bson:"path"`
+	}
+	if err := cursor.All(ctx, &docs); err != nil {
+		return 0, 0, fmt.Errorf("decode storage.path/%s: %w", source, err)
+	}
+	var modified int64
+	for _, doc := range docs {
+		parts := strings.SplitN(doc.Path, "/", 3)
+		if len(parts) != 3 || parts[1] != source {
+			continue
+		}
+		newPath := parts[0] + "/" + target + "/" + parts[2]
+		result, err := coll.UpdateOne(ctx, bson.M{"_id": doc.ID}, bson.M{"$set": bson.M{"path": newPath}})
+		if err != nil {
+			return modified, 0, fmt.Errorf("update storage.path/%s: %w", source, err)
+		}
+		modified += result.ModifiedCount
+	}
+	remaining, err := countStoragePaths(ctx, db, source)
+	if err != nil {
+		return modified, 0, err
+	}
+	return modified, remaining, nil
+}
+
+func countDomainUsers(ctx context.Context, db *mongo.Database, sources []string) (int64, error) {
+	if len(sources) == 0 {
+		return 0, nil
+	}
+	count, err := db.Collection("domain.user").CountDocuments(ctx, bson.M{"domainId": bson.M{"$in": sources}})
+	if err != nil {
+		return 0, fmt.Errorf("count residual domain.user: %w", err)
+	}
+	return count, nil
+}
+
+func collectResiduals(ctx context.Context, db *mongo.Database, sources []string) ([]Residual, error) {
+	residuals := make([]Residual, 0)
+	for _, source := range sources {
+		for _, collection := range ScopedCollections {
+			count, err := db.Collection(collection).CountDocuments(ctx, bson.M{"domainId": source})
+			if err != nil {
+				return nil, fmt.Errorf("validate %s/%s: %w", collection, source, err)
+			}
+			if count > 0 {
+				residuals = append(residuals, Residual{Collection: collection, Domain: source, Count: count})
+			}
+		}
+		userCount, err := db.Collection("domain.user").CountDocuments(ctx, bson.M{"domainId": source})
+		if err != nil {
+			return nil, fmt.Errorf("validate domain.user/%s: %w", source, err)
+		}
+		if userCount > 0 {
+			residuals = append(residuals, Residual{Collection: "domain.user", Domain: source, Count: userCount})
+		}
+		storageCount, err := countStoragePaths(ctx, db, source)
+		if err != nil {
+			return nil, err
+		}
+		if storageCount > 0 {
+			residuals = append(residuals, Residual{Collection: "storage.path", Domain: source, Count: storageCount})
+		}
+		domainCount, err := db.Collection("domain").CountDocuments(ctx, bson.M{"$or": []bson.M{{"_id": source}, {"lower": source}}})
+		if err != nil {
+			return nil, fmt.Errorf("validate domain/%s: %w", source, err)
+		}
+		if domainCount > 0 {
+			residuals = append(residuals, Residual{Collection: "domain", Domain: source, Count: domainCount})
+		}
+	}
+	return residuals, nil
+}
+
+func setReportRemaining(collections []CollectionReport, collection, source string, remaining int64) {
+	for i := range collections {
+		if collections[i].Collection == collection && collections[i].Domain == source {
+			value := remaining
+			collections[i].Remaining = &value
+			return
+		}
+	}
+}
+
+func setAllReportRemaining(collections []CollectionReport, residuals []Residual) {
+	for i := range collections {
+		value := int64(0)
+		collections[i].Remaining = &value
+	}
+	for _, residual := range residuals {
+		for i := range collections {
+			if collections[i].Collection == residual.Collection && collections[i].Domain == residual.Domain {
+				value := residual.Count
+				collections[i].Remaining = &value
+			}
+		}
+	}
 }
 
 func normalize(opts Options) ([]string, string, error) {

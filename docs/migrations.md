@@ -95,5 +95,35 @@ go run ./cmd/migrate   --sources=contest2025,select2025   --execute
 - 给迁移后的文档添加 `legacyDomains`
 - 合并 `domain.user` 的数值统计
 - 把旧 domain 文档归档到 `domain.legacy`
+- 重写 `storage.path` 的逻辑前缀
+  - `problem/<source>/...` -> `problem/system/...`
+  - `contest/<source>/...` -> `contest/system/...`
+  - `training/<source>/...` -> `training/system/...`
+- 迁移后校验所有源域集合、用户关系和存储路径残留数量
+- 在报告中输出每个集合的 `matched`、`modified`、`remaining` 和 `validation.residuals`
 
-注意：存储中的文件路径（如 `problem/<domain>/...`）暂不由该工具重写，文件系统迁移必须单独完成并校验。
+`storage` 集合里的 `path` 是逻辑路径，物理对象仍由原 `_id`/`link` 引用；本工具不会移动对象存储中的物理文件。
+
+报告结构示例：
+
+```json
+{
+  "dry_run": false,
+  "validation": {
+    "ok": true
+  },
+  "users_merged": 175,
+  "users_remaining": 0,
+  "collections": [
+    {
+      "collection": "storage.path",
+      "domain": "contest2025",
+      "matched": 24,
+      "modified": 24,
+      "remaining": 0
+    }
+  ]
+}
+```
+
+执行后如果 `validation.ok=false`，CLI 会以非 0 状态退出。重复执行是幂等的，第二次执行不会再次修改已经迁移的数据。
