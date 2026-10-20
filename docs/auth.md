@@ -24,7 +24,7 @@ Go 实现位于 `internal/user/password.go`。
 
 ## 前端
 
-登录页结构和类名对应 Hydro `ui-default` 的 `user_login.html`，使用 `layout--immersive`、`.immersive--content`、`.inverse` 表单样式和原版背景资源。
+登录页由 `HydroTemplate` 直接渲染 Hydro `ui-default` 的 `user_login.html`，继续使用 `layout--immersive`、`.immersive--content`、`.inverse` 表单样式和原版背景资源。React 只负责登录请求和错误状态；暂不支持找回密码和 OAuth，因此对应入口会从原模板中移除。
 
 ## Session
 

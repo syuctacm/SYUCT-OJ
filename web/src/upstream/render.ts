@@ -33,6 +33,7 @@ const sources = new Map<string, string>(
 // to extend the upstream layout so their block structure stays untouched, but
 // this layout only exposes the content block.
 sources.set('layout/basic.html', '{% block content %}{% endblock %}')
+sources.set('layout/immersive.html', '{% block content %}{% endblock %}')
 sources.set('layout/html5.html', '{% block body %}{% block content %}{% endblock %}{% endblock %}')
 
 const translations = yaml.load(zhYaml) as TranslationMap
