@@ -76,9 +76,8 @@ language / task / next / end / status / config / start / ping / pong
 - React 19 + TypeScript + Vite + React Router。
 - 第一阶段为 SPA。
 - 复用旧站 CSS、字体、图标和视觉结构。
-- 不引入新的组件库来改变现有视觉。
-- 复杂旧组件可先通过 React 包装，再逐步替换。
-- 页面迁移按功能域垂直切片，不做一次性全量替换。
+- 已迁移页面通过 `HydroTemplate` 直接渲染固定版本 `@hydrooj/ui-default` 的上游 Nunjucks 模板；React 负责数据、路由和交互挂载。
+- 禁止复制上游页面 DOM 到手写 TSX；剩余页面按功能域逐步迁移。
 
 ## 7. 数据迁移
 

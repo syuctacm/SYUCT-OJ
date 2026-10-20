@@ -1,105 +1,124 @@
-import { useEffect, useState, type FormEvent } from 'react'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to data and event adapters; do not re-create the DOM in JSX.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   createTraining,
   getTrainingEditor,
   updateTraining,
+  type Training,
   type TrainingEditInput,
   type TrainingEditNode,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
-import { FormText, FormTextarea, MarkdownHint } from '../components/LegacyForm.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 
-const defaultDAG = `[
-  {
-    "_id": 1,
-    "title": "第一节",
-    "requireNids": [],
-    "pids": []
-  }
-]`
+type TrainingDraft = Training & { dagText?: string }
 
-type TrainingDraft = {
-  title: string
-  content: string
-  description: string
-  pin: string
-  dag: string
-}
-
-function defaultDraft(): TrainingDraft {
-  return {
-    title: '',
-    content: '',
-    description: '',
-    pin: '0',
-    dag: defaultDAG,
-  }
+function dagText(item?: Training) {
+  if (!item?.dag?.length) return ''
+  return JSON.stringify(item.dag.map((node) => ({
+    _id: node.id,
+    title: node.title,
+    ...(node.content ? { content: node.content } : {}),
+    requireNids: node.requireNids,
+    pids: node.pids,
+  })), null, 2)
 }
 
 export function TrainingEditPage({ mode }: { mode: 'create' | 'edit' }) {
   const { tid = '' } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [form, setForm] = useState<TrainingDraft>(defaultDraft)
-  const [ownerID, setOwnerID] = useState<number | null>(null)
+  const [item, setItem] = useState<TrainingDraft | null>(mode === 'create' ? {
+    id: '',
+    docId: '',
+    title: '',
+    description: '',
+    content: '',
+    owner: user?.id ?? 0,
+    attend: 0,
+    pin: false,
+    sectionCount: 0,
+    problemCount: 0,
+    dagText: '',
+  } : null)
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
 
   useEffect(() => {
     if (mode !== 'edit') return
     setLoading(true)
     getTrainingEditor(tid)
-      .then((item) => {
-        setOwnerID(item.owner)
-        const dag = (item.dag ?? []).map((node) => ({
-          _id: node.id,
-          title: node.title,
-          ...(node.content ? { content: node.content } : {}),
-          requireNids: node.requireNids,
-          pids: node.pids,
-        }))
-        setForm({
-          title: item.title,
-          content: item.content || '',
-          description: item.description || '',
-          pin: item.pin ? '1' : '0',
-          dag: JSON.stringify(dag, null, 2),
-        })
-      })
+      .then((training) => setItem({ ...training, dagText: dagText(training) }))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '训练加载失败'))
       .finally(() => setLoading(false))
   }, [mode, tid])
 
-  function updateField<K extends keyof TrainingDraft>(key: K, value: TrainingDraft[K]) {
-    setForm((current) => ({ ...current, [key]: value }))
-  }
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    const form = root.querySelector('form')
+    const onSubmit = (event: SubmitEvent) => submitRef.current(event)
+    form?.addEventListener('submit', onSubmit)
+    const stopHydration = hydrateHydroEditForm(root, {
+      resource: mode === 'edit' ? 'trainings' : undefined,
+      tid: mode === 'edit' ? tid : undefined,
+    })
+    return () => {
+      form?.removeEventListener('submit', onSubmit)
+      stopHydration()
+    }
+  }, [mode, tid])
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const context = useMemo(() => {
+    if (!item) return null
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    return {
+      page_name: mode === 'edit' ? 'training_edit' : 'training_create',
+      tdoc: mode === 'edit' ? { ...item, pin: item.pin ? 1 : 0 } : null,
+      dag: item.dagText ?? '',
+      handler: {
+        user: {
+          // Delete is hidden until the Go API exposes resource deletion.
+          hasPerm: () => false,
+          hasPriv: () => isAdmin,
+          own: () => false,
+        },
+      },
+      perm: { PERM_EDIT_TRAINING: 1 },
+      UserContext: user,
+    }
+  }, [item, mode, user])
+
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
+    const form = event.target as HTMLFormElement
+    const data = new FormData(form)
+    const text = (name: string) => String(data.get(name) ?? '')
     let dag: TrainingEditNode[]
     try {
-      const parsed = JSON.parse(form.dag) as unknown
+      const parsed = JSON.parse(text('dag')) as unknown
       if (!Array.isArray(parsed)) throw new Error('训练计划必须是 JSON 数组')
       dag = parsed as TrainingEditNode[]
     } catch (err) {
       setError(err instanceof Error ? err.message : '训练计划 JSON 格式不正确')
       return
     }
-    const pin = Number(form.pin)
+    const pin = Number(text('pin'))
     const input: TrainingEditInput = {
-      title: form.title.trim(),
-      content: form.content,
-      description: form.description,
+      title: text('title').trim(),
+      content: text('content'),
+      description: text('description'),
       pin: Number.isFinite(pin) && pin > 0,
       dag,
     }
     setSaving(true)
     setError('')
     try {
-      const item = mode === 'create' ? await createTraining(input) : await updateTraining(tid, input)
-      navigate(`/training/${item.docId}`, { replace: true })
+      const saved = mode === 'create' ? await createTraining(input) : await updateTraining(tid, input)
+      navigate(`/training/${saved.docId}`, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : '训练保存失败')
     } finally {
@@ -107,93 +126,25 @@ export function TrainingEditPage({ mode }: { mode: 'create' | 'edit' }) {
     }
   }
 
+  submitRef.current = (event) => void handleSubmit(event)
+
+  const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+  if (mode === 'create' && user && !isAdmin) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">没有创建训练的权限</div></div></div>
+  }
+
   if (loading) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder"><div className="nothing-icon" />加载中...</div></div></div>
   }
-  if (error && mode === 'edit' && !form.title) {
-    return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
-  }
-  const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
-  if (user && !isAdmin && (mode === 'create' || ownerID !== user.id)) {
-    return <div className="row"><div className="columns"><div className="nothing-placeholder">没有编辑这个训练的权限</div></div></div>
+  if (!item || !context) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">{error || '训练不存在'}</div></div></div>
   }
 
   return (
-    <div className="row">
-      <div className="medium-9 columns">
-        <div className="section">
-          <div className="section__body">
-            <form method="post" onSubmit={handleSubmit}>
-              {error ? <blockquote className="warn"><p>{error}</p></blockquote> : null}
-              <div className="row">
-                <FormText
-                  columns={9}
-                  row={false}
-                  label="标题"
-                  name="title"
-                  placeholder="标题"
-                  value={form.title}
-                  autoFocus={mode === 'create'}
-                  onChange={(event) => updateField('title', event.target.value)}
-                />
-                <FormText
-                  columns={3}
-                  row={false}
-                  lastColumn
-                  label="置顶"
-                  name="pin"
-                  placeholder="0 / 1"
-                  value={form.pin}
-                  onChange={(event) => updateField('pin', event.target.value)}
-                />
-              </div>
-              <FormTextarea
-                label="介绍"
-                name="content"
-                value={form.content}
-                helpText="介绍不能超过 500 个字符，会显示在训练列表。"
-                onChange={(event) => updateField('content', event.target.value)}
-              />
-              <FormTextarea
-                label="说明"
-                name="description"
-                value={form.description}
-                markdown
-                onValueChange={(value) => updateField('description', value)}
-              />
-              <div className="row">
-                <div className="columns">
-                  <label>
-                    训练计划
-                    <textarea
-                      data-json=""
-                      name="dag"
-                      className="textbox"
-                      style={{ height: 500 }}
-                      value={form.dag}
-                      onChange={(event) => updateField('dag', event.target.value)}
-                    />
-                    <p className="help-text">JSON 数组；pids 可填题目 docId 或 PID，例如 P1001。</p>
-                  </label>
-                </div>
-              </div>
-              <div className="row">
-                <div className="columns">
-                  <button type="submit" className="rounded primary button" disabled={saving}>
-                    {saving ? '保存中...' : mode === 'create' ? '创建' : '更新'}
-                  </button>
-                  <button type="button" className="rounded button" onClick={() => window.history.go(-1)}>
-                    取消
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-      <div className="medium-3 columns">
-        <MarkdownHint />
-      </div>
-    </div>
+    <>
+      {error ? <div className="row"><div className="columns"><blockquote className="warn"><p>{error}</p></blockquote></div></div> : null}
+      {saving ? <div className="row"><div className="columns"><blockquote className="note"><p>保存中...</p></blockquote></div></div> : null}
+      <HydroTemplate template="training_edit.html" context={context} onReady={handleReady} />
+    </>
   )
 }

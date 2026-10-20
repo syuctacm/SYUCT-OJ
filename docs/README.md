@@ -10,6 +10,7 @@
 - [题目 API](./problems.md)
 - [提交与判题闭环](./submissions.md)
 - [React 核心页面](./web-core.md)
+- [Hydro 上游前端源码复用](../web/src/upstream/README.md)
 - [比赛 API 与页面](./contests.md)
 - [训练 API 与页面](./training.md)
 - [作业 API 与页面](./homework.md)

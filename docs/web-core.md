@@ -56,14 +56,15 @@
 - `web/src/index.css`：只保留 React 应用壳的兼容样式，不仿制页面视觉
 - `web/src/legacy/`：从旧站原样迁移的独立插件 CSS，例如 Activity Calendar
 - 页面使用 `.section`、`.section__header`、`.section__body`、`.section__footer`、`.data-table`、`.button`、`.textbox` 等原版类名
-- `web/src/components/LegacyForm.tsx` 直接对应 Hydro `templates/components/form.html`，统一输出 `.row`、`.columns`、`.form__item`、`.textbox-container`、`.select-container`、`.textarea-container` 和 `.checkbox-container`
-- `web/src/legacy-pickers.ts` 移植 `ui-default` 的 flatpickr 日期控件与 15 分钟间隔时间下拉
-- `web/src/components/LegacyMarkdownEditor.tsx` 复用 `md-editor-rt`，并移植 Hydro 的 Markdown-it KaTeX、脚注、高亮、图片尺寸、媒体和 XSS 插件
+- `web/src/components/LegacyForm.tsx` 只服务尚未迁移的页面；已迁移页面不得再用 TSX 复制表单宏输出
+- `web/src/upstream/render.ts` 从固定版本 `@hydrooj/ui-default@4.58.5` 读取原始 Nunjucks 模板和 `zh.yaml`，`HydroTemplate` 用原模板输出页面
+- `web/src/upstream/hydrate.tsx` 只在原模板 DOM 上挂载日期控件、自动补全和 Markdown 编辑器，不重新生成页面结构
+- `web/src/upstream/hydro-editor/mdeditor.ts` 由 `pnpm --dir web sync:hydro-ui` 从上游编辑器官网源码生成，仅改 import 路径
 - `web/src/components/autocomplete/` 移植 Hydro `@hydrooj/components` 的自动补全，用于题目、用户、分组和语言选择
 - `web/public/modules/katex/` 提供原主题 CSS 引用的 KaTeX 字体
 - 导航、移动端侧滑菜单、页脚使用 `ui-default` 对应的 DOM 结构和类名
 - `web/src/page-meta.ts` 根据路由设置原模板的 `data-page`、`data-layout` 和 `page--*` 类
-- 页面组件自己输出顶层 `.row`，`Layout` 的 `.main` 不再额外添加网格容器
+- 比赛、作业、训练创建/编辑页已直接渲染上游模板；页面组件不再自己维护这些页的顶层 `.row`
 
 主题来源：
 
@@ -100,7 +101,9 @@ VITE_API_PROXY=http://127.0.0.1:18080 pnpm dev
 
 ## 尚未完成
 
-- Markdown 编辑器图片上传接入题目/比赛/作业文件接口
+- Markdown 编辑器图片上传接入题目文件接口（比赛/作业/训练已完成）
+- 将剩余页面从手写 TSX 结构迁移到 `HydroTemplate`
+- 训练计划的 `data-json` 编辑器
 - 语言自动补全改为读取服务端语言配置
 - 原版全部下拉菜单和前端插件行为
 - 自动截图回归基线

@@ -24,6 +24,7 @@ mongo-data/
 .temp/
 
 # logs and editor files
+.playwright-cli/
 *.log
 .DS_Store
 .idea/

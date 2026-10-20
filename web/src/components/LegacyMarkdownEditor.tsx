@@ -1,40 +1,5 @@
-// @ts-nocheck -- copied from Hydro ui-default; upstream aliases are resolved by its build.
+import { MdEditor } from '../upstream/hydro-editor/mdeditor.ts'
 import { useId } from 'react'
-import Anchor from 'markdown-it-anchor'
-import Footnote from 'markdown-it-footnote'
-import Mark from 'markdown-it-mark'
-import MergeCells from 'markdown-it-merge-cells'
-import TOC from 'markdown-it-table-of-contents'
-import { config, MdEditor } from 'md-editor-rt'
-import Imsize from '../legacy/markdown-it-imsize.ts'
-import katex from '../legacy/markdown-it-katex.ts'
-import { Media } from '../legacy/markdown-it-media.ts'
-import { xssProtector } from '../legacy/markdown-it-xss.ts'
-
-config({
-  markdownItConfig(mdit) {
-    mdit.options.html = true
-    mdit.options.linkify = true
-    mdit.linkify.tlds('.py', false)
-    mdit.linkify.tlds('.zip', false)
-    mdit.linkify.tlds('.mov', false)
-    mdit.use(Media)
-    mdit.use(Footnote)
-    mdit.use(Mark)
-    mdit.use(Imsize)
-    mdit.use(Anchor)
-    mdit.use(TOC)
-    mdit.use(MergeCells)
-    mdit.use(xssProtector)
-    mdit.use(katex)
-  },
-  markdownItPlugins() {
-    return []
-  },
-  codeMirrorExtensions(extensions) {
-    return extensions.filter((item) => item.type !== 'linkShortener')
-  },
-})
 
 type Props = {
   value: string
@@ -42,9 +7,11 @@ type Props = {
   disabled?: boolean
   autoFocus?: boolean
   onChange: (value: string) => void
+  onUploadImg?: (files: File[], callback: (urls: string[]) => void) => void | Promise<void>
+  hideImageUpload?: boolean
 }
 
-export function LegacyMarkdownEditor({ value, placeholder, disabled, autoFocus, onChange }: Props) {
+export function LegacyMarkdownEditor({ value, placeholder, disabled, autoFocus, onChange, onUploadImg, hideImageUpload }: Props) {
   const id = useId()
   return (
     <MdEditor
@@ -72,8 +39,10 @@ export function LegacyMarkdownEditor({ value, placeholder, disabled, autoFocus, 
         'previewOnly',
         'htmlPreview',
         'github',
+        ...(hideImageUpload ? ['image' as const] : []),
       ]}
       onChange={onChange}
+      onUploadImg={onUploadImg}
     />
   )
 }

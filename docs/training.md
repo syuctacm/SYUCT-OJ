@@ -55,7 +55,7 @@ enroll=1
 
 创建和编辑使用管理员权限；编辑还需要训练所有者或管理员。DAG JSON 会校验节点 ID 唯一、前置节点存在、每节至少一道题，并把 PID 或 docId 统一解析为题目 docId。
 
-未报名或章节未解锁时仍可查看内容，但题目入口不可点击。页面直接使用 Hydro 原版 `.training__section`、`.training__problems` 和训练状态类名。
+未报名或章节未解锁时仍可查看内容，但题目入口不可点击。页面直接使用 Hydro 原版 `.training__section`、`.training__problems` 和训练状态类名。训练创建/编辑页由 `HydroTemplate` 直接渲染上游 `training_edit.html`，Markdown 图片上传已接入训练文件接口。
 
 ## 尚未完成
 

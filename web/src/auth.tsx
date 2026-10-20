@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { getMe, login as loginRequest, logout as logoutRequest, type User } from './api.ts'
+import { ensureHydroGlobals } from './upstream/hydro-globals.ts'
 
 type AuthContextValue = {
   user: User | null
@@ -16,13 +17,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     getMe()
-      .then(setUser)
+      .then((nextUser) => {
+        ensureHydroGlobals(nextUser.id)
+        setUser(nextUser)
+      })
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
   }, [])
 
   async function login(username: string, password: string) {
     const nextUser = await loginRequest(username, password)
+    ensureHydroGlobals(nextUser.id)
     setUser(nextUser)
     return nextUser
   }
