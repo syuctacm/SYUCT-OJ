@@ -16,7 +16,8 @@
 {
   "pid": "P1001",
   "lang": "cpp",
-  "code": "int main() {}"
+  "code": "int main() {}",
+  "contestId": "比赛 ObjectId（可选）"
 }
 ```
 
@@ -39,6 +40,7 @@
 - 任务通过现有 `hydrojudge` WebSocket 协议下发
 - 结果支持 `status`、`score`、`time`、`memory`、`message`、`compilerText`、`case/cases`
 - `domainId` 固定为 `system`
+- 可选 `contestId` 会把提交关联到比赛并写入判题 task
 
 ## 验证
 

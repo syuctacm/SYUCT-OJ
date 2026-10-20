@@ -20,6 +20,7 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/contests", h.list)
 	router.GET("/api/v1/contests/:tid", h.get)
 	router.GET("/api/v1/contests/:tid/problems", h.problems)
+	router.GET("/api/v1/contests/:tid/scoreboard", h.scoreboard)
 }
 
 func (h *ContestHandler) list(c *gin.Context) {
@@ -38,6 +39,15 @@ func (h *ContestHandler) problems(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"contest": item, "problems": problems}})
+}
+
+func (h *ContestHandler) scoreboard(c *gin.Context) {
+	item, rows, err := h.repo.Scoreboard(c.Request.Context(), c.Param("tid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"contest": item, "rows": rows}})
 }
 
 func (h *ContestHandler) get(c *gin.Context) {

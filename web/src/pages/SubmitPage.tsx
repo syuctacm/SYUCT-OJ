@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { createSubmission, getProblem, type ProblemDetail } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 
@@ -16,6 +16,8 @@ int main() {
 export function SubmitPage() {
   const { pid = '' } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const contestId = searchParams.get('contest') ?? ''
   const { user, loading } = useAuth()
   const [problem, setProblem] = useState<ProblemDetail | null>(null)
   const [code, setCode] = useState(defaultCode)
@@ -33,7 +35,7 @@ export function SubmitPage() {
     setSubmitting(true)
     setError('')
     try {
-      const submission = await createSubmission(pid, lang, code)
+      const submission = await createSubmission(pid, lang, code, contestId)
       navigate(`/record/${submission.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : '提交失败')
@@ -51,6 +53,7 @@ export function SubmitPage() {
         <div>
           <p className="eyebrow">SUBMIT</p>
           <h1 className="panel-title">{problem?.title || pid}</h1>
+          {contestId ? <p className="panel-subtitle">比赛提交 · {contestId}</p> : null}
         </div>
         <Link className="button" to={`/p/${encodeURIComponent(pid)}`}>返回题目</Link>
       </div>

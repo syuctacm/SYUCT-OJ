@@ -8,16 +8,18 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
+	"github.com/syuctacm/syuct-oj/internal/contest"
 	"github.com/syuctacm/syuct-oj/internal/submission"
 )
 
 type SubmissionHandler struct {
 	repo     *submission.Repository
 	sessions *auth.SessionManager
+	contests *contest.Repository
 }
 
-func NewSubmissionHandler(repo *submission.Repository, sessions *auth.SessionManager) *SubmissionHandler {
-	return &SubmissionHandler{repo: repo, sessions: sessions}
+func NewSubmissionHandler(repo *submission.Repository, sessions *auth.SessionManager, contests *contest.Repository) *SubmissionHandler {
+	return &SubmissionHandler{repo: repo, sessions: sessions, contests: contests}
 }
 
 func (h *SubmissionHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -33,15 +35,22 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 		return
 	}
 	var request struct {
-		PID  string `json:"pid"`
-		Lang string `json:"lang"`
-		Code string `json:"code"`
+		PID       string `json:"pid"`
+		Lang      string `json:"lang"`
+		Code      string `json:"code"`
+		ContestID string `json:"contestId"`
 	}
 	if err := c.ShouldBindJSON(&request); err != nil || strings.TrimSpace(request.PID) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "pid, lang and code are required"})
 		return
 	}
-	record, err := h.repo.Create(c.Request.Context(), uid, request.PID, request.Lang, request.Code)
+	if request.ContestID != "" && h.contests != nil {
+		if _, err := h.contests.Get(c.Request.Context(), request.ContestID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "contest not found"})
+			return
+		}
+	}
+	record, err := h.repo.Create(c.Request.Context(), uid, request.PID, request.Lang, request.Code, request.ContestID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

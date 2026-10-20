@@ -44,14 +44,25 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	contestID := bson.NewObjectID()
+	_, err = db.Collection("document").InsertOne(ctx, bson.M{
+		"_id": bson.NewObjectID(), "domainId": "system", "docType": 30,
+		"docId": contestID, "title": "Test Contest", "pids": []int64{1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	problemRepo := problem.NewRepository(db)
 	repo := submission.NewRepository(db, problemRepo)
-	record, err := repo.Create(ctx, 7, "P1001", "cpp", "int main(){}")
+	record, err := repo.Create(ctx, 7, "P1001", "cpp", "int main(){}", contestID.Hex())
 	if err != nil {
 		t.Fatalf("create submission: %v", err)
 	}
 	if record.Status != submission.StatusWaiting || record.PID != 1 {
 		t.Fatalf("unexpected record: %+v", record)
+	}
+	if record.Contest == nil || *record.Contest != contestID {
+		t.Fatalf("record contest = %v", record.Contest)
 	}
 	taskCount, err := db.Collection("task").CountDocuments(ctx, bson.M{"rid": record.ID})
 	if err != nil {
