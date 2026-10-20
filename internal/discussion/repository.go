@@ -3,6 +3,7 @@ package discussion
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -37,6 +38,7 @@ type Discussion struct {
 	Pin         bool          `bson:"pin" json:"pin"`
 	Highlight   bool          `bson:"highlight" json:"highlight"`
 	Lock        bool          `bson:"lock" json:"lock"`
+	Edited      bool          `bson:"edited" json:"edited"`
 	ParentType  int64         `bson:"parentType" json:"parentType"`
 	ParentID    any           `bson:"parentId" json:"parentId,omitempty"`
 	ParentTitle string        `bson:"-" json:"parentTitle,omitempty"`
@@ -81,7 +83,7 @@ func (r *Repository) List(ctx context.Context) ([]Discussion, error) {
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeDiscussion,
 	}, options.Find().
-		SetProjection(bson.M{"docId": 1, "title": 1, "owner": 1, "updateAt": 1, "nReply": 1, "views": 1, "pin": 1, "highlight": 1, "lock": 1, "parentType": 1, "parentId": 1}).
+		SetProjection(bson.M{"docId": 1, "title": 1, "owner": 1, "updateAt": 1, "nReply": 1, "views": 1, "pin": 1, "highlight": 1, "lock": 1, "edited": 1, "parentType": 1, "parentId": 1}).
 		SetSort(bson.D{{Key: "pin", Value: -1}, {Key: "updateAt", Value: -1}, {Key: "docId", Value: -1}}))
 	if err != nil {
 		return nil, err
@@ -167,6 +169,81 @@ func (r *Repository) Create(ctx context.Context, node *Node, owner int64, title,
 		return nil, err
 	}
 	return item, nil
+}
+
+type EditInput struct {
+	Title     string `json:"title"`
+	Content   string `json:"content"`
+	Pin       bool   `json:"pin"`
+	Highlight bool   `json:"highlight"`
+}
+
+func (r *Repository) Update(ctx context.Context, did string, input EditInput) (*Discussion, error) {
+	oid, err := bson.ObjectIDFromHex(did)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	now := time.Now()
+	result, err := r.coll.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeDiscussion,
+		"$or":      []bson.M{{"docId": oid}, {"_id": oid}},
+	}, bson.M{"$set": bson.M{
+		"title": strings.TrimSpace(input.Title), "content": input.Content,
+		"pin": input.Pin, "highlight": input.Highlight,
+		"edited": true, "updateAt": now,
+	}})
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, ErrNotFound
+	}
+	return r.Get(ctx, did)
+}
+
+func (r *Repository) SetLock(ctx context.Context, did string, lock bool) (*Discussion, error) {
+	oid, err := bson.ObjectIDFromHex(did)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	result, err := r.coll.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeDiscussion,
+		"$or":      []bson.M{{"docId": oid}, {"_id": oid}},
+	}, bson.M{"$set": bson.M{"lock": lock}})
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, ErrNotFound
+	}
+	return r.Get(ctx, did)
+}
+
+func (r *Repository) Delete(ctx context.Context, did string) error {
+	oid, err := bson.ObjectIDFromHex(did)
+	if err != nil {
+		return ErrNotFound
+	}
+	result, err := r.coll.DeleteOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeDiscussion,
+		"$or":      []bson.M{{"docId": oid}, {"_id": oid}},
+	})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return ErrNotFound
+	}
+	_, err = r.coll.DeleteMany(ctx, bson.M{
+		"domainId":   DomainSystem,
+		"docType":    DocumentTypeDiscussionReply,
+		"parentType": DocumentTypeDiscussion,
+		"parentId":   oid,
+	})
+	return err
 }
 
 func (r *Repository) Get(ctx context.Context, did string) (*Discussion, error) {

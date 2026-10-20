@@ -218,6 +218,9 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `GET /api/v1/discussions`
 - `GET /api/v1/discussion-nodes`
 - `POST /api/v1/discussions`
+- `PATCH /api/v1/discussions/:did`
+- `DELETE /api/v1/discussions/:did`
+- `PATCH /api/v1/discussions/:did/lock`
 - `GET /api/v1/discussions/:did`
 - `GET /api/v1/discussions/:did/replies`
 - `POST /api/v1/discussions/:did/replies`

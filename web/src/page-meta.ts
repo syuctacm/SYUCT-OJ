@@ -34,6 +34,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (/^\/homework\/[^/]+\/?$/.test(pathname)) return basic('homework_detail', '作业详情')
   if (pathname === '/discuss') return basic('discussion_main', '讨论')
   if (pathname === '/discuss/new') return basic('discussion_create', '创建讨论')
+  if (/^\/discuss\/[^/]+\/edit\/?$/.test(pathname)) return basic('discussion_edit', '编辑讨论')
   if (/^\/discuss\/[^/]+\/?$/.test(pathname)) return basic('discussion_detail', '讨论详情')
   if (/^\/user\/[^/]+\/?$/.test(pathname)) return basic('user_detail', '用户主页')
   if (pathname === '/admin/users') return basic('manage_user_priv', '用户权限')

@@ -572,6 +572,7 @@ export type Discussion = {
   pin: boolean
   highlight: boolean
   lock: boolean
+  edited: boolean
   parentType: number
   parentId?: string | number
   parentTitle?: string
@@ -629,6 +630,33 @@ export async function createDiscussion(input: {
 
 export async function getDiscussion(did: string): Promise<Discussion> {
   const result = await request<Envelope<Discussion>>(`/api/v1/discussions/${encodeURIComponent(did)}`)
+  return result.data
+}
+
+export type DiscussionEditInput = {
+  title: string
+  content: string
+  pin: boolean
+  highlight: boolean
+}
+
+export async function updateDiscussion(did: string, input: DiscussionEditInput): Promise<Discussion> {
+  const result = await request<Envelope<Discussion>>(`/api/v1/discussions/${encodeURIComponent(did)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  return result.data
+}
+
+export async function deleteDiscussion(did: string): Promise<void> {
+  await request<void>(`/api/v1/discussions/${encodeURIComponent(did)}`, { method: 'DELETE' })
+}
+
+export async function setDiscussionLock(did: string, lock: boolean): Promise<Discussion> {
+  const result = await request<Envelope<Discussion>>(`/api/v1/discussions/${encodeURIComponent(did)}/lock`, {
+    method: 'PATCH',
+    body: JSON.stringify({ lock }),
+  })
   return result.data
 }
 
