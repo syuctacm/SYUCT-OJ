@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { createSubmission, getProblem, type ProblemDetail } from '../api.ts'
 import { useAuth } from '../auth.tsx'
+import { ProblemSidebar } from '../components/ProblemSidebar.tsx'
 
 const defaultCode = `#include <bits/stdc++.h>
 using namespace std;
@@ -44,34 +45,68 @@ export function SubmitPage() {
     }
   }
 
-  if (loading) return <section className="section"><div className="empty-state">加载中...</div></section>
-  if (!user) return <section className="section"><div className="empty-state">请先 <Link to="/login">登录</Link> 后提交。</div></section>
+  if (!problem) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
 
   return (
-    <section className="section">
-      <div className="section__header">
-        <div>
-          <p className="eyebrow">SUBMIT</p>
-          <h1 className="section__title">{problem?.title || pid}</h1>
-          {contestId ? <p className="supplementary">比赛提交 · {contestId}</p> : null}
+    <>
+      <div className="medium-9 columns">
+        <div className="section">
+          <div className="section__header"><h1 className="section__title">提交评测</h1></div>
+          <div className="section__body typo">
+            {loading ? <div className="nothing-placeholder compact">正在确认登录状态...</div> : !user ? (
+              <blockquote className="note"><p>请先 <Link to="/login">登录</Link> 后提交。</p></blockquote>
+            ) : (
+              <form method="post" onSubmit={handleSubmit}>
+                <div className="row">
+                  <div className="medium-12 columns form__item">
+                    <label>
+                      代码语言
+                      <div className="select-container">
+                        <select name="lang" className="select" value={lang} onChange={(event) => setLang(event.target.value)}>
+                          <option value="cpp">C++17</option>
+                          <option value="python3">Python 3</option>
+                        </select>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div className="row">
+                  <div className="medium-12 columns form__item end" data-hotkey="ctrl+enter:submit">
+                    <label>
+                      代码
+                      <div className="textarea-container">
+                        <textarea
+                          name="code"
+                          className="textbox monospace"
+                          value={code}
+                          onChange={(event) => setCode(event.target.value)}
+                          onKeyDown={(event) => {
+                            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                              event.preventDefault()
+                              event.currentTarget.form?.requestSubmit()
+                            }
+                          }}
+                          spellCheck={false}
+                          autoFocus
+                          required
+                        />
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                {contestId ? <blockquote className="note"><p>比赛提交 · {contestId}</p></blockquote> : null}
+                {error ? <p className="form-error">{error}</p> : null}
+                <div className="row"><div className="columns">
+                  <input type="submit" className="rounded primary button" value={submitting ? '提交中...' : '提交'} disabled={submitting} />
+                </div></div>
+              </form>
+            )}
+          </div>
         </div>
-        <Link className="rounded button" to={`/p/${encodeURIComponent(pid)}`}>返回题目</Link>
       </div>
-      <form className="section__body form-stack" onSubmit={handleSubmit}>
-        <label className="field field-inline">
-          <span>语言</span>
-          <select className="select" value={lang} onChange={(event) => setLang(event.target.value)}>
-            <option value="cpp">C++17</option>
-            <option value="python3">Python 3</option>
-          </select>
-        </label>
-        <label className="field">
-          <span>代码</span>
-          <textarea className="textbox code-editor" value={code} onChange={(event) => setCode(event.target.value)} spellCheck={false} />
-        </label>
-        {error ? <p className="form-error">{error}</p> : null}
-        <button className="rounded primary button" type="submit" disabled={submitting}>{submitting ? '提交中...' : '提交评测'}</button>
-      </form>
-    </section>
+      <div className="medium-3 columns">
+        <ProblemSidebar problem={problem} pageName="problem_submit" />
+      </div>
+    </>
   )
 }

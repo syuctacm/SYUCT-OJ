@@ -42,6 +42,7 @@ func TestProblemRepositoryIntegration(t *testing.T) {
 			"docId": int64(2), "pid": "P1002", "title": "Graph", "content": "graph",
 			"tag": []string{"graph"}, "difficulty": int32(3),
 			"nSubmit": int64(4), "nAccept": int64(2), "sort": "P1002",
+			"config": "type: default\ntime: 1000ms\nmemory: 256m\n",
 		},
 		bson.M{
 			"_id": bson.NewObjectID(), "domainId": "system", "docType": 10,
@@ -112,6 +113,9 @@ func TestProblemRepositoryIntegration(t *testing.T) {
 	}
 	if pdoc.Content != "graph" {
 		t.Fatalf("content = %q", pdoc.Content)
+	}
+	if pdoc.ProblemType != "default" || pdoc.TimeLimit != "1000ms" || pdoc.MemoryLimit != "256m" {
+		t.Fatalf("config summary: %+v", pdoc)
 	}
 	if _, err := repo.Get(ctx, "2"); err != nil {
 		t.Fatalf("get by docId: %v", err)

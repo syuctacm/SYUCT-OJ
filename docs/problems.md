@@ -34,6 +34,14 @@
 
 搜索、排序、分页、标签筛选和用户提交状态均通过 URL 与 API 参数保持。
 
+题目详情和提交页对应：
+
+- `problem_detail.html`：题目标题、标签信息、Markdown 内容
+- `problem_submit.html`：语言选择、代码输入和提交按钮
+- `partials/problem_sidebar.html`：提交入口和题目信息侧栏
+
+详情 API 额外返回 `problemType`、`timeLimit` 和 `memoryLimit`，由 Hydro 题目 `config` 生成展示信息。
+
 ## 响应
 
 ```json

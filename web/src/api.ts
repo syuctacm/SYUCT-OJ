@@ -26,6 +26,9 @@ export type ProblemSummary = {
 export type ProblemDetail = ProblemSummary & {
   content: string
   owner?: number
+  problemType?: string
+  timeLimit?: string
+  memoryLimit?: string
 }
 
 export type Submission = {
