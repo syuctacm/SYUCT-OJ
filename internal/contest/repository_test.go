@@ -53,7 +53,8 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	_, err = db.Collection("document").InsertOne(ctx, bson.M{
 		"_id": bson.NewObjectID(), "domainId": "system", "docType": 30,
 		"docId": homeworkID, "title": "Homework 1", "rule": "homework",
-		"beginAt": time.Now().Add(-time.Hour), "endAt": time.Now().Add(time.Hour), "pids": []int64{1},
+		"beginAt": time.Now().Add(-time.Hour), "endAt": time.Now().Add(time.Hour),
+		"penaltySince": time.Now().Add(30 * time.Minute), "pids": []int64{1},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -115,8 +116,12 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list homework: %v", err)
 	}
-	if len(homeworks) != 1 || homeworks[0].Title != "Homework 1" {
+	if len(homeworks) != 1 || homeworks[0].Title != "Homework 1" || homeworks[0].PenaltySince == nil {
 		t.Fatalf("unexpected homeworks: %+v", homeworks)
+	}
+	homeworks, err = repo.ListHomeworkFiltered(ctx, "Homework")
+	if err != nil || len(homeworks) != 1 {
+		t.Fatalf("homework search: homeworks=%+v err=%v", homeworks, err)
 	}
 	if _, err := repo.GetHomework(ctx, oldID.Hex()); err != contest.ErrNotFound {
 		t.Fatalf("non-homework rule should not be returned: %v", err)

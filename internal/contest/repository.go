@@ -24,20 +24,21 @@ const (
 var ErrNotFound = fmt.Errorf("contest not found")
 
 type Contest struct {
-	ID       bson.ObjectID `bson:"_id" json:"id"`
-	DocID    bson.ObjectID `bson:"docId" json:"docId"`
-	Title    string        `bson:"title" json:"title"`
-	Content  string        `bson:"content" json:"content,omitempty"`
-	BeginAt  time.Time     `bson:"beginAt" json:"beginAt"`
-	EndAt    time.Time     `bson:"endAt" json:"endAt"`
-	Rule     string        `bson:"rule" json:"rule"`
-	Owner    int64         `bson:"owner" json:"owner"`
-	Attend   int64         `bson:"attend" json:"attend"`
-	PIDs     []int64       `bson:"pids" json:"pids"`
-	Duration int           `bson:"duration" json:"duration"`
-	Rated    bool          `bson:"rated" json:"rated"`
-	LockAt   *time.Time    `bson:"lockAt,omitempty" json:"lockAt,omitempty"`
-	Unlocked bool          `bson:"unlocked,omitempty" json:"unlocked,omitempty"`
+	ID           bson.ObjectID `bson:"_id" json:"id"`
+	DocID        bson.ObjectID `bson:"docId" json:"docId"`
+	Title        string        `bson:"title" json:"title"`
+	Content      string        `bson:"content" json:"content,omitempty"`
+	BeginAt      time.Time     `bson:"beginAt" json:"beginAt"`
+	EndAt        time.Time     `bson:"endAt" json:"endAt"`
+	Rule         string        `bson:"rule" json:"rule"`
+	Owner        int64         `bson:"owner" json:"owner"`
+	Attend       int64         `bson:"attend" json:"attend"`
+	PIDs         []int64       `bson:"pids" json:"pids"`
+	Duration     int           `bson:"duration" json:"duration"`
+	Rated        bool          `bson:"rated" json:"rated"`
+	PenaltySince *time.Time    `bson:"penaltySince,omitempty" json:"penaltySince,omitempty"`
+	LockAt       *time.Time    `bson:"lockAt,omitempty" json:"lockAt,omitempty"`
+	Unlocked     bool          `bson:"unlocked,omitempty" json:"unlocked,omitempty"`
 }
 
 type ProblemCell struct {
@@ -103,15 +104,23 @@ func (r *Repository) ListFiltered(ctx context.Context, query, rule string) ([]Co
 }
 
 func (r *Repository) ListHomework(ctx context.Context) ([]Contest, error) {
+	return r.ListHomeworkFiltered(ctx, "")
+}
+
+func (r *Repository) ListHomeworkFiltered(ctx context.Context, query string) ([]Contest, error) {
 	projection := bson.M{
 		"docId": 1, "title": 1, "beginAt": 1, "endAt": 1,
-		"rule": 1, "attend": 1, "pids": 1, "duration": 1, "rated": 1,
+		"rule": 1, "owner": 1, "attend": 1, "pids": 1, "duration": 1, "rated": 1, "penaltySince": 1,
 	}
-	cursor, err := r.coll.Find(ctx, bson.M{
+	filter := bson.M{
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeContest,
 		"rule":     "homework",
-	}, options.Find().
+	}
+	if query = strings.TrimSpace(query); query != "" {
+		filter["title"] = bson.M{"$regex": regexp.QuoteMeta(query), "$options": "i"}
+	}
+	cursor, err := r.coll.Find(ctx, filter, options.Find().
 		SetProjection(projection).
 		SetSort(bson.D{{Key: "endAt", Value: -1}, {Key: "_id", Value: -1}}))
 	if err != nil {

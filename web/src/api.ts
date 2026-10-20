@@ -181,6 +181,7 @@ export type Contest = {
   rated?: boolean
   lockAt?: string
   unlocked?: boolean
+  penaltySince?: string
 }
 
 export async function getContests(query = '', rule = ''): Promise<Contest[]> {
@@ -294,13 +295,26 @@ export async function enrollTraining(tid: string): Promise<{ enrolled: boolean; 
   return result.data
 }
 
-export async function getHomeworks(): Promise<Contest[]> {
-  const result = await request<Envelope<{ items: Contest[]; total: number }>>('/api/v1/homeworks')
+export async function getHomeworks(query = ''): Promise<Contest[]> {
+  const params = new URLSearchParams()
+  if (query.trim()) params.set('q', query.trim())
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const result = await request<Envelope<{ items: Contest[]; total: number }>>(`/api/v1/homeworks${suffix}`)
   return result.data.items
 }
 
 export async function getHomework(tid: string): Promise<Contest> {
   const result = await request<Envelope<Contest>>(`/api/v1/homeworks/${encodeURIComponent(tid)}`)
+  return result.data
+}
+
+export type HomeworkProblemPage = {
+  homework: Contest
+  problems: ProblemSummary[]
+}
+
+export async function getHomeworkProblems(tid: string): Promise<HomeworkProblemPage> {
+  const result = await request<Envelope<HomeworkProblemPage>>(`/api/v1/homeworks/${encodeURIComponent(tid)}/problems`)
   return result.data
 }
 
