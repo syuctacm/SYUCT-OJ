@@ -26,8 +26,15 @@ Go 实现位于 `internal/user/password.go`。
 
 登录页结构和类名对应 Hydro `ui-default` 的 `user_login.html`，使用 `layout--immersive`、`.immersive--content`、`.inverse` 表单样式和原版背景资源。
 
+## Session
+
+- 浏览器用户和判题机 Session 存储在 MongoDB `session` 集合。
+- Cookie 中的原始 token 不写入数据库，`_id` 使用 token 的 SHA-256 哈希。
+- `expiresAt` 上有 TTL 索引 `session_ttl`，应用读取时也会立即检查过期。
+- 默认有效期 `24h`，通过 `SESSION_TTL` 配置。
+- API 重启后用户 Cookie 和判题机 Cookie 继续有效。
+
 ## 当前限制
 
-- Session 目前是内存实现，服务重启后失效；正式认证阶段会替换为持久化 Session。
 - 尚未实现注册、找回密码、TFA、WebAuthn。
 - 登录成功后暂不更新 `loginat`、登录 IP 等审计字段。

@@ -57,7 +57,7 @@ func (h *Handler) login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
-	token, err := h.sessions.Issue()
+	token, err := h.sessions.IssueContext(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "session error"})
 		return
@@ -66,7 +66,7 @@ func (h *Handler) login(c *gin.Context) {
 		Name:     "sid",
 		Value:    token,
 		Path:     "/",
-		MaxAge:   24 * 60 * 60,
+		MaxAge:   int(h.sessions.TTL().Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
@@ -81,7 +81,7 @@ func (h *Handler) requireSession(c *gin.Context) {
 	if authorization := c.GetHeader("Authorization"); strings.HasPrefix(authorization, "Bearer ") {
 		token = strings.TrimPrefix(authorization, "Bearer ")
 	}
-	if !h.sessions.Validate(token) {
+	if !h.sessions.ValidateContext(c.Request.Context(), token) {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}

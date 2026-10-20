@@ -36,7 +36,7 @@ func (h *TrainingHandler) list(c *gin.Context) {
 func (h *TrainingHandler) get(c *gin.Context) {
 	var uid int64
 	if h.sessions != nil {
-		if session, ok := h.sessions.Get(auth.Token(c)); ok && session.Kind == "user" {
+		if session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c)); ok && session.Kind == "user" {
 			uid = session.UserID
 		}
 	}
@@ -53,7 +53,7 @@ func (h *TrainingHandler) enroll(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	session, ok := h.sessions.Get(auth.Token(c))
+	session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
 	if !ok || session.Kind != "user" || session.UserID <= 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return

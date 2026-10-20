@@ -117,7 +117,7 @@ func (h *AdminHandler) updateUserPriv(c *gin.Context) {
 	if !h.requireAdmin(c) {
 		return
 	}
-	session, _ := h.sessions.Get(auth.Token(c))
+	session, _ := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
 	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
 	if err != nil || uid <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
@@ -147,7 +147,7 @@ func (h *AdminHandler) updateUserPriv(c *gin.Context) {
 }
 
 func (h *AdminHandler) requireAdmin(c *gin.Context) bool {
-	session, ok := h.sessions.Get(auth.Token(c))
+	session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
 	if !ok || session.Kind != "user" || session.UserID <= 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return false

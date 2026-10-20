@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -52,7 +51,7 @@ func (h *Handler) login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
-	token, err := h.sessions.IssueForUser(u.ID)
+	token, err := h.sessions.IssueForUserContext(c.Request.Context(), u.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "session error"})
 		return
@@ -61,7 +60,7 @@ func (h *Handler) login(c *gin.Context) {
 		Name:     "sid",
 		Value:    token,
 		Path:     "/",
-		MaxAge:   int((24 * time.Hour).Seconds()),
+		MaxAge:   int(h.sessions.TTL().Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
@@ -70,7 +69,7 @@ func (h *Handler) login(c *gin.Context) {
 
 func (h *Handler) me(c *gin.Context) {
 	token := Token(c)
-	session, ok := h.sessions.Get(token)
+	session, ok := h.sessions.GetContext(c.Request.Context(), token)
 	if !ok || session.Kind != "user" || session.UserID <= 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -86,7 +85,7 @@ func (h *Handler) me(c *gin.Context) {
 func (h *Handler) logout(c *gin.Context) {
 	token := Token(c)
 	if token != "" {
-		h.sessions.Revoke(token)
+		h.sessions.RevokeContext(c.Request.Context(), token)
 	}
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "sid",

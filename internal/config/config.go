@@ -15,6 +15,7 @@ type Config struct {
 	JudgePassword  string
 	JudgeFileRoot  string
 	JudgeTaskLease time.Duration
+	SessionTTL     time.Duration
 }
 
 func Load() Config {
@@ -34,6 +35,7 @@ func Load() Config {
 		JudgePassword:  env("JUDGE_PASSWORD", "judge_dev_password"),
 		JudgeFileRoot:  env("JUDGE_FILE_ROOT", "./data/judge-files"),
 		JudgeTaskLease: durationEnv("JUDGE_TASK_LEASE", 2*time.Minute),
+		SessionTTL:     durationEnv("SESSION_TTL", 24*time.Hour),
 	}
 }
 

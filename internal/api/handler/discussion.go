@@ -54,7 +54,7 @@ func (h *DiscussionHandler) create(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	session, ok := h.sessions.Get(auth.Token(c))
+	session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
 	if !ok || session.Kind != "user" || session.UserID <= 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -129,7 +129,7 @@ func (h *DiscussionHandler) createReply(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	session, ok := h.sessions.Get(auth.Token(c))
+	session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
 	if !ok || session.Kind != "user" || session.UserID <= 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
