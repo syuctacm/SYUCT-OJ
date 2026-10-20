@@ -8,11 +8,12 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/api/middleware"
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/config"
+	"github.com/syuctacm/syuct-oj/internal/contest"
 	"github.com/syuctacm/syuct-oj/internal/judge"
 	"github.com/syuctacm/syuct-oj/internal/problem"
 )
 
-func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handler, authHandler *auth.Handler, problemRepo *problem.Repository, submissionHandler *handler.SubmissionHandler) *gin.Engine {
+func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handler, authHandler *auth.Handler, problemRepo *problem.Repository, submissionHandler *handler.SubmissionHandler, contestRepo *contest.Repository) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery(), middleware.CORS(cfg.CORSOrigins))
 
@@ -29,6 +30,9 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	}
 	if submissionHandler != nil {
 		submissionHandler.RegisterRoutes(router.Group("/"))
+	}
+	if contestRepo != nil {
+		handler.NewContestHandler(contestRepo).RegisterRoutes(router.Group("/"))
 	}
 	if judgeHandler != nil {
 		judgeHandler.RegisterRoutes(router.Group("/"))

@@ -128,3 +128,27 @@ export async function getSubmissions(page = 1, limit = 20): Promise<SubmissionPa
   const result = await request<Envelope<SubmissionPage>>(`/api/v1/submissions?${params.toString()}`)
   return result.data
 }
+
+export type Contest = {
+  id: string
+  docId: string
+  title: string
+  content?: string
+  beginAt: string
+  endAt: string
+  rule: string
+  attend: number
+  pids: number[] | null
+  duration?: number
+  rated?: boolean
+}
+
+export async function getContests(): Promise<Contest[]> {
+  const result = await request<Envelope<{ items: Contest[]; total: number }>>('/api/v1/contests')
+  return result.data.items
+}
+
+export async function getContest(tid: string): Promise<Contest> {
+  const result = await request<Envelope<Contest>>(`/api/v1/contests/${encodeURIComponent(tid)}`)
+  return result.data
+}

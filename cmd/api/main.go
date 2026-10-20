@@ -16,6 +16,7 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/api/handler"
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/config"
+	"github.com/syuctacm/syuct-oj/internal/contest"
 	"github.com/syuctacm/syuct-oj/internal/database"
 	"github.com/syuctacm/syuct-oj/internal/judge"
 	"github.com/syuctacm/syuct-oj/internal/problem"
@@ -50,6 +51,7 @@ func main() {
 	judgeHandler := judge.NewHandler(cfg.JudgeUsername, cfg.JudgePassword, sessions, judgeStore, hub)
 	authHandler := auth.NewHandler(user.NewRepository(db), sessions)
 	problemRepo := problem.NewRepository(db)
+	contestRepo := contest.NewRepository(db)
 	submissionRepo := submission.NewRepository(db, problemRepo)
 	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions)
 	hub.SetResultHandler(func(payload map[string]any) {
@@ -62,7 +64,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           api.NewRouter(cfg, db, judgeHandler, authHandler, problemRepo, submissionHandler),
+		Handler:           api.NewRouter(cfg, db, judgeHandler, authHandler, problemRepo, submissionHandler, contestRepo),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

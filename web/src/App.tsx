@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout.tsx'
+import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
+import { ContestsPage } from './pages/ContestsPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
 import { ProblemDetailPage } from './pages/ProblemDetailPage.tsx'
 import { ProblemsPage } from './pages/ProblemsPage.tsx'
@@ -15,6 +17,8 @@ export default function App() {
         <Route path="/p" element={<ProblemsPage />} />
         <Route path="/p/:pid" element={<ProblemDetailPage />} />
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
+        <Route path="/contest" element={<ContestsPage />} />
+        <Route path="/contest/:tid" element={<ContestDetailPage />} />
         <Route path="/record" element={<RecordsPage />} />
         <Route path="/record/:rid" element={<SubmissionPage />} />
         <Route path="/login" element={<LoginPage />} />

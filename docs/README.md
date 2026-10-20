@@ -9,3 +9,4 @@
 - [题目 API](./problems.md)
 - [提交与判题闭环](./submissions.md)
 - [React 核心页面](./web-core.md)
+- [比赛 API 与页面](./contests.md)

@@ -95,3 +95,5 @@ button, input, select, textarea { font: inherit; }
 .record-status-1 { color: #1b8a4b; }
 .record-status-2, .record-status-3, .record-status-4, .record-status-5, .record-status-6, .record-status-7, .record-status-8 { color: #b83b3b; }
 .record-status-20, .record-status-21, .record-status-22 { color: #b7791f; }
+
+.contest-meta { display: flex; flex-wrap: wrap; gap: 16px; padding: 0 24px 18px; color: #7b8794; font-size: 13px; border-bottom: 1px solid #edf0f3; }
