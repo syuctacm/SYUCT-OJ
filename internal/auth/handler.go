@@ -69,7 +69,7 @@ func (h *Handler) login(c *gin.Context) {
 }
 
 func (h *Handler) me(c *gin.Context) {
-	token := sessionToken(c)
+	token := Token(c)
 	session, ok := h.sessions.Get(token)
 	if !ok || session.Kind != "user" || session.UserID <= 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -84,7 +84,7 @@ func (h *Handler) me(c *gin.Context) {
 }
 
 func (h *Handler) logout(c *gin.Context) {
-	token := sessionToken(c)
+	token := Token(c)
 	if token != "" {
 		h.sessions.Revoke(token)
 	}
@@ -99,7 +99,7 @@ func (h *Handler) logout(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func sessionToken(c *gin.Context) string {
+func Token(c *gin.Context) string {
 	if cookie, err := c.Cookie("sid"); err == nil {
 		return cookie
 	}

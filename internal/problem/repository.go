@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -18,6 +19,14 @@ const (
 )
 
 var ErrNotFound = fmt.Errorf("problem not found")
+
+type ProblemFile struct {
+	ID           string    `bson:"_id" json:"-"`
+	Name         string    `bson:"name" json:"-"`
+	Size         int64     `bson:"size" json:"-"`
+	ETag         string    `bson:"etag" json:"-"`
+	LastModified time.Time `bson:"lastModified" json:"-"`
+}
 
 type Problem struct {
 	ID         bson.ObjectID `bson:"_id" json:"id"`
@@ -32,6 +41,8 @@ type Problem struct {
 	Hidden     bool          `bson:"hidden" json:"hidden"`
 	Sort       string        `bson:"sort" json:"sort,omitempty"`
 	Owner      int64         `bson:"owner" json:"owner,omitempty"`
+	Config     any           `bson:"config" json:"-"`
+	Data       []ProblemFile `bson:"data" json:"-"`
 }
 
 type ListOptions struct {

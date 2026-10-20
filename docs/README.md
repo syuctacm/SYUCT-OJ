@@ -7,3 +7,4 @@
 - [hydrojudge 兼容层](./judge-compat.md)
 - [用户认证](./auth.md)
 - [题目 API](./problems.md)
+- [提交与判题闭环](./submissions.md)

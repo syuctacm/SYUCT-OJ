@@ -13,11 +13,13 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/syuctacm/syuct-oj/internal/api"
+	"github.com/syuctacm/syuct-oj/internal/api/handler"
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/config"
 	"github.com/syuctacm/syuct-oj/internal/database"
 	"github.com/syuctacm/syuct-oj/internal/judge"
 	"github.com/syuctacm/syuct-oj/internal/problem"
+	"github.com/syuctacm/syuct-oj/internal/submission"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
@@ -48,10 +50,19 @@ func main() {
 	judgeHandler := judge.NewHandler(cfg.JudgeUsername, cfg.JudgePassword, sessions, judgeStore, hub)
 	authHandler := auth.NewHandler(user.NewRepository(db), sessions)
 	problemRepo := problem.NewRepository(db)
+	submissionRepo := submission.NewRepository(db, problemRepo)
+	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions)
+	hub.SetResultHandler(func(payload map[string]any) {
+		if err := submissionRepo.ApplyJudgeResult(context.Background(), payload); err != nil {
+			slog.Warn("unable to apply judge result", "error", err)
+		}
+	})
+	pump := judge.NewTaskPump(db, hub)
+	go pump.Run(context.Background())
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           api.NewRouter(cfg, db, judgeHandler, authHandler, problemRepo),
+		Handler:           api.NewRouter(cfg, db, judgeHandler, authHandler, problemRepo, submissionHandler),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

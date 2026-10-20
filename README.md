@@ -147,3 +147,10 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `GET /api/v1/problems/:pid`
 
 接口直接读取本地 MongoDB 的 `document` 集合，详见 [docs/problems.md](./docs/problems.md)。
+
+## 提交接口
+
+- `POST /api/v1/submissions`
+- `GET /api/v1/submissions/:rid`
+
+提交会写入 `record` 和 `task`，TaskPump 再将任务下发给兼容的判题机。详见 [docs/submissions.md](./docs/submissions.md)。
