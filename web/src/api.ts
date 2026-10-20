@@ -217,3 +217,26 @@ export async function getHomework(tid: string): Promise<Contest> {
   const result = await request<Envelope<Contest>>(`/api/v1/homeworks/${encodeURIComponent(tid)}`)
   return result.data
 }
+
+export type Discussion = {
+  id: string
+  docId: string
+  title: string
+  content?: string
+  owner: number
+  updateAt: string
+  nReply: number
+  views: number
+  pin: boolean
+  highlight: boolean
+}
+
+export async function getDiscussions(): Promise<Discussion[]> {
+  const result = await request<Envelope<{ items: Discussion[]; total: number }>>('/api/v1/discussions')
+  return result.data.items
+}
+
+export async function getDiscussion(did: string): Promise<Discussion> {
+  const result = await request<Envelope<Discussion>>(`/api/v1/discussions/${encodeURIComponent(did)}`)
+  return result.data
+}

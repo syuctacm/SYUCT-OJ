@@ -182,3 +182,10 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `GET /api/v1/homeworks/:tid`
 
 作业使用 `docType=30`、`rule=homework` 的文档，详见 [docs/homework.md](./docs/homework.md)。
+
+## 讨论接口
+
+- `GET /api/v1/discussions`
+- `GET /api/v1/discussions/:did`
+
+讨论读取 Hydro `document` 的 `docType=21` 文档，详见 [docs/discussion.md](./docs/discussion.md)。

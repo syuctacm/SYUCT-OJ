@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout.tsx'
 import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
 import { ContestsPage } from './pages/ContestsPage.tsx'
+import { DiscussionDetailPage } from './pages/DiscussionDetailPage.tsx'
+import { DiscussionsPage } from './pages/DiscussionsPage.tsx'
 import { HomeworkDetailPage } from './pages/HomeworkDetailPage.tsx'
 import { HomeworksPage } from './pages/HomeworksPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
@@ -23,6 +25,8 @@ export default function App() {
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
         <Route path="/contest" element={<ContestsPage />} />
         <Route path="/contest/:tid" element={<ContestDetailPage />} />
+        <Route path="/discuss" element={<DiscussionsPage />} />
+        <Route path="/discuss/:did" element={<DiscussionDetailPage />} />
         <Route path="/homework" element={<HomeworksPage />} />
         <Route path="/homework/:tid" element={<HomeworkDetailPage />} />
         <Route path="/training" element={<TrainingsPage />} />
