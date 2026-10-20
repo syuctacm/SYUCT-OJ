@@ -90,3 +90,8 @@ button, input, select, textarea { font: inherit; }
   .col-difficulty, .col-stat { display: none; }
   .submission-summary { grid-template-columns: repeat(2, 1fr); }
 }
+
+.record-status { font-size: 13px; }
+.record-status-1 { color: #1b8a4b; }
+.record-status-2, .record-status-3, .record-status-4, .record-status-5, .record-status-6, .record-status-7, .record-status-8 { color: #b83b3b; }
+.record-status-20, .record-status-21, .record-status-22 { color: #b7791f; }

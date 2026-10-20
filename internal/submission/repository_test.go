@@ -85,4 +85,19 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 	if updated.JudgeAt == nil {
 		t.Fatal("judgeAt was not set")
 	}
+
+	_, err = db.Collection("record").InsertMany(ctx, []any{
+		bson.M{"_id": bson.NewObjectID(), "uid": int64(7), "pid": int64(1), "domainId": "system", "lang": "cpp", "status": 2, "score": 0},
+		bson.M{"_id": bson.NewObjectID(), "uid": int64(8), "pid": int64(1), "domainId": "system", "lang": "cpp", "status": 1, "score": 100},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := repo.ListByUser(ctx, 7, 1, 10)
+	if err != nil {
+		t.Fatalf("list by user: %v", err)
+	}
+	if list.Total != 2 || len(list.Items) != 2 {
+		t.Fatalf("unexpected user submission list: %+v", list)
+	}
 }

@@ -7,6 +7,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"gopkg.in/yaml.v3"
 
 	"github.com/syuctacm/syuct-oj/internal/problem"
@@ -37,6 +38,13 @@ type Record struct {
 	JudgeAt       *time.Time    `bson:"judgeAt" json:"judgeAt,omitempty"`
 	Rejudged      bool          `bson:"rejudged" json:"rejudged"`
 	Source        string        `bson:"source" json:"source,omitempty"`
+}
+
+type ListResult struct {
+	Items []Record `json:"items"`
+	Total int64    `json:"total"`
+	Page  int      `json:"page"`
+	Limit int      `json:"limit"`
 }
 
 type Repository struct {
@@ -93,6 +101,43 @@ func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code stri
 		return nil, err
 	}
 	return r.Get(ctx, rid.Hex())
+}
+
+func (r *Repository) ListByUser(ctx context.Context, uid int64, page, limit int) (*ListResult, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	filter := bson.M{"uid": uid}
+	total, err := r.records.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	projection := bson.M{
+		"_id": 1, "uid": 1, "pid": 1, "domainId": 1, "lang": 1,
+		"status": 1, "score": 1, "time": 1, "memory": 1,
+		"judgeAt": 1, "rejudged": 1, "source": 1,
+	}
+	findOpts := options.Find().
+		SetProjection(projection).
+		SetSort(bson.D{{Key: "_id", Value: -1}}).
+		SetSkip(int64((page - 1) * limit)).
+		SetLimit(int64(limit))
+	cursor, err := r.records.Find(ctx, filter, findOpts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]Record, 0, limit)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	return &ListResult{Items: items, Total: total, Page: page, Limit: limit}, nil
 }
 
 func (r *Repository) Get(ctx context.Context, rid string) (*Record, error) {

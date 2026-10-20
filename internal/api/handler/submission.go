@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,7 @@ func NewSubmissionHandler(repo *submission.Repository, sessions *auth.SessionMan
 
 func (h *SubmissionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/submissions", h.create)
+	router.GET("/api/v1/submissions", h.list)
 	router.GET("/api/v1/submissions/:rid", h.get)
 }
 
@@ -45,6 +47,22 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusAccepted, gin.H{"code": 0, "message": "success", "data": record})
+}
+
+func (h *SubmissionHandler) list(c *gin.Context) {
+	uid, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	result, err := h.repo.ListByUser(c.Request.Context(), uid, page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list submissions"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": result})
 }
 
 func (h *SubmissionHandler) get(c *gin.Context) {
