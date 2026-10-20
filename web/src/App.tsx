@@ -23,6 +23,7 @@ import { RecordsPage } from './pages/RecordsPage.tsx'
 import { SubmissionPage } from './pages/SubmissionPage.tsx'
 import { UserProfilePage } from './pages/UserProfilePage.tsx'
 import { TrainingDetailPage } from './pages/TrainingDetailPage.tsx'
+import { TrainingEditPage } from './pages/TrainingEditPage.tsx'
 import { TrainingsPage } from './pages/TrainingsPage.tsx'
 import { SubmitPage } from './pages/SubmitPage.tsx'
 import { TagRankingPage } from './pages/TagRankingPage.tsx'
@@ -54,6 +55,8 @@ export default function App() {
         <Route path="/homework/:tid/edit" element={<HomeworkEditPage mode="edit" />} />
         <Route path="/homework/:tid" element={<HomeworkDetailPage />} />
         <Route path="/training" element={<TrainingsPage />} />
+        <Route path="/training/new" element={<TrainingEditPage mode="create" />} />
+        <Route path="/training/:tid/edit" element={<TrainingEditPage mode="edit" />} />
         <Route path="/training/:tid" element={<TrainingDetailPage />} />
         <Route path="/record" element={<RecordsPage />} />
         <Route path="/record/:rid" element={<SubmissionPage />} />

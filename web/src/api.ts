@@ -407,6 +407,30 @@ export async function getContestScoreboard(tid: string): Promise<ContestScoreboa
   return result.data
 }
 
+export type TrainingNode = {
+  id: number
+  title: string
+  content?: string
+  requireNids: number[]
+  pids: number[]
+}
+
+export type TrainingEditNode = {
+  _id: number
+  title: string
+  content?: string
+  requireNids: number[]
+  pids: Array<number | string>
+}
+
+export type TrainingEditInput = {
+  title: string
+  content: string
+  description: string
+  pin: boolean
+  dag: TrainingEditNode[]
+}
+
 export type Training = {
   id: string
   docId: string
@@ -416,6 +440,7 @@ export type Training = {
   owner: number
   attend: number
   pin: boolean
+  dag?: TrainingNode[]
   sectionCount: number
   problemCount: number
 }
@@ -466,6 +491,27 @@ export async function getTraining(tid: string): Promise<TrainingDetail> {
 export async function enrollTraining(tid: string): Promise<{ enrolled: boolean; changed: boolean }> {
   const result = await request<Envelope<{ enrolled: boolean; changed: boolean }>>(`/api/v1/trainings/${encodeURIComponent(tid)}/enroll`, {
     method: 'POST',
+  })
+  return result.data
+}
+
+export async function getTrainingEditor(tid: string): Promise<Training> {
+  const result = await request<Envelope<Training>>(`/api/v1/trainings/${encodeURIComponent(tid)}/edit`)
+  return result.data
+}
+
+export async function createTraining(input: TrainingEditInput): Promise<Training> {
+  const result = await request<Envelope<Training>>('/api/v1/trainings', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return result.data
+}
+
+export async function updateTraining(tid: string, input: TrainingEditInput): Promise<Training> {
+  const result = await request<Envelope<Training>>(`/api/v1/trainings/${encodeURIComponent(tid)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
   })
   return result.data
 }

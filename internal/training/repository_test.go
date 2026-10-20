@@ -33,8 +33,8 @@ func TestTrainingRepositoryIntegration(t *testing.T) {
 	firstID := bson.NewObjectID()
 	secondID := bson.NewObjectID()
 	_, err = db.Collection("document").InsertMany(ctx, []any{
-		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 40, "docId": firstID, "title": "基础训练", "description": "基础", "pin": false},
-		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 40, "docId": secondID, "title": "置顶训练", "description": "置顶", "pin": true, "content": "# 内容"},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 40, "docId": firstID, "title": "基础训练", "description": "基础", "pin": int32(0)},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 40, "docId": secondID, "title": "置顶训练", "description": "置顶", "pin": int64(1), "content": "# 内容"},
 	})
 	if err != nil {
 		t.Fatal(err)

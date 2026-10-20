@@ -53,7 +53,7 @@ export function TrainingDetailPage() {
         <div className="section">
           <div className="section__header"><h1 className="section__title">{training.title}</h1></div>
           <div className="section__body typo">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{training.content || ''}</ReactMarkdown>
+            <p>{training.content || ''}</p>
           </div>
           <div className="section__body typo richmedia">
             {!authLoading && !user ? <blockquote className="typo note"><p>登录后参加训练计划。</p></blockquote> : !training.enrolled ? <blockquote className="typo note"><p>报名后开始训练，系统会根据提交记录更新进度。</p></blockquote> : null}
@@ -136,6 +136,9 @@ export function TrainingDetailPage() {
                 </li>
               ) : null}
               <li className="menu__item"><a className="menu__link" href="#training_detail"><span className="icon icon-unordered_list" /> 训练章节</a></li>
+              {user && (user.id === training.owner || ((user.priv ?? 0) & 1) !== 0) ? (
+                <li className="menu__item"><Link className="menu__link" to={`/training/${encodeURIComponent(training.docId)}/edit`}><span className="icon icon-edit" /> 编辑训练</Link></li>
+              ) : null}
               <li className="menu__item"><Link className="menu__link" to="/discuss"><span className="icon icon-comment--text" /> 讨论</Link></li>
               <li className="menu__separator" />
             </ol>
