@@ -55,6 +55,8 @@ const env = new nunjucks.Environment(loader as unknown as nunjucks.ILoader, {
 env.addFilter('assign', (base: RenderContext, extra: RenderContext) => ({ ...base, ...extra }))
 env.addFilter('nl2br', (value: string) => String(value).replace(/\n/g, '<br>'))
 env.addFilter('json', (value: unknown) => JSON.stringify(value))
+env.addFilter('parseYaml', (value: string) => yaml.load(String(value)))
+env.addFilter('toString', (value: unknown) => String(value ?? ''))
 
 function translate(key: string) {
   return String(translations[key] ?? key)

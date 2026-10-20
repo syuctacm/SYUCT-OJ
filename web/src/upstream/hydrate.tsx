@@ -56,6 +56,8 @@ type MarkdownHydrationOptions = {
   tid?: string
   onChange?: () => void
   onUploaded?: (files: ActivityFile[]) => void
+  uploadProblem?: (files: File[]) => Promise<Array<{ downloadUrl: string }>>
+  onProblemUploaded?: (files: Array<{ downloadUrl: string }>) => void
 }
 
 function mountMarkdownEditor(textarea: HTMLTextAreaElement, options: MarkdownHydrationOptions): Cleanup {
@@ -72,8 +74,17 @@ function mountMarkdownEditor(textarea: HTMLTextAreaElement, options: MarkdownHyd
         textarea.dispatchEvent(new Event('change', { bubbles: true }))
         options.onChange?.()
       }}
-      hideImageUpload={!options.resource || !options.tid}
-      onUploadImg={options.resource && options.tid ? async (files, callback) => {
+      hideImageUpload={!(options.uploadProblem || (options.resource && options.tid))}
+      onUploadImg={options.uploadProblem ? async (files, callback) => {
+        try {
+          const uploaded = await options.uploadProblem!(files)
+          callback(uploaded.map((file) => file.downloadUrl))
+          options.onProblemUploaded?.(uploaded)
+        } catch (error) {
+          callback([])
+          window.alert(error instanceof Error ? error.message : '图片上传失败')
+        }
+      } : options.resource && options.tid ? async (files, callback) => {
         try {
           const uploaded = await uploadActivityFiles(options.resource!, options.tid!, files)
           callback(uploaded.map((file) => file.downloadUrl))
@@ -192,7 +203,12 @@ export function hydrateHydroEditForm(root: HTMLElement, options: HydrateOptions 
     if (input) cleanups.push(mountAutocomplete(input, kind))
   }
 
-  for (const textarea of root.querySelectorAll<HTMLTextAreaElement>('textarea[data-markdown]')) {
+  root.querySelectorAll<HTMLTextAreaElement>('textarea[data-editor]').forEach((textarea) => {
+    textarea.hidden = true
+    if (textarea.parentElement) textarea.parentElement.style.display = 'none'
+  })
+
+  for (const textarea of root.querySelectorAll<HTMLTextAreaElement>('textarea[data-markdown], textarea[data-markdown-upload]')) {
     cleanups.push(mountMarkdownEditor(textarea, options))
   }
   return () => cleanups.forEach((cleanup) => cleanup())

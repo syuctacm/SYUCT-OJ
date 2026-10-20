@@ -1,95 +1,226 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to data and event adapters; do not re-create the DOM in JSX.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import yaml from 'js-yaml'
 import {
   createProblem,
+  getProblemAssets,
   getProblemEditor,
   updateProblem,
+  uploadProblemAssets,
+  type ProblemAsset,
   type ProblemDetail,
   type ProblemEditInput,
 } from '../api.ts'
-import { ProblemSidebar } from '../components/ProblemSidebar.tsx'
-
-const defaultContent = `## 题目描述
-
-在这里填写题目描述。
-
-## 输入格式
-
-在这里填写输入格式。
-
-## 输出格式
-
-在这里填写输出格式。
-
-## 样例输入
-
-\`\`\`
-\`\`\`
-
-## 样例输出
-
-\`\`\`
-\`\`\`
-`
+import { useAuth } from '../auth.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
+import { renderHydroTemplate } from '../upstream/render.ts'
 
 const defaultConfig = `type: default
 time: 1000ms
 memory: 256m
 `
 
+function parseConfig(raw: string) {
+  try {
+    const value = yaml.load(raw) as Record<string, unknown> | null
+    if (value && typeof value === 'object') return value
+  } catch {
+    // The editor will surface the server-side validation error on save.
+  }
+  return {}
+}
+
+function configNumbers(raw: string) {
+  const config = parseConfig(raw)
+  const time = String(config.time ?? '1000').replace(/ms$/i, '')
+  const memory = String(config.memory ?? '256').replace(/[a-z]+$/i, '')
+  return {
+    timeMin: time,
+    timeMax: time,
+    memoryMin: memory,
+    memoryMax: memory,
+  }
+}
+
+function splitTags(value: string) {
+  return value.replace(/，/g, ',').split(',').map((tag) => tag.trim()).filter(Boolean)
+}
+
 export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
   const { pid = '' } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [problem, setProblem] = useState<ProblemDetail | null>(null)
-  const [form, setForm] = useState<ProblemEditInput>({
-    pid: '',
-    title: '',
-    content: defaultContent,
-    tags: [],
-    difficulty: 0,
-    hidden: false,
-    config: defaultConfig,
-  })
-  const [tagText, setTagText] = useState('')
+  const [config, setConfig] = useState(defaultConfig)
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const files = useRef<ProblemAsset[]>([])
+  const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
 
   useEffect(() => {
     if (mode !== 'edit') return
     setLoading(true)
-    getProblemEditor(pid)
-      .then((data) => {
-        setProblem(data.problem)
-        setForm({
-          pid: data.problem.pid,
-          title: data.problem.title,
-          content: data.problem.content || '',
-          tags: data.problem.tags ?? [],
-          difficulty: data.problem.difficulty ?? 0,
-          hidden: Boolean(data.problem.hidden),
-          config: data.config,
-        })
-        setTagText((data.problem.tags ?? []).join(', '))
+    Promise.all([getProblemEditor(pid), getProblemAssets(pid)])
+      .then(([editor, assets]) => {
+        files.current = assets.additional
+        setProblem(editor.problem)
+        setConfig(editor.config)
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '题目加载失败'))
       .finally(() => setLoading(false))
   }, [mode, pid])
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const refreshFiles = useCallback((root: HTMLElement, nextFiles: ProblemAsset[]) => {
+    files.current = nextFiles
+    const current = root.querySelector('[data-type="additional_file"] .files')
+    if (!current) return
+    const rendered = renderHydroTemplate('partials/problem_files.html', {
+      context: {
+        pdoc: problem,
+        additional_file: nextFiles,
+        filetype: 'additional_file',
+        sidebar: true,
+        can_edit: false,
+        handler: { user: { own: () => true, hasPriv: () => Boolean(user), hasPerm: () => true } },
+      },
+      url: (name, args = {}) => name === 'problem_file_download'
+        ? `/api/v1/problems/${encodeURIComponent(pid)}/assets/download?name=${encodeURIComponent(String(args.filename ?? ''))}&type=additional`
+        : '/',
+    })
+    const holder = document.createElement('div')
+    holder.innerHTML = rendered
+    current.replaceWith(holder.firstElementChild!)
+  }, [pid, problem, user])
+
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    const form = root.querySelector('form')
+    const onSubmit = (event: SubmitEvent) => submitRef.current(event)
+    form?.addEventListener('submit', onSubmit)
+    // The Go API does not expose problem deletion yet; do not leave a dead control.
+    root.querySelector('button[value="delete"]')?.remove()
+    const stopHydration = hydrateHydroEditForm(root, {
+      uploadProblem: mode === 'edit' ? async (selected) => {
+        const result = await uploadProblemAssets(pid, 'additional', selected)
+        return result.additional
+      } : undefined,
+      onProblemUploaded: (uploaded) => refreshFiles(root, uploaded as ProblemAsset[]),
+    })
+    const upload = root.querySelector<HTMLButtonElement>('[name="upload_file"]')
+    const onClick = () => {
+      if (mode !== 'edit') return
+      const picker = document.createElement('input')
+      picker.type = 'file'
+      picker.multiple = true
+      picker.onchange = async () => {
+        if (!picker.files?.length) return
+        try {
+          const result = await uploadProblemAssets(pid, 'additional', Array.from(picker.files))
+          refreshFiles(root, result.additional)
+        } catch (err) {
+          window.alert(err instanceof Error ? err.message : '文件上传失败')
+        }
+      }
+      picker.click()
+    }
+    upload?.addEventListener('click', onClick)
+    return () => {
+      form?.removeEventListener('submit', onSubmit)
+      upload?.removeEventListener('click', onClick)
+      stopHydration()
+    }
+  }, [mode, pid, refreshFiles])
+
+  const context = useMemo(() => {
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    const configData = configNumbers(config)
+    const pdoc = problem ? {
+      ...problem,
+      tag: problem.tags ?? [],
+      config: configData,
+      docId: problem.docId,
+    } : null
+    return {
+      page_name: mode === 'edit' ? 'problem_edit' : 'problem_create',
+      pdoc,
+      statementLangs: {},
+      additional_file: files.current,
+      udict: {},
+      owner_udoc: problem?.owner ? {
+        _id: problem.owner,
+        uname: `UID ${problem.owner}`,
+        avatar: '',
+        hasPriv: () => false,
+        hasPerm: () => false,
+      } : null,
+      handler: {
+        user: {
+          _id: user?.id ?? 0,
+          viewLang: 'zh',
+          _dudoc: { join: true },
+          hasPerm: (permission: number) => Boolean(user) && [1, 2, 3, 4].includes(permission),
+          hasPriv: () => Boolean(user),
+          own: () => Boolean(user && problem && (problem.owner === user.id || isAdmin)),
+        },
+        ctx: {
+          setting: {
+            get: (key: string) => key === 'problem.categories' ? '{}' : key === 'ui-default.enableScratchpad' ? '' : '',
+          },
+        },
+      },
+      perm: {
+        PERM_EDIT_PROBLEM: 1,
+        PERM_EDIT_PROBLEM_SELF: 2,
+        PERM_SUBMIT_PROBLEM: 3,
+        PERM_READ_PROBLEM_DATA: 4,
+        PERM_VIEW_DISCUSSION: 5,
+        PERM_CREATE_DISCUSSION: 6,
+        PERM_REJUDGE_PROBLEM: 7,
+        PERM_VIEW_PROBLEM_SOLUTION: 8,
+      },
+      PRIV: { PRIV_USER_PROFILE: 1, PRIV_READ_PROBLEM_DATA: 2, PRIV_REGISTER_USER: 3 },
+      STATUS: { STATUS_ACCEPTED: 1 },
+      psdoc: { status: 1 },
+      tdocs: [],
+      ctdocs: [],
+      htdocs: [],
+      discussionCount: 0,
+      solutionCount: 0,
+      UiContext: { cdn_prefix: '/' },
+      avatarUrl: (value?: string) => value || '/logo.png',
+      model: {
+        builtin: { LEVELS: {} },
+        system: { get: (key: string) => key === 'server.login' ? true : false },
+        setting: { SETTINGS_BY_KEY: {} },
+      },
+      lib: { difficulty: () => 0 },
+      utils: { getAlphabeticId: () => '' },
+      UserContext: user,
+    }
+  }, [config, files.current, mode, problem, user])
+
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
+    const form = event.target as HTMLFormElement
+    const data = new FormData(form)
+    const input: ProblemEditInput = {
+      pid: String(data.get('pid') ?? '').trim(),
+      title: String(data.get('title') ?? '').trim(),
+      content: String(data.get('content') ?? ''),
+      tags: splitTags(String(data.get('tag') ?? '')),
+      difficulty: Number(data.get('difficulty') || 0),
+      hidden: data.get('hidden') !== null,
+      config,
+    }
     setSaving(true)
     setError('')
-    const input: ProblemEditInput = {
-      ...form,
-      tags: tagText.split(/[,，]/).map((value) => value.trim()).filter(Boolean),
-    }
     try {
-      const data = mode === 'create'
-        ? await createProblem(input)
-        : await updateProblem(pid, input)
-      if (mode === 'create') navigate(`/p/${encodeURIComponent(data.problem.pid)}/files`, { replace: true })
-      else navigate(`/p/${encodeURIComponent(data.problem.pid)}`, { replace: true })
+      const result = mode === 'create' ? await createProblem(input) : await updateProblem(pid, input)
+      const target = `/p/${encodeURIComponent(result.problem.pid || String(result.problem.docId))}`
+      navigate(mode === 'create' ? `${target}/files` : target, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : '题目保存失败')
     } finally {
@@ -97,135 +228,46 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
     }
   }
 
+  submitRef.current = (event) => void handleSubmit(event)
+
+  const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+  if (mode === 'create' && user && !isAdmin) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">没有创建题目的权限</div></div></div>
+  }
   if (loading) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder"><div className="nothing-icon" />加载中...</div></div></div>
   }
-  if (error && mode === 'edit' && !problem) {
-    return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  if (mode === 'edit' && (!problem || !context)) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">{error || '题目不存在'}</div></div></div>
   }
 
   return (
-    <div className="row">
-      <div className="medium-9 columns">
-        <div className="section">
-          <div className="section__body">
-            <form method="post" onSubmit={handleSubmit}>
-              <div className="row">
-                <div className="medium-3 columns">
-                  <label>
-                    PID
-                    <br />
-                    <input
-                      name="pid"
-                      placeholder="P1000"
-                      value={form.pid}
-                      onChange={(event) => setForm((current) => ({ ...current, pid: event.target.value }))}
-                      className="textbox"
-                      required
-                    />
-                  </label>
-                </div>
-                <div className="medium-7 columns">
-                  <label>
-                    标题
-                    <input
-                      name="title"
-                      placeholder="题目标题"
-                      value={form.title}
-                      onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-                      className="textbox"
-                      autoFocus={mode === 'create'}
-                      required
-                    />
-                  </label>
-                </div>
-                <div className="medium-2 columns">
-                  <label>
-                    <br />
-                    <label className="checkbox">
-                      <input
-                        type="checkbox"
-                        name="hidden"
-                        checked={form.hidden}
-                        onChange={(event) => setForm((current) => ({ ...current, hidden: event.target.checked }))}
-                        className="checkbox"
-                      />
-                      隐藏
-                    </label>
-                  </label>
-                </div>
-              </div>
-              <div className="row">
-                <div className="medium-9 columns form__item">
-                  <label>
-                    标签
-                    <input
-                      name="tag"
-                      value={tagText}
-                      onChange={(event) => setTagText(event.target.value)}
-                      className="textbox"
-                      placeholder="数学, 图论"
-                    />
-                  </label>
-                  <p className="help-text">使用逗号分隔。</p>
-                </div>
-                <div className="medium-3 columns form__item">
-                  <label>
-                    难度
-                    <input
-                      name="difficulty"
-                      type="number"
-                      min="0"
-                      max="10"
-                      value={form.difficulty}
-                      onChange={(event) => setForm((current) => ({ ...current, difficulty: Number(event.target.value) }))}
-                      className="textbox"
-                    />
-                  </label>
-                  <p className="help-text">范围 0-10。</p>
-                </div>
-              </div>
-              <div className="form__item">
-                <label>
-                  题面 Markdown
-                  <textarea
-                    name="content"
-                    value={form.content}
-                    onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
-                    className="textbox auto-resize"
-                    style={{ minHeight: 500 }}
-                  />
-                </label>
-              </div>
-              {error ? <blockquote className="warn"><p>{error}</p></blockquote> : null}
-              <div className="row"><div className="columns">
-                <button type="submit" className="rounded primary button" disabled={saving}>
-                  {saving ? '保存中...' : mode === 'create' ? '创建' : '更新'}
-                </button>
-                <Link className="rounded button" to={mode === 'create' ? '/p' : `/p/${encodeURIComponent(problem?.pid || pid)}`}>取消</Link>
-              </div></div>
-            </form>
-          </div>
-        </div>
-      </div>
-      <div className="medium-3 columns">
-        {mode === 'edit' && problem ? (
-          <ProblemSidebar problem={problem} pageName="problem_edit" />
-        ) : (
-          <div className="section side">
-            <div className="section__header"><h1 className="section__title">Markdown 提示</h1></div>
-            <div className="section__body typo">
-              <dl className="large horizontal">
-                <dt>标题</dt><dd><code>## 标题</code></dd>
-                <dt>代码</dt><dd><code>```cpp</code></dd>
-                <dt>公式</dt><dd><code>$x^2$</code></dd>
-                <dt>链接</dt><dd><code>[文字](url)</code></dd>
-              </dl>
-              <p><a href="https://commonmark.org/help/" target="_blank" rel="noreferrer"><span className="icon icon-link--external" /> CommonMark 语法</a></p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    <>
+      {error ? <div className="row"><div className="columns"><blockquote className="warn"><p>{error}</p></blockquote></div></div> : null}
+      {saving ? <div className="row"><div className="columns"><blockquote className="note"><p>保存中...</p></blockquote></div></div> : null}
+      <HydroTemplate
+        template="problem_edit.html"
+        context={context}
+        url={(name, args = {}) => {
+          const id = encodeURIComponent(String(args.pid ?? problem?.pid ?? problem?.docId ?? ''))
+          const query = (args.query ?? {}) as Record<string, unknown>
+          const routes: Record<string, string> = {
+            problem_main: query.q ? `/p?q=${encodeURIComponent(String(query.q))}` : '/p',
+            problem_detail: `/p/${id}`,
+            problem_submit: `/p/${id}/submit`,
+            problem_files: `/p/${id}/files`,
+            problem_config: `/p/${id}/config`,
+            problem_edit: `/p/${id}/edit`,
+            problem_statistics: `/p/${id}`,
+            record_main: `/record${query.pid ? `?pid=${encodeURIComponent(String(query.pid))}` : ''}`,
+            user_detail: `/user/${encodeURIComponent(String(args.uid ?? ''))}`,
+            discussion_node: '/discuss',
+            problem_file_download: `/api/v1/problems/${encodeURIComponent(String(args.pid ?? problem?.docId ?? ''))}/assets/download?name=${encodeURIComponent(String(args.filename ?? ''))}&type=${encodeURIComponent(String(query.type ?? 'additional'))}`,
+          }
+          return routes[name] ?? '/'
+        }}
+        onReady={handleReady}
+      />
+    </>
   )
 }

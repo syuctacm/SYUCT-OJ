@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"gopkg.in/yaml.v3"
 
@@ -155,14 +156,45 @@ func normalizeProblemConfig(raw string) (string, error) {
 	if raw == "" {
 		return "", nil
 	}
-	var value map[string]any
+	var value any
 	if err := yaml.Unmarshal([]byte(raw), &value); err != nil {
 		return "", fmt.Errorf("invalid judge config YAML: %w", err)
 	}
-	if value == nil {
-		return "", errors.New("judge config must be a YAML object")
+	config, err := configMap(value)
+	if err != nil {
+		return "", err
 	}
-	return raw, nil
+	encoded, err := yaml.Marshal(config)
+	if err != nil {
+		return "", fmt.Errorf("normalize judge config: %w", err)
+	}
+	return string(encoded), nil
+}
+
+func configMap(value any) (map[string]any, error) {
+	switch current := value.(type) {
+	case map[string]any:
+		if current == nil {
+			return nil, errors.New("judge config must be a YAML object")
+		}
+		return current, nil
+	case []any:
+		result := make(map[string]any, len(current))
+		for _, item := range current {
+			entry, ok := item.(map[string]any)
+			if !ok {
+				return nil, errors.New("judge config list entries must contain key and value")
+			}
+			key, ok := entry["key"].(string)
+			if !ok || strings.TrimSpace(key) == "" {
+				return nil, errors.New("judge config list entries must contain a non-empty key")
+			}
+			result[key] = entry["value"]
+		}
+		return result, nil
+	default:
+		return nil, errors.New("judge config must be a YAML object")
+	}
 }
 
 func editorView(item *problem.Problem) problemEditorView {
@@ -170,17 +202,38 @@ func editorView(item *problem.Problem) problemEditorView {
 }
 
 func problemConfigString(item *problem.Problem) string {
-	if value, ok := item.Config.(string); ok {
-		return value
-	}
 	if item.Config == nil {
 		return ""
 	}
-	value, err := yaml.Marshal(item.Config)
+	var value any
+	switch current := item.Config.(type) {
+	case string:
+		if strings.TrimSpace(current) == "" {
+			return ""
+		}
+		if err := yaml.Unmarshal([]byte(current), &value); err != nil {
+			return current
+		}
+	case bson.M:
+		value = map[string]any(current)
+	case bson.D:
+		converted := make(map[string]any, len(current))
+		for _, entry := range current {
+			converted[entry.Key] = entry.Value
+		}
+		value = converted
+	default:
+		value = current
+	}
+	config, err := configMap(value)
 	if err != nil {
 		return ""
 	}
-	return string(value)
+	encoded, err := yaml.Marshal(config)
+	if err != nil {
+		return ""
+	}
+	return string(encoded)
 }
 
 func writeProblemEditError(c *gin.Context, err error) {
