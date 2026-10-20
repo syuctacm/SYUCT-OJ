@@ -37,7 +37,7 @@ export function DiscussionsPage() {
   }, [nodes])
 
   return (
-    <>
+    <div className="row">
       <div className="medium-9 columns">
         <div className="section">
           <div className="section__header">
@@ -123,6 +123,6 @@ export function DiscussionsPage() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }

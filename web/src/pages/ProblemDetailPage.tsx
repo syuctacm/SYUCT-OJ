@@ -23,7 +23,7 @@ export function ProblemDetailPage() {
   if (!problem) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
 
   return (
-    <>
+    <div className="row">
       <div className="medium-9 columns">
         <div className="section">
           <div className="section__header">
@@ -57,6 +57,6 @@ export function ProblemDetailPage() {
       <div className="medium-3 columns">
         <ProblemSidebar problem={problem} pageName="problem_detail" />
       </div>
-    </>
+    </div>
   )
 }

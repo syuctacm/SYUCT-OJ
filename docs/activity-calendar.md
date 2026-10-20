@@ -18,7 +18,7 @@ GET /api/v1/users/:uid/activity
 
 ## 前端
 
-用户主页的“活跃日历”标签使用原 Activity Calendar 插件的 53 周 SVG 布局、颜色分级和悬停提示，组件位于 `web/src/components/ActivityCalendar.tsx`。
+用户主页的“活跃日历”标签使用原 Activity Calendar 插件的 53 周 SVG 布局、颜色分级和悬停提示，组件位于 `web/src/components/ActivityCalendar.tsx`。原插件 CSS 从旧站用户主页内嵌脚本原样提取到 `web/src/legacy/activity-calendar.css`，不手工改写。
 
 ## 验证
 

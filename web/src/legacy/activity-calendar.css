@@ -1,0 +1,259 @@
+/* Vendored verbatim from the Activity Calendar plugin embedded by https://oj.syuctacm.cn/user/1 on 2026-10-20. */
+    .activity-calendar-wrapper {
+      margin: 8px 0 22px 0;
+      padding: 6px 0 24px 0;
+      border-bottom: 1px solid #edf0f3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    [data-mantine-color-scheme="dark"] .activity-calendar-wrapper,
+    .theme--dark .activity-calendar-wrapper {
+      border-bottom-color: #272c35;
+    }
+
+    .ac-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .ac-header-left {
+      display: flex;
+      flex-direction: column;
+    }
+    .ac-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a1f2c;
+      line-height: 1.2;
+      letter-spacing: -0.3px;
+    }
+    [data-mantine-color-scheme="dark"] .ac-title,
+    .theme--dark .ac-title {
+      color: #f0f6fc;
+    }
+    .ac-subtitle {
+      font-size: 13px;
+      color: #656d76;
+      margin-top: 6px;
+    }
+    [data-mantine-color-scheme="dark"] .ac-subtitle,
+    .theme--dark .ac-subtitle {
+      color: #8b949e;
+    }
+    .ac-subtitle strong {
+      color: #1e86ff;
+      font-weight: 600;
+    }
+    [data-mantine-color-scheme="dark"] .ac-subtitle strong,
+    .theme--dark .ac-subtitle strong {
+      color: #58a6ff;
+    }
+
+    .ac-header-right {
+      display: flex;
+      align-items: baseline;
+      font-size: 14px;
+      color: #656d76;
+    }
+    [data-mantine-color-scheme="dark"] .ac-header-right,
+    .theme--dark .ac-header-right {
+      color: #8b949e;
+    }
+    .ac-stat-num {
+      font-size: 32px;
+      font-weight: 800;
+      color: #1e86ff;
+      line-height: 1;
+      margin: 0 4px;
+      letter-spacing: -0.5px;
+    }
+    [data-mantine-color-scheme="dark"] .ac-stat-num,
+    .theme--dark .ac-stat-num {
+      color: #58a6ff;
+    }
+
+    .ac-graph-container {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 4px 0 6px 0;
+    }
+    .ac-graph-container::-webkit-scrollbar {
+      height: 6px;
+    }
+    .ac-graph-container::-webkit-scrollbar-thumb {
+      background: #d0d7de;
+      border-radius: 3px;
+    }
+    [data-mantine-color-scheme="dark"] .ac-graph-container::-webkit-scrollbar-thumb,
+    .theme--dark .ac-graph-container::-webkit-scrollbar-thumb {
+      background: #30363d;
+    }
+
+    .ac-svg {
+      display: block;
+      width: 100%;
+      min-width: 780px;
+      height: auto;
+    }
+    .ac-svg text {
+      font-size: 11px;
+      fill: #656d76;
+      font-weight: 400;
+      font-family: inherit;
+    }
+    [data-mantine-color-scheme="dark"] .ac-svg text,
+    .theme--dark .ac-svg text {
+      fill: #8b949e;
+    }
+
+    .ac-day-cell {
+      cursor: pointer;
+      rx: 2.2px;
+      ry: 2.2px;
+      transition: stroke 0.12s ease, stroke-width 0.12s ease;
+    }
+    .ac-day-cell:hover {
+      stroke: #0969da;
+      stroke-width: 1.5px;
+    }
+    [data-mantine-color-scheme="dark"] .ac-day-cell:hover,
+    .theme--dark .ac-day-cell:hover {
+      stroke: #58a6ff;
+    }
+
+    .ac-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      font-size: 12px;
+      color: #8c959f;
+    }
+    [data-mantine-color-scheme="dark"] .ac-footer,
+    .theme--dark .ac-footer {
+      color: #8b949e;
+    }
+    .ac-legend {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .ac-legend-box {
+      display: inline-block;
+      width: 11px;
+      height: 11px;
+      border-radius: 2px;
+    }
+
+    .ac-problems-heading {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a1f2c;
+      margin: 18px 0 16px 0;
+      letter-spacing: -0.2px;
+    }
+    [data-mantine-color-scheme="dark"] .ac-problems-heading,
+    .theme--dark .ac-problems-heading {
+      color: #f0f6fc;
+    }
+
+    /* 3-Column Layout for Problem Grid (Like Luogu) */
+    .section__tab-content .row .medium-3.columns {
+      width: 33.3333% !important;
+      max-width: 33.3333% !important;
+      flex: 0 0 33.3333% !important;
+      padding: 0 10px !important;
+    }
+
+    /* Beautify the problem list in this tab (Luogu style) */
+    .section__tab-content .typo ul {
+      list-style: none !important;
+      padding-left: 0 !important;
+      margin: 0 !important;
+    }
+    .section__tab-content .typo ul li {
+      list-style: none !important;
+      margin-bottom: 10px !important;
+      line-height: 1.4 !important;
+    }
+    .section__tab-content .typo ul li::before {
+      display: none !important;
+    }
+    .section__tab-content .typo ul li a {
+      display: flex !important;
+      align-items: baseline !important;
+      gap: 8px !important;
+      padding: 4px 8px !important;
+      border-radius: 6px !important;
+      text-decoration: none !important;
+      color: #0969da !important;
+      font-size: 14px !important;
+      transition: background 0.15s ease, color 0.15s ease;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+    }
+    .section__tab-content .typo ul li a:hover {
+      background: #f0f7ff !important;
+      color: #0550ae !important;
+    }
+    [data-mantine-color-scheme="dark"] .section__tab-content .typo ul li a {
+      color: #58a6ff !important;
+    }
+    [data-mantine-color-scheme="dark"] .section__tab-content .typo ul li a:hover {
+      background: #152238 !important;
+      color: #79c0ff !important;
+    }
+    .section__tab-content .typo ul li a b {
+      color: #57606a !important;
+      font-weight: 500 !important;
+      white-space: nowrap !important;
+      flex-shrink: 0 !important;
+    }
+    [data-mantine-color-scheme="dark"] .section__tab-content .typo ul li a b {
+      color: #8b949e !important;
+    }
+    .ac-prob-name {
+      color: #0969da;
+      font-weight: 500;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      flex: 1 1 auto;
+    }
+    [data-mantine-color-scheme="dark"] .ac-prob-name {
+      color: #58a6ff;
+    }
+
+    /* Floating Tooltip */
+    .ac-tooltip {
+      position: absolute;
+      z-index: 999999;
+      padding: 7px 11px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #ffffff;
+      background: #24292f;
+      border-radius: 6px;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, -100%);
+      transition: opacity 0.12s ease;
+      white-space: nowrap;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+    }
+    .ac-tooltip.visible {
+      opacity: 1;
+    }
+    .ac-tooltip::after {
+      content: "";
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 4px 4px 0;
+      border-style: solid;
+      border-color: #24292f transparent transparent transparent;
+    }

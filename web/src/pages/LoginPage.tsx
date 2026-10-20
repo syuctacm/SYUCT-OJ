@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth.tsx'
 
@@ -9,16 +9,6 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    const root = document.documentElement
-    root.classList.remove('layout--basic')
-    root.classList.add('layout--immersive')
-    return () => {
-      root.classList.remove('layout--immersive')
-      root.classList.add('layout--basic')
-    }
-  }, [])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
