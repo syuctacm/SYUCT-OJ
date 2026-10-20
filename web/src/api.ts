@@ -141,6 +141,8 @@ export type Contest = {
   pids: number[] | null
   duration?: number
   rated?: boolean
+  lockAt?: string
+  unlocked?: boolean
 }
 
 export async function getContests(): Promise<Contest[]> {

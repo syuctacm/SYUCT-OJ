@@ -40,7 +40,7 @@
 - 任务通过现有 `hydrojudge` WebSocket 协议下发
 - 结果支持 `status`、`score`、`time`、`memory`、`message`、`compilerText`、`case/cases`
 - `domainId` 固定为 `system`
-- 可选 `contestId` 会把提交关联到比赛并写入判题 task
+- 可选 `contestId` 会把提交关联到比赛并写入判题 task；提交时必须处于比赛开始/结束时间窗口内
 
 ## 验证
 
