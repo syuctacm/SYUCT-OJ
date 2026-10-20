@@ -418,3 +418,28 @@ body {
     flex-direction: column;
   }
 }
+
+.training-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.training-enrolled-badge { color: #25ad40; font-size: 13px; }
+.training-overview { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 15px; border-bottom: 1px solid #ddd; color: #aaa; font-size: 13px; }
+.training-overview strong { color: #555; font-family: var(--code-font-family); }
+.training-progress-track { flex: 1; min-width: 140px; height: 5px; background: #eee; }
+.training-progress-track > div { height: 100%; background: #2ecc40; }
+.training-notice { padding: 12px 15px; border-bottom: 1px solid #ddd; color: #666; font-size: 14px; }
+.training-section { border-bottom: 1px solid #ddd; }
+.training-section:last-child { border-bottom: 0; }
+.training-section-status { float: right; font-size: 1rem; line-height: 35px; }
+.training-section-status--icon { display: inline-block; width: 1.15em; }
+.training-section-status--icon.done::before { content: "✓"; color: #25ad40; }
+.training-section-status--icon.open::before,
+.training-section-status--icon.progress::before { content: "•"; color: #e64c72; }
+.training-section-status--icon.invalid::before { content: "×"; color: #aaa; }
+.training-section-status--text.done { color: #25ad40; }
+.training-section-status--text.open,
+.training-section-status--text.progress { color: #e64c72; }
+.training-section-status--text.invalid { color: #aaa; }
+.training-section .section__header { padding-bottom: 10px; }
+.training-section .section__title { margin-bottom: 0; }
+.training-section-progress { float: right; color: #aaa; font-family: var(--code-font-family); font-size: 13px; line-height: 35px; margin-right: 10px; }
+.training-requirement { background: #f8f8f8; color: #aaa; }
+.training-problem-disabled { color: #aaa; }

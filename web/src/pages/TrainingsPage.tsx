@@ -27,12 +27,14 @@ export function TrainingsPage() {
       {!loading && !error ? (
         <div className="section__table-container">
           <table className="data-table">
-            <thead><tr><th>训练计划</th><th>简介</th><th>状态</th></tr></thead>
+            <thead><tr><th>训练计划</th><th>简介</th><th>章节 / 题目</th><th>报名</th><th>状态</th></tr></thead>
             <tbody>
               {items.map((training) => (
                 <tr key={training.id}>
                   <td><Link className="problem-link" to={`/training/${training.docId}`}>{training.title}</Link></td>
                   <td>{training.description || '-'}</td>
+                  <td className="mono">{training.sectionCount} / {training.problemCount}</td>
+                  <td className="mono">{training.attend}</td>
                   <td>{training.pin ? <span className="tag">置顶</span> : '-'}</td>
                 </tr>
               ))}
