@@ -3,6 +3,7 @@ package submission
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -19,6 +20,18 @@ const (
 	StatusJudging   = 20
 	StatusCompiling = 21
 )
+
+type ProblemInfo struct {
+	DocID int64  `json:"docId"`
+	PID   string `json:"pid"`
+	Title string `json:"title"`
+}
+
+type UserInfo struct {
+	ID          int64  `bson:"_id" json:"id"`
+	Username    string `bson:"uname" json:"username"`
+	DisplayName string `bson:"displayName" json:"displayName,omitempty"`
+}
 
 type Record struct {
 	ID            bson.ObjectID  `bson:"_id" json:"id"`
@@ -39,6 +52,9 @@ type Record struct {
 	Rejudged      bool           `bson:"rejudged" json:"rejudged"`
 	Source        string         `bson:"source" json:"source,omitempty"`
 	Contest       *bson.ObjectID `bson:"contest,omitempty" json:"contest,omitempty"`
+	Problem       *ProblemInfo   `bson:"-" json:"problem,omitempty"`
+	Submitter     *UserInfo      `bson:"-" json:"submitter,omitempty"`
+	CreatedAt     time.Time      `bson:"-" json:"createdAt"`
 }
 
 type ListResult struct {
@@ -48,9 +64,20 @@ type ListResult struct {
 	Limit int      `json:"limit"`
 }
 
+type ListFilter struct {
+	Page      int
+	Limit     int
+	UID       int64
+	PID       string
+	ContestID string
+	Lang      string
+	Status    *int
+}
+
 type Repository struct {
 	records  *mongo.Collection
 	tasks    *mongo.Collection
+	users    *mongo.Collection
 	problems *problem.Repository
 }
 
@@ -58,6 +85,7 @@ func NewRepository(db *mongo.Database, problems *problem.Repository) *Repository
 	return &Repository{
 		records:  db.Collection("record"),
 		tasks:    db.Collection("task"),
+		users:    db.Collection("user"),
 		problems: problems,
 	}
 }
@@ -117,17 +145,35 @@ func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code stri
 	return r.Get(ctx, rid.Hex())
 }
 
-func (r *Repository) ListByUser(ctx context.Context, uid int64, page, limit int) (*ListResult, error) {
-	if page < 1 {
-		page = 1
+func (r *Repository) List(ctx context.Context, opts ListFilter) (*ListResult, error) {
+	opts = normalizeListFilter(opts)
+	filter := bson.M{"domainId": "system"}
+	if opts.UID > 0 {
+		filter["uid"] = opts.UID
 	}
-	if limit < 1 {
-		limit = 20
+	if opts.PID != "" {
+		pdoc, err := r.problems.Get(ctx, opts.PID)
+		if err != nil {
+			if err == problem.ErrNotFound {
+				return &ListResult{Items: []Record{}, Page: opts.Page, Limit: opts.Limit}, nil
+			}
+			return nil, err
+		}
+		filter["pid"] = pdoc.DocID
 	}
-	if limit > 100 {
-		limit = 100
+	if opts.ContestID != "" {
+		oid, err := bson.ObjectIDFromHex(opts.ContestID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid contest id")
+		}
+		filter["contest"] = oid
 	}
-	filter := bson.M{"uid": uid}
+	if opts.Lang != "" {
+		filter["lang"] = opts.Lang
+	}
+	if opts.Status != nil {
+		filter["status"] = *opts.Status
+	}
 	total, err := r.records.CountDocuments(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -135,23 +181,101 @@ func (r *Repository) ListByUser(ctx context.Context, uid int64, page, limit int)
 	projection := bson.M{
 		"_id": 1, "uid": 1, "pid": 1, "domainId": 1, "lang": 1,
 		"status": 1, "score": 1, "time": 1, "memory": 1,
-		"judgeAt": 1, "rejudged": 1, "source": 1,
+		"judgeAt": 1, "rejudged": 1, "source": 1, "contest": 1,
 	}
 	findOpts := options.Find().
 		SetProjection(projection).
 		SetSort(bson.D{{Key: "_id", Value: -1}}).
-		SetSkip(int64((page - 1) * limit)).
-		SetLimit(int64(limit))
+		SetSkip(int64((opts.Page - 1) * opts.Limit)).
+		SetLimit(int64(opts.Limit))
 	cursor, err := r.records.Find(ctx, filter, findOpts)
 	if err != nil {
 		return nil, err
 	}
 	defer cursor.Close(ctx)
-	items := make([]Record, 0, limit)
+	items := make([]Record, 0, opts.Limit)
 	if err := cursor.All(ctx, &items); err != nil {
 		return nil, err
 	}
-	return &ListResult{Items: items, Total: total, Page: page, Limit: limit}, nil
+	for i := range items {
+		items[i].CreatedAt = items[i].ID.Timestamp()
+	}
+	if err := r.enrich(ctx, items); err != nil {
+		return nil, err
+	}
+	return &ListResult{Items: items, Total: total, Page: opts.Page, Limit: opts.Limit}, nil
+}
+
+func (r *Repository) ListByUser(ctx context.Context, uid int64, page, limit int) (*ListResult, error) {
+	return r.List(ctx, ListFilter{Page: page, Limit: limit, UID: uid})
+}
+
+func (r *Repository) enrich(ctx context.Context, items []Record) error {
+	if len(items) == 0 {
+		return nil
+	}
+	pidSet := map[int64]bool{}
+	uidSet := map[int64]bool{}
+	for _, item := range items {
+		pidSet[item.PID] = true
+		uidSet[item.UID] = true
+	}
+	pids := make([]int64, 0, len(pidSet))
+	for pid := range pidSet {
+		pids = append(pids, pid)
+	}
+	problems, err := r.problems.GetManyByDocIDs(ctx, pids)
+	if err != nil {
+		return err
+	}
+	problemByID := make(map[int64]ProblemInfo, len(problems))
+	for _, pdoc := range problems {
+		problemByID[pdoc.DocID] = ProblemInfo{DocID: pdoc.DocID, PID: pdoc.PID, Title: pdoc.Title}
+	}
+	uids := make([]int64, 0, len(uidSet))
+	for uid := range uidSet {
+		uids = append(uids, uid)
+	}
+	userCursor, err := r.users.Find(ctx, bson.M{"_id": bson.M{"$in": uids}}, options.Find().SetProjection(bson.M{"uname": 1, "displayName": 1}))
+	if err != nil {
+		return err
+	}
+	defer userCursor.Close(ctx)
+	var users []UserInfo
+	if err := userCursor.All(ctx, &users); err != nil {
+		return err
+	}
+	userByID := make(map[int64]UserInfo, len(users))
+	for _, user := range users {
+		userByID[user.ID] = user
+	}
+	for i := range items {
+		if pdoc, ok := problemByID[items[i].PID]; ok {
+			value := pdoc
+			items[i].Problem = &value
+		}
+		if user, ok := userByID[items[i].UID]; ok {
+			value := user
+			items[i].Submitter = &value
+		}
+	}
+	return nil
+}
+
+func normalizeListFilter(opts ListFilter) ListFilter {
+	if opts.Page < 1 {
+		opts.Page = 1
+	}
+	if opts.Limit < 1 {
+		opts.Limit = 20
+	}
+	if opts.Limit > 100 {
+		opts.Limit = 100
+	}
+	opts.PID = strings.TrimSpace(opts.PID)
+	opts.ContestID = strings.TrimSpace(opts.ContestID)
+	opts.Lang = strings.TrimSpace(opts.Lang)
+	return opts
 }
 
 func (r *Repository) Get(ctx context.Context, rid string) (*Record, error) {
@@ -163,7 +287,12 @@ func (r *Repository) Get(ctx context.Context, rid string) (*Record, error) {
 	if err := r.records.FindOne(ctx, bson.M{"_id": oid}).Decode(&record); err != nil {
 		return nil, err
 	}
-	return &record, nil
+	record.CreatedAt = record.ID.Timestamp()
+	items := []Record{record}
+	if err := r.enrich(ctx, items); err != nil {
+		return nil, err
+	}
+	return &items[0], nil
 }
 
 func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]any) error {

@@ -97,6 +97,13 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 		t.Fatal("judgeAt was not set")
 	}
 
+	_, err = db.Collection("user").InsertMany(ctx, []any{
+		bson.M{"_id": int64(7), "uname": "alice", "displayName": "Alice"},
+		bson.M{"_id": int64(8), "uname": "bob", "displayName": "Bob"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = db.Collection("record").InsertMany(ctx, []any{
 		bson.M{"_id": bson.NewObjectID(), "uid": int64(7), "pid": int64(1), "domainId": "system", "lang": "cpp", "status": 2, "score": 0},
 		bson.M{"_id": bson.NewObjectID(), "uid": int64(8), "pid": int64(1), "domainId": "system", "lang": "cpp", "status": 1, "score": 100},
@@ -110,5 +117,24 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 	}
 	if list.Total != 2 || len(list.Items) != 2 {
 		t.Fatalf("unexpected user submission list: %+v", list)
+	}
+	if list.Items[0].Problem == nil || list.Items[0].Problem.PID != "P1001" || list.Items[0].Submitter == nil || list.Items[0].Submitter.Username != "alice" {
+		t.Fatalf("record not enriched: %+v", list.Items[0])
+	}
+
+	accepted := submission.StatusAccepted
+	filtered, err := repo.List(ctx, submission.ListFilter{Page: 1, Limit: 10, Lang: "cpp", Status: &accepted})
+	if err != nil {
+		t.Fatalf("list accepted: %v", err)
+	}
+	if filtered.Total != 2 || len(filtered.Items) != 2 {
+		t.Fatalf("unexpected accepted records: %+v", filtered)
+	}
+	filtered, err = repo.List(ctx, submission.ListFilter{Page: 1, Limit: 10, PID: "P1001", ContestID: contestID.Hex()})
+	if err != nil {
+		t.Fatalf("list by problem and contest: %v", err)
+	}
+	if filtered.Total != 1 || filtered.Items[0].UID != 7 {
+		t.Fatalf("unexpected filtered records: %+v", filtered)
 	}
 }

@@ -11,16 +11,18 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/contest"
 	"github.com/syuctacm/syuct-oj/internal/submission"
+	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
 type SubmissionHandler struct {
 	repo     *submission.Repository
 	sessions *auth.SessionManager
 	contests *contest.Repository
+	users    *user.Repository
 }
 
-func NewSubmissionHandler(repo *submission.Repository, sessions *auth.SessionManager, contests *contest.Repository) *SubmissionHandler {
-	return &SubmissionHandler{repo: repo, sessions: sessions, contests: contests}
+func NewSubmissionHandler(repo *submission.Repository, sessions *auth.SessionManager, contests *contest.Repository, users *user.Repository) *SubmissionHandler {
+	return &SubmissionHandler{repo: repo, sessions: sessions, contests: contests, users: users}
 }
 
 func (h *SubmissionHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -66,14 +68,41 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 }
 
 func (h *SubmissionHandler) list(c *gin.Context) {
-	uid, ok := h.currentUser(c)
-	if !ok {
+	if _, ok := h.currentUser(c); !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	result, err := h.repo.ListByUser(c.Request.Context(), uid, page, limit)
+	var filterUID int64
+	if value := strings.TrimSpace(c.Query("uidOrName")); value != "" {
+		if parsed, err := strconv.ParseInt(value, 10, 64); err == nil && parsed > 0 {
+			filterUID = parsed
+		} else if h.users != nil {
+			found, err := h.users.FindByLogin(c.Request.Context(), value)
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": submission.ListResult{Items: []submission.Record{}, Page: page, Limit: limit}})
+				return
+			}
+			filterUID = found.ID
+		}
+	}
+	var status *int
+	if value := c.Query("status"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err == nil {
+			status = &parsed
+		}
+	}
+	result, err := h.repo.List(c.Request.Context(), submission.ListFilter{
+		Page:      page,
+		Limit:     limit,
+		UID:       filterUID,
+		PID:       c.Query("pid"),
+		ContestID: c.Query("tid"),
+		Lang:      c.Query("lang"),
+		Status:    status,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list submissions"})
 		return

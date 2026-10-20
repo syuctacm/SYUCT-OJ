@@ -5,10 +5,19 @@
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | POST | `/api/v1/submissions` | 创建提交并写入 judge task |
-| GET | `/api/v1/submissions` | 当前用户的提交记录列表 |
+| GET | `/api/v1/submissions` | 提交记录列表、筛选和分页 |
 | GET | `/api/v1/submissions/:rid` | 查询提交状态和结果 |
 
-创建提交和查询自己的记录列表需要用户 Session。
+创建提交和查看记录列表需要用户 Session。列表默认显示单站点全部记录，可用以下参数筛选：
+
+- `uidOrName`：UID 或用户名
+- `pid`：题号或 docId
+- `tid`：比赛 ObjectId
+- `lang`：语言
+- `status`：判题状态
+- `page` / `limit`：分页
+
+记录详情仅向提交者返回代码，其他用户只能查看判题状态和统计信息。
 
 ## 请求
 
@@ -41,6 +50,15 @@
 - 结果支持 `status`、`score`、`time`、`memory`、`message`、`compilerText`、`case/cases`
 - `domainId` 固定为 `system`
 - 可选 `contestId` 会把提交关联到比赛并写入判题 task；提交时必须处于比赛开始/结束时间窗口内
+
+## 前端
+
+记录页面结构对应 Hydro `ui-default`：
+
+- `record_main.html`：筛选区和记录表格
+- `record_main_tr.html`：状态、题目、提交者、时间、内存、语言和提交时间
+- `record_detail.html`：状态区、编译器/评测输出、测试点和代码
+- `record_detail_status.html` / `record_detail_summary.html`：状态和统计信息
 
 ## 验证
 
