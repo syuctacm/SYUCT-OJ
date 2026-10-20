@@ -78,14 +78,24 @@ func TestSubmissionJudgeLoopIntegration(t *testing.T) {
 	judgeHandler := judge.NewHandler("judge", "judge_secret", sessions, judgeStore, hub)
 	authHandler := auth.NewHandler(userRepo, sessions)
 	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions, nil, userRepo)
-	hub.SetResultHandler(func(payload map[string]any) {
+	pump := judge.NewTaskPump(db, hub)
+	pump.SetResultHandler(func(payload map[string]any) error {
 		if err := submissionRepo.ApplyJudgeResult(context.Background(), payload); err != nil {
 			t.Errorf("apply judge result: %v", err)
+			return err
 		}
+		return nil
+	})
+	hub.SetResultHandler(func(payload map[string]any) error {
+		if err := pump.HandleResult(context.Background(), payload); err != nil {
+			t.Errorf("handle judge result: %v", err)
+			return err
+		}
+		return nil
 	})
 	pumpCtx, pumpCancel := context.WithCancel(context.Background())
 	defer pumpCancel()
-	go judge.NewTaskPump(db, hub).Run(pumpCtx)
+	go pump.Run(pumpCtx)
 	router := api.NewRouter(config.Config{CORSOrigins: []string{"http://localhost"}}, db, judgeHandler, authHandler, problemRepo, submissionHandler, nil, nil, nil, userRepo, nil, sessions)
 	server := httptest.NewServer(router)
 	defer server.Close()
@@ -145,6 +155,13 @@ func TestSubmissionJudgeLoopIntegration(t *testing.T) {
 	if !names["1.in"] || !names["1.out"] {
 		t.Fatalf("task data filenames: %+v", taskEnvelope.Task.Data)
 	}
+	var leasedTask bson.M
+	if err := db.Collection("task").FindOne(ctx, bson.M{"rid": recordOID(t, record.ID)}).Decode(&leasedTask); err != nil {
+		t.Fatalf("leased task: %v", err)
+	}
+	if leasedTask["leaseUntil"] == nil || numericTaskInt(leasedTask["attempts"]) != 1 {
+		t.Fatalf("task lease not set: %+v", leasedTask)
+	}
 	if err := clientWS.WriteJSON(map[string]any{
 		"key": "end", "rid": record.ID, "status": 1, "score": 100,
 		"time": 12, "memory": 1024, "message": "Accepted",
@@ -162,6 +179,37 @@ func TestSubmissionJudgeLoopIntegration(t *testing.T) {
 			t.Fatalf("submission not updated: %+v", updated)
 		}
 		time.Sleep(100 * time.Millisecond)
+	}
+	count, err := db.Collection("task").CountDocuments(ctx, bson.M{"rid": recordOID(t, record.ID)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatal("completed judge task was not removed")
+	}
+}
+
+func recordOID(t *testing.T, value string) bson.ObjectID {
+	t.Helper()
+	oid, err := bson.ObjectIDFromHex(value)
+	if err != nil {
+		t.Fatalf("record id: %v", err)
+	}
+	return oid
+}
+
+func numericTaskInt(value any) int {
+	switch number := value.(type) {
+	case int32:
+		return int(number)
+	case int64:
+		return int(number)
+	case float64:
+		return int(number)
+	case int:
+		return number
+	default:
+		return -1
 	}
 }
 

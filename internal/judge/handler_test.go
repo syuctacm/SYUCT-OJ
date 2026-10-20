@@ -3,6 +3,7 @@ package judge
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
 )
@@ -161,12 +163,21 @@ func TestJudgeWebSocketContract(t *testing.T) {
 	if err := client.WriteJSON(map[string]string{"key": "start"}); err != nil {
 		t.Fatalf("send start: %v", err)
 	}
-	hub.Enqueue(Task{
+	deadline := time.Now().Add(time.Second)
+	for !hub.HasStarted() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !hub.HasStarted() {
+		t.Fatal("judge did not enter started state")
+	}
+	if !hub.Enqueue(Task{
 		Rid:      "rid-ws",
 		Lang:     "cpp",
 		DomainID: "system",
 		Type:     "judge",
-	})
+	}) {
+		t.Fatal("unable to enqueue task")
+	}
 
 	_, taskMessage, err := client.ReadMessage()
 	if err != nil {
@@ -174,6 +185,30 @@ func TestJudgeWebSocketContract(t *testing.T) {
 	}
 	if !bytes.Contains(taskMessage, []byte(`"task"`)) || !bytes.Contains(taskMessage, []byte(`"rid-ws"`)) {
 		t.Fatalf("unexpected task message: %s", taskMessage)
+	}
+	if active := hub.ActiveRIDs(); len(active) != 1 || active[0] != "rid-ws" {
+		t.Fatalf("active judge tasks: %v", active)
+	}
+	hub.SetResultHandler(func(map[string]any) error {
+		return errors.New("persistence failed")
+	})
+	if err := client.WriteJSON(map[string]string{"key": "end", "rid": "rid-ws"}); err != nil {
+		t.Fatalf("send end: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if active := hub.ActiveRIDs(); len(active) != 1 {
+		t.Fatalf("task was released after persistence failure: %v", active)
+	}
+	hub.SetResultHandler(nil)
+	if err := client.WriteJSON(map[string]string{"key": "end", "rid": "rid-ws"}); err != nil {
+		t.Fatalf("send end retry: %v", err)
+	}
+	deadline = time.Now().Add(time.Second)
+	for len(hub.ActiveRIDs()) != 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if active := hub.ActiveRIDs(); len(active) != 0 {
+		t.Fatalf("completed task remains active: %v", active)
 	}
 }
 
@@ -235,5 +270,12 @@ func TestDefaultLanguagesMatchHydroContract(t *testing.T) {
 				t.Fatalf("language %s missing %s: %v", name, key, lang[key])
 			}
 		}
+	}
+}
+
+func TestTaskRIDFromBSON(t *testing.T) {
+	rid := bson.NewObjectID()
+	if got := taskRID(bson.M{"rid": rid}); got != rid.Hex() {
+		t.Fatalf("taskRID(bson.M) = %q, want %q", got, rid.Hex())
 	}
 }

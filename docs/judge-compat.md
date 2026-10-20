@@ -65,6 +65,14 @@ docker compose -f deploy/compose.dev.yaml --profile judge up -d --build judge
 
 判题机通过 `host.docker.internal:18080` 连接宿主机上的 Go API。容器启用 `privileged` 和 host cgroup namespace，否则 `go-judge` 无法启用 memory cgroup，内存统计和限制会不准确。该配置只用于本地开发。
 
+## 任务 lease 与断线恢复
+
+- TaskPump 使用 MongoDB `leaseUntil` 原子领取任务，不再下发后立即删除
+- 判题机连接存活期间，Hub 记录正在执行的 rid，防止 lease 到期造成并发重复下发
+- `next` 会续租，`end` 持久化成功后才删除 task
+- 判题机断线后，lease 到期即可被新连接重新领取
+- 默认 lease 为 `2m`，本地恢复测试可通过 `JUDGE_TASK_LEASE=3s` 缩短
+
 ## 已验证
 
 - 登录 Cookie、文件检查、提交代码和题目测试数据下载
@@ -76,10 +84,18 @@ docker compose -f deploy/compose.dev.yaml --profile judge up -d --build judge
 - 编译错误写入 `compilerTexts`
 - WA 的测试点结果写入 `testCases`
 - 系统级判题错误写入 `judgeTexts`
+- 判题过程中停止 Docker 容器，重启后任务重新领取并 Accepted
+- 短 lease 下的 8 秒长任务只执行一次，不会因 lease 到期重复下发
+
+断线恢复验证：
+
+```bash
+JUDGE_TASK_LEASE=3s go run ./cmd/api
+./scripts/real-judge-recovery-smoke.sh
+```
 
 ## 尚未完成
 
-- 任务领取确认、判题机断线后的自动重试
 - 持久化 Session
 - 重判、Hack、交互题和特殊 checker 的完整验证
 - 生产判题机版本与服务端协议的长期兼容矩阵

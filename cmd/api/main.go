@@ -60,12 +60,14 @@ func main() {
 	submissionRepo := submission.NewRepository(db, problemRepo)
 	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions, contestRepo, userRepo)
 	adminHandler := handler.NewAdminHandler(db, userRepo, sessions)
-	hub.SetResultHandler(func(payload map[string]any) {
-		if err := submissionRepo.ApplyJudgeResult(context.Background(), payload); err != nil {
-			slog.Warn("unable to apply judge result", "error", err)
-		}
-	})
 	pump := judge.NewTaskPump(db, hub)
+	pump.SetLeaseDuration(cfg.JudgeTaskLease)
+	pump.SetResultHandler(func(payload map[string]any) error {
+		return submissionRepo.ApplyJudgeResult(context.Background(), payload)
+	})
+	hub.SetResultHandler(func(payload map[string]any) error {
+		return pump.HandleResult(context.Background(), payload)
+	})
 	go pump.Run(context.Background())
 
 	server := &http.Server{
