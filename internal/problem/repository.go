@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -29,21 +30,24 @@ type ProblemFile struct {
 }
 
 type Problem struct {
-	ID         bson.ObjectID `bson:"_id" json:"id"`
-	DocID      int64         `bson:"docId" json:"docId"`
-	PID        string        `bson:"pid" json:"pid"`
-	Title      string        `bson:"title" json:"title"`
-	Content    string        `bson:"content" json:"content,omitempty"`
-	Tags       []string      `bson:"tag" json:"tags"`
-	Difficulty int           `bson:"difficulty" json:"difficulty,omitempty"`
-	NSubmit    int64         `bson:"nSubmit" json:"nSubmit"`
-	NAccept    int64         `bson:"nAccept" json:"nAccept"`
-	Hidden     bool          `bson:"hidden" json:"hidden"`
-	Sort       string        `bson:"sort" json:"sort,omitempty"`
-	Owner      int64         `bson:"owner" json:"owner,omitempty"`
-	Config     any           `bson:"config" json:"-"`
-	Data       []ProblemFile `bson:"data" json:"-"`
-	UserStatus *UserStatus   `bson:"-" json:"userStatus,omitempty"`
+	ID          bson.ObjectID `bson:"_id" json:"id"`
+	DocID       int64         `bson:"docId" json:"docId"`
+	PID         string        `bson:"pid" json:"pid"`
+	Title       string        `bson:"title" json:"title"`
+	Content     string        `bson:"content" json:"content,omitempty"`
+	Tags        []string      `bson:"tag" json:"tags"`
+	Difficulty  int           `bson:"difficulty" json:"difficulty,omitempty"`
+	NSubmit     int64         `bson:"nSubmit" json:"nSubmit"`
+	NAccept     int64         `bson:"nAccept" json:"nAccept"`
+	Hidden      bool          `bson:"hidden" json:"hidden"`
+	Sort        string        `bson:"sort" json:"sort,omitempty"`
+	Owner       int64         `bson:"owner" json:"owner,omitempty"`
+	Config      any           `bson:"config" json:"-"`
+	Data        []ProblemFile `bson:"data" json:"-"`
+	UserStatus  *UserStatus   `bson:"-" json:"userStatus,omitempty"`
+	ProblemType string        `bson:"-" json:"problemType,omitempty"`
+	TimeLimit   string        `bson:"-" json:"timeLimit,omitempty"`
+	MemoryLimit string        `bson:"-" json:"memoryLimit,omitempty"`
 }
 
 type UserStatus struct {
@@ -235,7 +239,38 @@ func (r *Repository) Get(ctx context.Context, identifier string) (*Problem, erro
 	if err != nil {
 		return nil, err
 	}
+	applyConfigSummary(&p)
 	return &p, nil
+}
+
+func applyConfigSummary(p *Problem) {
+	var config map[string]any
+	switch value := p.Config.(type) {
+	case string:
+		_ = yaml.Unmarshal([]byte(value), &config)
+	case bson.M:
+		config = map[string]any(value)
+	case bson.D:
+		config = make(map[string]any, len(value))
+		for _, item := range value {
+			config[item.Key] = item.Value
+		}
+	case map[string]any:
+		config = value
+	}
+	if config == nil {
+		return
+	}
+	p.ProblemType = strings.TrimSpace(fmt.Sprint(config["type"]))
+	if p.ProblemType == "<nil>" {
+		p.ProblemType = ""
+	}
+	if value := config["time"]; value != nil {
+		p.TimeLimit = strings.TrimSpace(fmt.Sprint(value))
+	}
+	if value := config["memory"]; value != nil {
+		p.MemoryLimit = strings.TrimSpace(fmt.Sprint(value))
+	}
 }
 
 func normalizeListOptions(opts ListOptions) ListOptions {
