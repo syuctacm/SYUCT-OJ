@@ -27,7 +27,8 @@
 | `/training/:tid/edit` | 编辑训练 |
 | `/training/:tid` | 训练详情 |
 | `/discuss` | 讨论列表 |
-| `/discuss/new` | 创建讨论 |
+| `/discuss/node/:name/create` | 在讨论节点创建主题 |
+| `/discuss/new` | 旧创建链接，跳转到节点路由 |
 | `/discuss/:did/edit` | 编辑讨论 |
 | `/discuss/:did` | 讨论详情与回复 |
 | `/user/:uid` | 用户主页 |
@@ -101,7 +102,7 @@ VITE_API_PROXY=http://127.0.0.1:18080 pnpm dev
 ## 尚未完成
 
 - Markdown 编辑器图片上传接入题目文件接口（比赛/作业/训练已完成）
-- 将讨论创建页和其余尚未迁移页面从手写 TSX 结构迁移到 `HydroTemplate`
+- 将剩余尚未迁移页面从手写 TSX 结构迁移到 `HydroTemplate`
 - 训练计划的 `data-json` 编辑器
 - 语言自动补全改为读取服务端语言配置
 - 原版全部下拉菜单和前端插件行为
