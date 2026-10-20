@@ -4,10 +4,12 @@ import remarkGfm from 'remark-gfm'
 import { Link, useParams } from 'react-router-dom'
 import {
   createDiscussionReply,
+  deleteDiscussionReply,
   getDiscussion,
   getDiscussionReplies,
   getPublicUser,
   setDiscussionLock,
+  updateDiscussionReply,
   type Discussion,
   type DiscussionReply,
   type PublicUser,
@@ -35,6 +37,10 @@ export function DiscussionDetailPage() {
   const [replyError, setReplyError] = useState('')
   const [actionError, setActionError] = useState('')
   const [locking, setLocking] = useState(false)
+  const [editingReplyID, setEditingReplyID] = useState('')
+  const [editingReplyContent, setEditingReplyContent] = useState('')
+  const [replyActionBusy, setReplyActionBusy] = useState('')
+  const [replyActionError, setReplyActionError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -94,6 +100,75 @@ export function DiscussionDetailPage() {
       setActionError(err instanceof Error ? err.message : '讨论状态更新失败')
     } finally {
       setLocking(false)
+    }
+  }
+
+  function canEditReply(ownerID: number) {
+    return Boolean(user && (user.id === ownerID || ((user.priv ?? 0) & 1) !== 0))
+  }
+
+  function canDeleteReply(ownerID: number) {
+    return Boolean(user && discussion && (user.id === ownerID || user.id === discussion.owner || ((user.priv ?? 0) & 1) !== 0))
+  }
+
+  function startReplyEdit(id: string, currentContent: string) {
+    setEditingReplyID(id)
+    setEditingReplyContent(currentContent)
+    setReplyActionError('')
+  }
+
+  function cancelReplyEdit() {
+    setEditingReplyID('')
+    setEditingReplyContent('')
+    setReplyActionError('')
+  }
+
+  async function saveReplyEdit(id: string) {
+    if (!editingReplyContent.trim()) {
+      setReplyActionError('回复内容不能为空')
+      return
+    }
+    setReplyActionBusy(id)
+    setReplyActionError('')
+    try {
+      const updated = await updateDiscussionReply(did, id, editingReplyContent)
+      setReplies((current) => current.map((reply) => {
+        if (reply.id === id) return { ...reply, content: updated.content, edited: true }
+        if (reply.replies?.some((tail) => tail.id === id)) {
+          return {
+            ...reply,
+            replies: reply.replies.map((tail) => tail.id === id ? { ...tail, content: updated.content, edited: true } : tail),
+          }
+        }
+        return reply
+      }))
+      cancelReplyEdit()
+    } catch (err) {
+      setReplyActionError(err instanceof Error ? err.message : '回复保存失败')
+    } finally {
+      setReplyActionBusy('')
+    }
+  }
+
+  async function removeReply(id: string) {
+    if (!window.confirm('确认删除这条回复？')) return
+    setReplyActionBusy(id)
+    setReplyActionError('')
+    try {
+      await deleteDiscussionReply(did, id)
+      const wasMain = replies.some((reply) => reply.id === id)
+      setReplies((current) => current
+        .filter((reply) => reply.id !== id)
+        .map((reply) => reply.replies?.some((tail) => tail.id === id)
+          ? { ...reply, replies: reply.replies.filter((tail) => tail.id !== id) }
+          : reply))
+      if (wasMain) {
+        setDiscussion((current) => current ? { ...current, nReply: Math.max(0, current.nReply - 1) } : current)
+      }
+    } catch (err) {
+      setReplyActionError(err instanceof Error ? err.message : '回复删除失败')
+    } finally {
+      setReplyActionBusy('')
     }
   }
 
@@ -209,6 +284,7 @@ export function DiscussionDetailPage() {
                 </div>
               </li>
 
+              {replyActionError ? <blockquote className="warn"><p>{replyActionError}</p></blockquote> : null}
               {replies.map((reply) => (
                 <li className="dczcomments__item" key={reply.id}>
                   <div className="media">
@@ -222,11 +298,27 @@ export function DiscussionDetailPage() {
                           {' @ '}
                           <Time value={reply.createdAt} />
                           {reply.edited ? <div className="history"><a>已编辑</a></div> : null}
+                          {canEditReply(reply.owner) ? (
+                            <div className="history"><button type="button" className="link-button" onClick={() => startReplyEdit(reply.id, reply.content)}>编辑</button></div>
+                          ) : null}
+                          {canDeleteReply(reply.owner) ? (
+                            <div className="history"><button type="button" className="link-button" onClick={() => removeReply(reply.id)} disabled={replyActionBusy === reply.id}>{replyActionBusy === reply.id ? '处理中...' : '删除'}</button></div>
+                          ) : null}
                         </div>
                       </div>
-                      <div className="typo richmedia">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{reply.content}</ReactMarkdown>
-                      </div>
+                      {editingReplyID === reply.id ? (
+                        <div className="typo richmedia">
+                          <textarea className="textbox" style={{ width: '100%', minHeight: 100 }} value={editingReplyContent} onChange={(event) => setEditingReplyContent(event.target.value)} />
+                          <div>
+                            <button type="button" className="compact primary button" onClick={() => saveReplyEdit(reply.id)} disabled={replyActionBusy === reply.id}>{replyActionBusy === reply.id ? '保存中...' : '保存'}</button>
+                            <button type="button" className="compact button" onClick={cancelReplyEdit}>取消</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="typo richmedia">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{reply.content}</ReactMarkdown>
+                        </div>
+                      )}
                       {reply.replies?.length ? (
                         <ul className="dczcomments__replies">
                           {reply.replies.map((tail) => (
@@ -242,11 +334,27 @@ export function DiscussionDetailPage() {
                                       {' @ '}
                                       <Time value={tail.createdAt} />
                                       {tail.edited ? <div className="history"><a>已编辑</a></div> : null}
+                                      {canEditReply(tail.owner) ? (
+                                        <div className="history"><button type="button" className="link-button" onClick={() => startReplyEdit(tail.id, tail.content)}>编辑</button></div>
+                                      ) : null}
+                                      {canDeleteReply(tail.owner) ? (
+                                        <div className="history"><button type="button" className="link-button" onClick={() => removeReply(tail.id)} disabled={replyActionBusy === tail.id}>{replyActionBusy === tail.id ? '处理中...' : '删除'}</button></div>
+                                      ) : null}
                                     </div>
                                   </div>
-                                  <div className="typo richmedia">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{tail.content}</ReactMarkdown>
-                                  </div>
+                                  {editingReplyID === tail.id ? (
+                                    <div className="typo richmedia">
+                                      <textarea className="textbox" style={{ width: '100%', minHeight: 90 }} value={editingReplyContent} onChange={(event) => setEditingReplyContent(event.target.value)} />
+                                      <div>
+                                        <button type="button" className="compact primary button" onClick={() => saveReplyEdit(tail.id)} disabled={replyActionBusy === tail.id}>{replyActionBusy === tail.id ? '保存中...' : '保存'}</button>
+                                        <button type="button" className="compact button" onClick={cancelReplyEdit}>取消</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="typo richmedia">
+                                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{tail.content}</ReactMarkdown>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </li>

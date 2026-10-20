@@ -673,6 +673,18 @@ export async function createDiscussionReply(did: string, content: string): Promi
   return result.data
 }
 
+export async function updateDiscussionReply(did: string, rid: string, content: string): Promise<DiscussionReply | DiscussionTailReply> {
+  const result = await request<Envelope<DiscussionReply | DiscussionTailReply>>(`/api/v1/discussions/${encodeURIComponent(did)}/replies/${encodeURIComponent(rid)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  })
+  return result.data
+}
+
+export async function deleteDiscussionReply(did: string, rid: string): Promise<void> {
+  await request<void>(`/api/v1/discussions/${encodeURIComponent(did)}/replies/${encodeURIComponent(rid)}`, { method: 'DELETE' })
+}
+
 
 export type ProblemTagStat = {
   tag: string

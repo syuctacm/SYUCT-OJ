@@ -13,6 +13,8 @@
 | GET | `/api/v1/discussions/:did` | 讨论详情 |
 | GET | `/api/v1/discussions/:did/replies` | 讨论回复列表 |
 | POST | `/api/v1/discussions/:did/replies` | 发布讨论回复 |
+| PATCH | `/api/v1/discussions/:did/replies/:rid` | 编辑主回复或楼中楼回复 |
+| DELETE | `/api/v1/discussions/:did/replies/:rid` | 删除主回复或楼中楼回复 |
 
 讨论节点、主题和回复分别读取 Hydro `document` 集合中的 `docType=20`、`docType=21`、`docType=22` 文档。节点使用字符串 `docId`，主题通过 `parentType=20`、`parentId=<节点 docId>` 关联。
 
@@ -46,6 +48,8 @@
 
 所有者可以编辑/删除自己的主题，管理员可以编辑/删除任意主题。置顶、高亮和锁定仅管理员可操作。删除主题会同时删除其回复。
 
+回复作者可以编辑/删除自己的回复，管理员可以编辑/删除任意回复；主题所有者也可以删除主题下的回复。删除主回复会递减主题的 `nReply`，删除楼中楼回复只会移除对应嵌套项。
+
 ## 前端
 
 页面结构和类名直接对应 Hydro `ui-default` 模板：
@@ -67,7 +71,6 @@
 
 ## 尚未完成
 
-- 编辑、删除回复
 - 点赞、收藏、历史版本
 - 回复通知和提及
 - 节点管理
@@ -89,3 +92,5 @@
 - 所有者/管理员编辑与删除
 - 非所有者编辑被拒绝
 - 置顶/高亮/锁定仅管理员可操作
+- 主回复和楼中楼回复编辑/删除
+- 回复删除后的 nReply 与嵌套结构校验
