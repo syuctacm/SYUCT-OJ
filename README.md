@@ -140,3 +140,10 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `POST /api/v1/auth/logout`
 
 密码校验兼容 Hydro 的 PBKDF2 格式，详见 [docs/auth.md](./docs/auth.md)。Session 当前为内存实现，仅用于本地开发。
+
+## 题目接口
+
+- `GET /api/v1/problems`
+- `GET /api/v1/problems/:pid`
+
+接口直接读取本地 MongoDB 的 `document` 集合，详见 [docs/problems.md](./docs/problems.md)。
