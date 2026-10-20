@@ -410,6 +410,10 @@ export type PublicUser = {
   studentId?: string
   avatar?: string
   regAt: string
+  loginAt?: string
+  bio?: string
+  nSubmit: number
+  nAccept: number
 }
 
 export async function getPublicUser(uid: string): Promise<PublicUser> {

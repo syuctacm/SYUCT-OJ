@@ -32,11 +32,17 @@ func (h *UserHandler) get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
+	submit, accepted, err := h.users.Statistics(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load user statistics"})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
 		"data": gin.H{
 			"id": u.ID, "username": u.Uname, "displayName": u.DisplayName,
 			"studentId": u.StudentID, "avatar": u.Avatar, "regAt": u.RegAt,
+			"loginAt": u.LoginAt, "bio": u.Bio, "nSubmit": submit, "nAccept": accepted,
 		},
 	})
 }

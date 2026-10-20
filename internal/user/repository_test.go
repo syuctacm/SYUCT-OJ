@@ -34,7 +34,7 @@ func TestRepositoryIntegration(t *testing.T) {
 	_, err = db.Collection("user").InsertOne(ctx, bson.M{
 		"_id": int64(7), "uname": "Alice", "unameLower": "alice",
 		"mail": "Alice@example.com", "mailLower": "alice@example.com",
-		"salt": "salt", "hash": hash, "hashType": "hydro", "priv": int64(1),
+		"salt": "salt", "hash": hash, "hashType": "hydro", "priv": int64(1), "bio": "ACMer",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -53,5 +53,23 @@ func TestRepositoryIntegration(t *testing.T) {
 	}
 	if user.VerifyPassword(found, "secret") != nil {
 		t.Fatal("stored password cannot be verified")
+	}
+	if found.Bio != "ACMer" {
+		t.Fatalf("bio = %q", found.Bio)
+	}
+	_, err = db.Collection("record").InsertMany(ctx, []any{
+		bson.M{"_id": bson.NewObjectID(), "uid": int64(7), "pid": int64(1), "domainId": "system", "status": 2},
+		bson.M{"_id": bson.NewObjectID(), "uid": int64(7), "pid": int64(1), "domainId": "system", "status": 1},
+		bson.M{"_id": bson.NewObjectID(), "uid": int64(7), "pid": int64(2), "domainId": "system", "status": 1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	submit, accepted, err := repo.Statistics(ctx, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if submit != 3 || accepted != 2 {
+		t.Fatalf("statistics submit=%d accepted=%d", submit, accepted)
 	}
 }
