@@ -200,6 +200,7 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 ## 用户主页
 
 - `GET /api/v1/users/:uid`
+- `GET /api/v1/users/:uid/activity`
 - `/user/:uid`
 
 公开资料不包含邮箱和密码字段，详见 [docs/user-profile.md](./docs/user-profile.md)。

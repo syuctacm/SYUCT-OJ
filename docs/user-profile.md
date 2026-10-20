@@ -12,10 +12,9 @@
 
 - `/user/:uid`：用户主页
 - 登录后的导航栏用户名会链接到自己的主页
-- 页面结构和类名对应 Hydro `user_detail.html` 的 `.profile-header`、`.profile-content` 和侧栏统计
+- 页面结构和类名对应 Hydro `user_detail.html` 的 `.profile-header`、`.profile-content` 和侧栏统计。活跃日历由原 Activity Calendar 插件迁移为 React 组件。
 
 ## 尚未完成
 
-- 活跃日历
 - 用户签名和社交信息
 - 用户主页的题目/比赛历史

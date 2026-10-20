@@ -459,6 +459,24 @@ export async function getPublicUser(uid: string): Promise<PublicUser> {
   return result.data
 }
 
+export type ActivityDay = {
+  submissions: number
+  ac: number
+}
+
+export type UserActivity = {
+  totalSubmissions: number
+  activeDays: number
+  maxStreak: number
+  totalSolved: number
+  dailyStats: Record<string, ActivityDay>
+}
+
+export async function getUserActivity(uid: string): Promise<UserActivity> {
+  const result = await request<Envelope<UserActivity>>(`/api/v1/users/${encodeURIComponent(uid)}/activity`)
+  return result.data
+}
+
 export type AdminStats = {
   users: number
   problems: number
