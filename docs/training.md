@@ -35,10 +35,18 @@ enroll=1
 
 ## 前端
 
-- `/training`：训练列表、章节数、题目数和报名人数
+页面结构对应 Hydro `ui-default`：
+
+- `training_main.html`：训练列表、搜索、章节/题目数和报名人数
+- `training_detail.html`：训练说明、状态、章节和题目
+- `partials/training_detail.html`：DAG 章节状态、前置条件和题目表格
+
+路由：
+
+- `/training`：训练列表和标题搜索
 - `/training/:tid`：训练说明、总体进度、DAG 章节、题目完成状态和报名入口
-- 未报名或章节未解锁时仍可查看内容，但题目入口不可点击
-- 页面直接使用 Hydro `ui-default` 的 `.section`、`.data-table` 和训练状态类名
+
+未报名或章节未解锁时仍可查看内容，但题目入口不可点击。页面直接使用 Hydro 原版 `.training__section`、`.training__problems` 和训练状态类名。
 
 ## 尚未完成
 

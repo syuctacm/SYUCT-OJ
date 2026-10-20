@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -117,10 +118,18 @@ func NewRepository(db *mongo.Database) *Repository {
 }
 
 func (r *Repository) List(ctx context.Context) ([]Training, error) {
-	cursor, err := r.documents.Find(ctx, bson.M{
+	return r.ListFiltered(ctx, "")
+}
+
+func (r *Repository) ListFiltered(ctx context.Context, query string) ([]Training, error) {
+	filter := bson.M{
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeTraining,
-	}, options.Find().
+	}
+	if query = strings.TrimSpace(query); query != "" {
+		filter["title"] = bson.M{"$regex": regexp.QuoteMeta(query), "$options": "i"}
+	}
+	cursor, err := r.documents.Find(ctx, filter, options.Find().
 		SetProjection(bson.M{"docId": 1, "title": 1, "description": 1, "owner": 1, "attend": 1, "pin": 1, "dag": 1}).
 		SetSort(bson.D{{Key: "pin", Value: -1}, {Key: "_id", Value: -1}}))
 	if err != nil {
