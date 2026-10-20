@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Link, useParams } from 'react-router-dom'
-import { getContest, type Contest } from '../api.ts'
+import { getContestProblems, type Contest, type ProblemSummary } from '../api.ts'
 
 function formatTime(value: string) {
   const date = new Date(value)
@@ -12,10 +12,16 @@ function formatTime(value: string) {
 export function ContestDetailPage() {
   const { tid = '' } = useParams()
   const [contest, setContest] = useState<Contest | null>(null)
+  const [problems, setProblems] = useState<ProblemSummary[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
-    getContest(tid).then(setContest).catch((err: unknown) => setError(err instanceof Error ? err.message : '比赛加载失败'))
+    getContestProblems(tid)
+      .then((data) => {
+        setContest(data.contest)
+        setProblems(data.problems)
+      })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : '比赛加载失败'))
   }, [tid])
 
   if (error) return <section className="panel"><div className="empty-state error-state">{error}</div></section>
@@ -39,6 +45,23 @@ export function ContestDetailPage() {
       </div>
       <div className="panel-body problem-content">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{contest.content || '暂无比赛说明'}</ReactMarkdown>
+      </div>
+      <div className="panel-header"><h2 className="panel-title">比赛题目</h2></div>
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead><tr><th className="col-id">编号</th><th>题目</th><th className="col-difficulty">难度</th><th className="col-stat">通过 / 提交</th></tr></thead>
+          <tbody>
+            {problems.map((problem) => (
+              <tr key={problem.id}>
+                <td className="mono">{problem.pid || problem.docId}</td>
+                <td><Link className="problem-link" to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}`}>{problem.title}</Link></td>
+                <td className="center">{problem.difficulty || '-'}</td>
+                <td className="center mono">{problem.nAccept} / {problem.nSubmit}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {problems.length === 0 ? <div className="empty-state">这场比赛的题目尚未配置</div> : null}
       </div>
     </section>
   )
