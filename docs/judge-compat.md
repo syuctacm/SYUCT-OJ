@@ -52,7 +52,7 @@ domainId = "system"
 本地容器固定使用：
 
 - `@hydrooj/hydrojudge@4.0.6`
-- `go-judge v1.9.4`
+- `go-judge v1.13.3`
 - 上游 `install/docker/judge` 的 mount 配置
 
 启动：
@@ -102,4 +102,4 @@ JUDGE_TASK_LEASE=3s go run ./cmd/api
 
 真实联调只在本地 Docker 和测试环境中进行，不连接生产 OJ。
 
-> 上游本地镜像的 `go-judge v1.9.4` 会输出 symlink escape 安全警告。本项目按“不修改判题机”的边界未改动它，只用于本地隔离测试，不能据此直接暴露到公网。
+`go-judge` 最低安全版本为 `v1.11.0`。本地开发镜像固定使用 `v1.13.3`，并已确认 `fixSymlinkEscape=true`；升级过程不改 `hydrojudge` 源码。详细评审和生产检查清单见 [判题沙箱安全评审](./judge-security.md)。
