@@ -297,6 +297,118 @@ func (node Node) DisplayTitle() string {
 	return node.DocID
 }
 
+func (r *Repository) UpdateReply(ctx context.Context, discussionID, replyID bson.ObjectID, content string) (*Reply, *TailReply, error) {
+	reply, tail, isTail, err := r.findReply(ctx, discussionID, replyID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !isTail {
+		result, err := r.coll.UpdateOne(ctx, bson.M{"_id": reply.ID, "docType": DocumentTypeDiscussionReply}, bson.M{"$set": bson.M{
+			"content": content, "edited": true,
+		}})
+		if err != nil {
+			return nil, nil, err
+		}
+		if result.MatchedCount == 0 {
+			return nil, nil, ErrNotFound
+		}
+		reply.Content = content
+		reply.Edited = true
+		return reply, nil, nil
+	}
+	result, err := r.coll.UpdateOne(ctx, bson.M{
+		"_id": reply.ID, "docType": DocumentTypeDiscussionReply, "reply._id": tail.ID,
+	}, bson.M{"$set": bson.M{
+		"reply.$.content": content, "reply.$.edited": true,
+	}})
+	if err != nil {
+		return nil, nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, nil, ErrNotFound
+	}
+	tail.Content = content
+	tail.Edited = true
+	return reply, tail, nil
+}
+
+func (r *Repository) DeleteReply(ctx context.Context, discussionID, replyID bson.ObjectID) error {
+	reply, tail, isTail, err := r.findReply(ctx, discussionID, replyID)
+	if err != nil {
+		return err
+	}
+	if isTail {
+		result, err := r.coll.UpdateOne(ctx, bson.M{
+			"_id": reply.ID, "docType": DocumentTypeDiscussionReply, "reply._id": tail.ID,
+		}, bson.M{"$pull": bson.M{"reply": bson.M{"_id": tail.ID}}})
+		if err != nil {
+			return err
+		}
+		if result.MatchedCount == 0 {
+			return ErrNotFound
+		}
+		return nil
+	}
+	result, err := r.coll.DeleteOne(ctx, bson.M{"_id": reply.ID, "docType": DocumentTypeDiscussionReply})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return ErrNotFound
+	}
+	_, err = r.coll.UpdateOne(ctx, bson.M{"_id": discussionID, "docType": DocumentTypeDiscussion}, bson.M{
+		"$inc": bson.M{"nReply": -1},
+		"$set": bson.M{"updateAt": time.Now()},
+	})
+	return err
+}
+
+func (r *Repository) ReplyOwner(ctx context.Context, discussionID, replyID bson.ObjectID) (int64, error) {
+	reply, tail, isTail, err := r.findReply(ctx, discussionID, replyID)
+	if err != nil {
+		return 0, err
+	}
+	if isTail {
+		return tail.Owner, nil
+	}
+	return reply.Owner, nil
+}
+
+func (r *Repository) findReply(ctx context.Context, discussionID, replyID bson.ObjectID) (*Reply, *TailReply, bool, error) {
+	var reply Reply
+	err := r.coll.FindOne(ctx, bson.M{
+		"_id": replyID, "domainId": DomainSystem, "docType": DocumentTypeDiscussionReply,
+		"parentType": DocumentTypeDiscussion, "parentId": discussionID,
+	}).Decode(&reply)
+	if err == nil {
+		reply.CreatedAt = reply.ID.Timestamp()
+		for i := range reply.Replies {
+			reply.Replies[i].CreatedAt = reply.Replies[i].ID.Timestamp()
+		}
+		return &reply, nil, false, nil
+	}
+	if err != mongo.ErrNoDocuments {
+		return nil, nil, false, err
+	}
+	err = r.coll.FindOne(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeDiscussionReply,
+		"parentType": DocumentTypeDiscussion, "parentId": discussionID,
+		"reply._id": replyID,
+	}).Decode(&reply)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil, false, ErrNotFound
+	}
+	if err != nil {
+		return nil, nil, false, err
+	}
+	for i := range reply.Replies {
+		if reply.Replies[i].ID == replyID {
+			return &reply, &reply.Replies[i], true, nil
+		}
+	}
+	return nil, nil, false, ErrNotFound
+}
+
 func (r *Repository) AddReply(ctx context.Context, discussionID bson.ObjectID, owner int64, content string) (*Reply, error) {
 	now := time.Now()
 	replyID := bson.NewObjectID()

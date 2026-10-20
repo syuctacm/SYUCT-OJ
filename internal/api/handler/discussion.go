@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/discussion"
@@ -32,6 +33,8 @@ func (h *DiscussionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/discussions/:did", h.get)
 	router.GET("/api/v1/discussions/:did/replies", h.replies)
 	router.POST("/api/v1/discussions/:did/replies", h.createReply)
+	router.PATCH("/api/v1/discussions/:did/replies/:rid", h.updateReply)
+	router.DELETE("/api/v1/discussions/:did/replies/:rid", h.deleteReply)
 }
 
 func (h *DiscussionHandler) list(c *gin.Context) {
@@ -266,6 +269,86 @@ func (h *DiscussionHandler) createReply(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": reply})
+}
+
+func (h *DiscussionHandler) updateReply(c *gin.Context) {
+	uid, ok := h.requireUser(c)
+	if !ok {
+		return
+	}
+	item, replyID, ok := h.replyContext(c)
+	if !ok {
+		return
+	}
+	owner, err := h.repo.ReplyOwner(c.Request.Context(), item.ID, replyID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "reply not found"})
+		return
+	}
+	if owner != uid && !h.isAdmin(c.Request.Context(), uid) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	var request struct {
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || strings.TrimSpace(request.Content) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "reply content is required"})
+		return
+	}
+	if len(request.Content) > discussion.MaxReplyLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "reply content is too long"})
+		return
+	}
+	reply, tail, err := h.repo.UpdateReply(c.Request.Context(), item.ID, replyID, request.Content)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "reply not found"})
+		return
+	}
+	if tail != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": tail})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": reply})
+}
+
+func (h *DiscussionHandler) deleteReply(c *gin.Context) {
+	uid, ok := h.requireUser(c)
+	if !ok {
+		return
+	}
+	item, replyID, ok := h.replyContext(c)
+	if !ok {
+		return
+	}
+	owner, err := h.repo.ReplyOwner(c.Request.Context(), item.ID, replyID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "reply not found"})
+		return
+	}
+	if owner != uid && item.Owner != uid && !h.isAdmin(c.Request.Context(), uid) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	if err := h.repo.DeleteReply(c.Request.Context(), item.ID, replyID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to delete reply"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *DiscussionHandler) replyContext(c *gin.Context) (*discussion.Discussion, bson.ObjectID, bool) {
+	item, err := h.repo.Get(c.Request.Context(), c.Param("did"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "discussion not found"})
+		return nil, bson.NilObjectID, false
+	}
+	replyID, err := bson.ObjectIDFromHex(c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid reply id"})
+		return nil, bson.NilObjectID, false
+	}
+	return item, replyID, true
 }
 
 func (h *DiscussionHandler) isAdmin(ctx context.Context, uid int64) bool {
