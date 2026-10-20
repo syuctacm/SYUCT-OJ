@@ -10,11 +10,12 @@ import (
 )
 
 type Hub struct {
-	mu        sync.Mutex
-	conns     map[*connection]struct{}
-	queue     []Task
-	languages map[string]any
-	upgrader  websocket.Upgrader
+	mu            sync.Mutex
+	conns         map[*connection]struct{}
+	queue         []any
+	languages     map[string]any
+	upgrader      websocket.Upgrader
+	resultHandler func(map[string]any)
 }
 
 type connection struct {
@@ -80,12 +81,18 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case "ping":
 			_ = conn.writeText("pong")
 		case "next", "end":
-			slog.Info("judge result received", "payload", payload)
+			slog.Info("judge result received", "key", key)
+			h.mu.Lock()
+			resultHandler := h.resultHandler
+			h.mu.Unlock()
+			if resultHandler != nil {
+				resultHandler(payload)
+			}
 		}
 	}
 }
 
-func (h *Hub) Enqueue(task Task) bool {
+func (h *Hub) Enqueue(task any) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for conn := range h.conns {
@@ -96,6 +103,23 @@ func (h *Hub) Enqueue(task Task) bool {
 		}
 	}
 	h.queue = append(h.queue, task)
+	return false
+}
+
+func (h *Hub) SetResultHandler(handler func(map[string]any)) {
+	h.mu.Lock()
+	h.resultHandler = handler
+	h.mu.Unlock()
+}
+
+func (h *Hub) HasStarted() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for conn := range h.conns {
+		if conn.started {
+			return true
+		}
+	}
 	return false
 }
 

@@ -12,7 +12,7 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/problem"
 )
 
-func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handler, authHandler *auth.Handler, problemRepo *problem.Repository) *gin.Engine {
+func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handler, authHandler *auth.Handler, problemRepo *problem.Repository, submissionHandler *handler.SubmissionHandler) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery(), middleware.CORS(cfg.CORSOrigins))
 
@@ -26,6 +26,9 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	}
 	if problemRepo != nil {
 		handler.NewProblemHandler(problemRepo).RegisterRoutes(router.Group("/"))
+	}
+	if submissionHandler != nil {
+		submissionHandler.RegisterRoutes(router.Group("/"))
 	}
 	if judgeHandler != nil {
 		judgeHandler.RegisterRoutes(router.Group("/"))
