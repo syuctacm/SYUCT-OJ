@@ -67,13 +67,15 @@
 - `/discuss/:did/edit`：编辑主题
 - `/discuss/:did`：讨论详情、主回复和楼中楼回复
 
-登录用户可在详情页回复，支持 `Ctrl+Enter` 提交。
+登录用户可在详情页回复，支持 `Ctrl+Enter` 提交。讨论编辑页由 `HydroTemplate` 直接渲染上游 `discussion_edit.html` 和 `partials/discussion_edit_form.html`，React 只负责加载数据、更新/删除和快捷键挂载；原版删除按钮会调用现有 DELETE API。
 
 ## 尚未完成
 
 - 点赞、收藏、历史版本
 - 回复通知和提及
 - 节点管理
+- 讨论创建页仍待迁移到 `HydroTemplate`
+- 讨论编辑器暂不提供图片上传，只能插入外链图片
 
 ## 验证
 
