@@ -94,8 +94,10 @@ export function DiscussionsPage() {
             <h1 className="section__title">{selectedNode ? currentTitle : '创建讨论'}</h1>
           </div>
           <div className="section__body">
-            {user ? (
-              <p><Link to={selectedNode ? `/discuss/new?node=${encodeURIComponent(selectedNode)}` : '/discuss/new'} className="expanded primary button">创建讨论</Link></p>
+            {user && selectedNode ? (
+              <p><Link to={`/discuss/node/${encodeURIComponent(selectedNode)}/create`} className="expanded primary button">创建讨论</Link></p>
+            ) : user ? (
+              <p>选择一个讨论节点后创建讨论。</p>
             ) : (
               <p><Link to="/login" className="expanded primary button">登录后创建讨论</Link></p>
             )}
