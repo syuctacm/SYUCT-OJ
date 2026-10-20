@@ -22,6 +22,10 @@ hashType = "hydro"
 
 Go 实现位于 `internal/user/password.go`。
 
+## 前端
+
+登录页结构和类名对应 Hydro `ui-default` 的 `user_login.html`，使用 `layout--immersive`、`.immersive--content`、`.inverse` 表单样式和原版背景资源。
+
 ## 当前限制
 
 - Session 目前是内存实现，服务重启后失效；正式认证阶段会替换为持久化 Session。

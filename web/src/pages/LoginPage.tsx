@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth.tsx'
 
 export function LoginPage() {
@@ -9,6 +9,16 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.remove('layout--basic')
+    root.classList.add('layout--immersive')
+    return () => {
+      root.classList.remove('layout--immersive')
+      root.classList.add('layout--basic')
+    }
+  }, [])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -25,25 +35,35 @@ export function LoginPage() {
   }
 
   return (
-    <div className="auth-card section">
-      <div className="section__header">
-        <h1 className="section__title">登录</h1>
+    <div className="row"><div className="columns">
+      <div className="immersive--content immersive--center">
+        <h1>登录</h1>
+        <form onSubmit={handleSubmit}>
+          <div className="row"><div className="columns">
+            <label className="inverse material textbox">
+              用户名
+              <input name="uname" type="text" value={username} onChange={(event) => setUsername(event.target.value)} autoFocus autoComplete="username" />
+            </label>
+          </div></div>
+          <div className="row"><div className="columns">
+            <label className="inverse material textbox">
+              密码
+              <input name="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
+            </label>
+          </div></div>
+          <div className="row"><div className="columns">
+            <label className="inverse material checkbox" style={{ color: '#fff' }}>
+              <input type="checkbox" name="rememberme" className="checkbox" /> 记住我
+            </label>
+          </div></div>
+          {error ? <blockquote className="warn"><p>{error}</p></blockquote> : null}
+          <div className="row"><div className="columns">
+            <div className="text-center">
+              <input type="submit" value={submitting ? '登录中...' : '登录'} name="login_submit" className="inverse expanded rounded primary button" disabled={submitting} />
+            </div>
+          </div></div>
+        </form>
       </div>
-      <form className="section__body form-stack" onSubmit={handleSubmit}>
-        <label className="field">
-          <span>用户名或邮箱</span>
-          <input className="textbox" value={username} onChange={(event) => setUsername(event.target.value)} autoFocus />
-        </label>
-        <label className="field">
-          <span>密码</span>
-          <input className="textbox" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        </label>
-        {error ? <p className="form-error">{error}</p> : null}
-        <button className="rounded primary button" type="submit" disabled={submitting}>
-          {submitting ? '登录中...' : '登录'}
-        </button>
-        <p className="form-hint"><Link to="/p">先看看题库</Link></p>
-      </form>
-    </div>
+    </div></div>
   )
 }

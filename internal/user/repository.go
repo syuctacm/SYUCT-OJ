@@ -27,14 +27,16 @@ type User struct {
 	DisplayName string    `bson:"displayName" json:"displayName,omitempty"`
 	StudentID   string    `bson:"studentId" json:"studentId,omitempty"`
 	Avatar      string    `bson:"avatar" json:"avatar,omitempty"`
+	Bio         string    `bson:"bio" json:"bio,omitempty"`
 }
 
 type Repository struct {
 	collection *mongo.Collection
+	records    *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
-	return &Repository{collection: db.Collection("user")}
+	return &Repository{collection: db.Collection("user"), records: db.Collection("record")}
 }
 
 func (r *Repository) FindByLogin(ctx context.Context, identifier string) (*User, error) {
@@ -70,4 +72,20 @@ func (r *Repository) FindByID(ctx context.Context, id int64) (*User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func (r *Repository) Statistics(ctx context.Context, uid int64) (int64, int64, error) {
+	submit, err := r.records.CountDocuments(ctx, bson.M{"uid": uid, "domainId": "system"})
+	if err != nil {
+		return 0, 0, err
+	}
+	result := r.records.Distinct(ctx, "pid", bson.M{"uid": uid, "domainId": "system", "status": 1})
+	if err := result.Err(); err != nil {
+		return 0, 0, err
+	}
+	var pids []any
+	if err := result.Decode(&pids); err != nil {
+		return 0, 0, err
+	}
+	return submit, int64(len(pids)), nil
 }
