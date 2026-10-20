@@ -50,6 +50,10 @@ func (h *ContestHandler) create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
+	if input.Rule == "homework" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "use the homework API"})
+		return
+	}
 	item, err := h.repo.Create(c.Request.Context(), u.ID, input)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -73,6 +77,10 @@ func (h *ContestHandler) update(c *gin.Context) {
 	var input contest.EditInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if input.Rule == "homework" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "use the homework API"})
 		return
 	}
 	item, err := h.repo.Update(c.Request.Context(), c.Param("tid"), input)

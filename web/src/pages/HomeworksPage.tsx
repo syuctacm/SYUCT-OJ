@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getHomeworks, type Contest } from '../api.ts'
+import { useAuth } from '../auth.tsx'
 
 function formatDate(value?: string) {
   if (!value) return '-'
@@ -15,6 +16,7 @@ function homeworkStatus(homework: Contest) {
 }
 
 export function HomeworksPage() {
+  const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const query = searchParams.get('q') ?? ''
   const [input, setInput] = useState(query)
@@ -51,8 +53,11 @@ export function HomeworksPage() {
             <div className="section__tools">
               <form method="get" className="filter-form" name="filter-form" onSubmit={handleSearch}>
                 <input type="text" className="inline compact textbox" name="q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="搜索作业..." />
-                <button type="submit" className="compact button">搜索</button>
+                <button type="submit" className="compact button hasjs--hide">搜索</button>
               </form>
+              {user && ((user.priv ?? 0) & 1) !== 0 ? (
+                <Link className="compact button" to="/homework/new">创建作业</Link>
+              ) : null}
             </div>
           </div>
           <div className="section__body no-padding">

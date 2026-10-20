@@ -10,6 +10,7 @@ import { DiscussionCreatePage } from './pages/DiscussionCreatePage.tsx'
 import { DiscussionDetailPage } from './pages/DiscussionDetailPage.tsx'
 import { DiscussionsPage } from './pages/DiscussionsPage.tsx'
 import { HomeworkDetailPage } from './pages/HomeworkDetailPage.tsx'
+import { HomeworkEditPage } from './pages/HomeworkEditPage.tsx'
 import { HomePage } from './pages/HomePage.tsx'
 import { HomeworksPage } from './pages/HomeworksPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
@@ -49,6 +50,8 @@ export default function App() {
         <Route path="/discuss/new" element={<DiscussionCreatePage />} />
         <Route path="/discuss/:did" element={<DiscussionDetailPage />} />
         <Route path="/homework" element={<HomeworksPage />} />
+        <Route path="/homework/new" element={<HomeworkEditPage mode="create" />} />
+        <Route path="/homework/:tid/edit" element={<HomeworkEditPage mode="edit" />} />
         <Route path="/homework/:tid" element={<HomeworkDetailPage />} />
         <Route path="/training" element={<TrainingsPage />} />
         <Route path="/training/:tid" element={<TrainingDetailPage />} />

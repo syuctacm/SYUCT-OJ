@@ -19,6 +19,8 @@
 | `/contest/:tid` | 比赛详情 |
 | `/contest/:tid/edit` | 编辑比赛 |
 | `/homework` | 作业列表 |
+| `/homework/new` | 创建作业 |
+| `/homework/:tid/edit` | 编辑作业 |
 | `/homework/:tid` | 作业详情 |
 | `/training` | 训练列表 |
 | `/training/:tid` | 训练详情 |
@@ -51,6 +53,7 @@
 - `web/src/index.css`：只保留 React 应用壳的兼容样式，不仿制页面视觉
 - `web/src/legacy/`：从旧站原样迁移的独立插件 CSS，例如 Activity Calendar
 - 页面使用 `.section`、`.section__header`、`.section__body`、`.section__footer`、`.data-table`、`.button`、`.textbox` 等原版类名
+- `web/src/components/LegacyForm.tsx` 直接对应 Hydro `templates/components/form.html`，统一输出 `.row`、`.columns`、`.form__item`、`.textbox-container`、`.select-container`、`.textarea-container` 和 `.checkbox-container`
 - 导航、移动端侧滑菜单、页脚使用 `ui-default` 对应的 DOM 结构和类名
 - `web/src/page-meta.ts` 根据路由设置原模板的 `data-page`、`data-layout` 和 `page--*` 类
 - 页面组件自己输出顶层 `.row`，`Layout` 的 `.main` 不再额外添加网格容器
