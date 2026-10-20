@@ -119,9 +119,17 @@ JUDGE_PASSWORD=judge_dev_password
 JUDGE_FILE_ROOT=./data/judge-files
 ```
 
-目前实现了 `hydrojudge` 兼容的登录、判题文件下载、测试数据下载、上传和 WebSocket 握手接口。详细契约见 [docs/judge-compat.md](./docs/judge-compat.md)。
+目前实现了 `hydrojudge` 兼容的登录、判题文件下载、测试数据下载、上传和 WebSocket 协议。详细契约见 [docs/judge-compat.md](./docs/judge-compat.md)。
 
-> Session 当前是内存实现，仅用于本地开发；真实 `hydrojudge` 进程联调尚未完成。
+本地真实判题机验证：
+
+```bash
+docker compose -f deploy/compose.dev.yaml --profile judge up -d --build judge
+./scripts/seed-local-judge.sh
+./scripts/real-judge-smoke.sh
+```
+
+真实 `hydrojudge 4.0.6` 已完成 C++/Python 编译运行和完整状态回写。Session 当前仍是内存实现，仅用于本地开发。
 
 ## 域数据迁移工具
 

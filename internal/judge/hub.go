@@ -70,6 +70,10 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if string(message) == "pong" {
 			continue
 		}
+		if string(message) == "ping" {
+			_ = conn.writeText("pong")
+			continue
+		}
 		var payload map[string]any
 		if err := json.Unmarshal(message, &payload); err != nil {
 			continue
@@ -78,8 +82,6 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		switch key {
 		case "start":
 			h.start(conn)
-		case "ping":
-			_ = conn.writeText("pong")
 		case "next", "end":
 			slog.Info("judge result received", "key", key)
 			h.mu.Lock()

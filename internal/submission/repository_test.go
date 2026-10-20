@@ -81,7 +81,7 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 
 	if err := repo.ApplyJudgeResult(ctx, map[string]any{
 		"key": "end", "rid": record.ID.Hex(), "status": float64(1),
-		"score": float64(100), "time": float64(12), "memory": float64(1024),
+		"score": float64(100), "time": float64(12.345), "memory": float64(1024),
 		"message": "Accepted",
 	}); err != nil {
 		t.Fatalf("apply result: %v", err)
@@ -90,7 +90,7 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Status != submission.StatusAccepted || updated.Score != 100 {
+	if updated.Status != submission.StatusAccepted || updated.Score != 100 || updated.Time != 12.345 {
 		t.Fatalf("updated record: %+v", updated)
 	}
 	if updated.JudgeAt == nil {

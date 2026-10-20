@@ -42,7 +42,7 @@ type Record struct {
 	Code          string         `bson:"code" json:"code,omitempty"`
 	Status        int            `bson:"status" json:"status"`
 	Score         int            `bson:"score" json:"score"`
-	Time          int            `bson:"time" json:"time"`
+	Time          float64        `bson:"time" json:"time"`
 	Memory        int            `bson:"memory" json:"memory"`
 	JudgeTexts    []any          `bson:"judgeTexts" json:"judgeTexts,omitempty"`
 	CompilerTexts []string       `bson:"compilerTexts" json:"compilerTexts,omitempty"`
@@ -307,7 +307,7 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 	set := bson.M{"judgeAt": time.Now().UTC()}
 	for _, key := range []string{"status", "score", "time", "memory", "progress", "judger", "subtasks"} {
 		if value, ok := payload[key]; ok {
-			set[key] = value
+			set[key] = normalizeJudgeField(key, value)
 		}
 	}
 	push := bson.M{}
@@ -334,6 +334,45 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 	}
 	_, err = r.records.UpdateOne(ctx, bson.M{"_id": oid}, update)
 	return err
+}
+
+func normalizeJudgeField(key string, value any) any {
+	switch key {
+	case "status", "score", "memory":
+		switch number := value.(type) {
+		case float32:
+			return int(number)
+		case float64:
+			return int(number)
+		case int32:
+			return int(number)
+		case int64:
+			return int(number)
+		}
+	case "time", "progress":
+		switch number := value.(type) {
+		case float32:
+			return float64(number)
+		case int:
+			return float64(number)
+		case int32:
+			return float64(number)
+		case int64:
+			return float64(number)
+		}
+	case "judger":
+		switch number := value.(type) {
+		case float32:
+			return int64(number)
+		case float64:
+			return int64(number)
+		case int:
+			return int64(number)
+		case int32:
+			return int64(number)
+		}
+	}
+	return value
 }
 
 func configMap(value any) (map[string]any, error) {

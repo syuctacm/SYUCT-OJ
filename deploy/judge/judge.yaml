@@ -1,0 +1,7 @@
+hosts:
+  local:
+    type: hydro
+    server_url: http://host.docker.internal:18080/
+    uname: judge
+    password: judge_dev_password
+    detail: full

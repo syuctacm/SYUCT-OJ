@@ -62,17 +62,21 @@
 
 ## 验证
 
-本地 Docker MongoDB + WebSocket mock judge 集成测试已验证：
+本地 Docker MongoDB + WebSocket mock judge 集成测试覆盖：
 
 - 用户登录
 - 创建提交
-- task 写入
-- judge 收到任务
-- judge 回写 `end`
+- task 写入和 WebSocket 下发
+- `next/end` 结果回写
 - 提交状态变为 Accepted
 
-尚未使用真实 `hydrojudge` 进程执行编译/运行，真实进程联调仍是后续任务。
+真实 `hydrojudge 4.0.6` + `go-judge` 容器验证覆盖：
+
+- C++ 和 Python 编译运行
+- `waiting(0) → compiling(21) → judging(20) → accepted(1)`
+- 编译错误、测试点结果和运行时间回写
+- 小数毫秒时间 `1.566ms` 可正常持久化和读取
 
 ## 注意
 
-TaskPump 当前在任务下发后从 MongoDB 删除任务；如果判题机在返回结果前断线，任务不会自动重试。生产化前需要增加领取确认、超时和重试机制。
+`time` 使用浮点毫秒，展示时按原模板四舍五入。TaskPump 当前在任务下发后从 MongoDB 删除任务；如果判题机在返回结果前断线，任务不会自动重试。生产化前需要增加领取确认、超时和重试机制。
