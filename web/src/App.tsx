@@ -8,6 +8,7 @@ import { DiscussionCreatePage } from './pages/DiscussionCreatePage.tsx'
 import { DiscussionDetailPage } from './pages/DiscussionDetailPage.tsx'
 import { DiscussionsPage } from './pages/DiscussionsPage.tsx'
 import { HomeworkDetailPage } from './pages/HomeworkDetailPage.tsx'
+import { HomePage } from './pages/HomePage.tsx'
 import { HomeworksPage } from './pages/HomeworksPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
 import { ProblemDetailPage } from './pages/ProblemDetailPage.tsx'
@@ -23,7 +24,7 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={<Navigate to="/p" replace />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/p" element={<ProblemsPage />} />

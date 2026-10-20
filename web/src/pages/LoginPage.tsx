@@ -26,7 +26,7 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       await login(username, password)
-      navigate('/p')
+      navigate('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败')
     } finally {
