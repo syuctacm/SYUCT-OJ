@@ -7,6 +7,7 @@ import {
   getDiscussion,
   getDiscussionReplies,
   getPublicUser,
+  setDiscussionLock,
   type Discussion,
   type DiscussionReply,
   type PublicUser,
@@ -32,6 +33,8 @@ export function DiscussionDetailPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [replyError, setReplyError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [locking, setLocking] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -80,6 +83,20 @@ export function DiscussionDetailPage() {
     }
   }
 
+  async function handleLockToggle() {
+    if (!discussion || !user) return
+    setLocking(true)
+    setActionError('')
+    try {
+      const next = await setDiscussionLock(did, !discussion.lock)
+      setDiscussion(next)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : '讨论状态更新失败')
+    } finally {
+      setLocking(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="row"><div className="medium-9 columns"><div className="section"><div className="section__body">
@@ -112,7 +129,11 @@ export function DiscussionDetailPage() {
                 <Link to={`/user/${discussion.owner}`}>{owner?.displayName || owner?.username || `UID ${discussion.owner}`}</Link>
                 {' @ '}
                 <Time value={discussion.updateAt} />
+                {discussion.edited ? '（已编辑）' : ''}
               </li>
+              {user && (user.id === discussion.owner || ((user.priv ?? 0) & 1) !== 0) ? (
+                <li><Link to={`/discuss/${encodeURIComponent(discussion.docId)}/edit`}><span className="icon icon-edit" /> 编辑</Link></li>
+              ) : null}
             </ul>
             <div className="typo topic__content richmedia">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{discussion.content || '暂无内容'}</ReactMarkdown>
@@ -120,7 +141,15 @@ export function DiscussionDetailPage() {
           </div>
           <ul className="section__footer supplementary dot list">
             {discussion.lock ? <li>该讨论已锁定</li> : null}
+            {actionError ? <li className="form-error">{actionError}</li> : null}
             <li>{discussion.views} 浏览</li>
+            {user && ((user.priv ?? 0) & 1) !== 0 ? (
+              <li>
+                <button type="button" className="link-button" onClick={handleLockToggle} disabled={locking}>
+                  {locking ? '处理中...' : discussion.lock ? '解锁讨论' : '锁定讨论'}
+                </button>
+              </li>
+            ) : null}
             <li><Link to="/discuss"><span className="icon icon-arrow-left" /> 返回讨论区</Link></li>
           </ul>
         </div>

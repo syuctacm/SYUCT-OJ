@@ -8,6 +8,7 @@ import { ContestEditPage } from './pages/ContestEditPage.tsx'
 import { ContestsPage } from './pages/ContestsPage.tsx'
 import { DiscussionCreatePage } from './pages/DiscussionCreatePage.tsx'
 import { DiscussionDetailPage } from './pages/DiscussionDetailPage.tsx'
+import { DiscussionEditPage } from './pages/DiscussionEditPage.tsx'
 import { DiscussionsPage } from './pages/DiscussionsPage.tsx'
 import { HomeworkDetailPage } from './pages/HomeworkDetailPage.tsx'
 import { HomeworkEditPage } from './pages/HomeworkEditPage.tsx'
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/contest/:tid" element={<ContestDetailPage />} />
         <Route path="/discuss" element={<DiscussionsPage />} />
         <Route path="/discuss/new" element={<DiscussionCreatePage />} />
+        <Route path="/discuss/:did/edit" element={<DiscussionEditPage />} />
         <Route path="/discuss/:did" element={<DiscussionDetailPage />} />
         <Route path="/homework" element={<HomeworksPage />} />
         <Route path="/homework/new" element={<HomeworkEditPage mode="create" />} />

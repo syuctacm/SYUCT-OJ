@@ -7,6 +7,9 @@
 | GET | `/api/v1/discussions` | 讨论列表 |
 | GET | `/api/v1/discussion-nodes` | Hydro 讨论节点 |
 | POST | `/api/v1/discussions` | 创建讨论主题 |
+| PATCH | `/api/v1/discussions/:did` | 编辑讨论主题 |
+| DELETE | `/api/v1/discussions/:did` | 删除讨论主题及回复 |
+| PATCH | `/api/v1/discussions/:did/lock` | 锁定/解锁讨论 |
 | GET | `/api/v1/discussions/:did` | 讨论详情 |
 | GET | `/api/v1/discussions/:did/replies` | 讨论回复列表 |
 | POST | `/api/v1/discussions/:did/replies` | 发布讨论回复 |
@@ -35,6 +38,14 @@
 
 回复正文不能为空，最大 64 KiB。`lock=true` 的讨论返回 HTTP 409，未登录用户返回 HTTP 401。
 
+编辑主题请求体：
+
+```json
+{"title": "新标题", "content": "新正文", "pin": false, "highlight": false}
+```
+
+所有者可以编辑/删除自己的主题，管理员可以编辑/删除任意主题。置顶、高亮和锁定仅管理员可操作。删除主题会同时删除其回复。
+
 ## 前端
 
 页面结构和类名直接对应 Hydro `ui-default` 模板：
@@ -49,13 +60,14 @@
 
 - `/discuss`：讨论列表和节点筛选
 - `/discuss/new`：创建主题
+- `/discuss/:did/edit`：编辑主题
 - `/discuss/:did`：讨论详情、主回复和楼中楼回复
 
 登录用户可在详情页回复，支持 `Ctrl+Enter` 提交。
 
 ## 尚未完成
 
-- 编辑、删除主题和回复
+- 编辑、删除回复
 - 点赞、收藏、历史版本
 - 回复通知和提及
 - 节点管理
@@ -74,3 +86,6 @@
 - 回复计数和更新时间同步
 - 空回复被拒绝
 - 锁定讨论拒绝回复
+- 所有者/管理员编辑与删除
+- 非所有者编辑被拒绝
+- 置顶/高亮/锁定仅管理员可操作

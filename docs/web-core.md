@@ -28,6 +28,7 @@
 | `/training/:tid` | 训练详情 |
 | `/discuss` | 讨论列表 |
 | `/discuss/new` | 创建讨论 |
+| `/discuss/:did/edit` | 编辑讨论 |
 | `/discuss/:did` | 讨论详情与回复 |
 | `/user/:uid` | 用户主页 |
 | `/admin` | 管理员后台概览 |
