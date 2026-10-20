@@ -137,7 +137,7 @@ JUDGE_TASK_LEASE=3s go run ./cmd/api
 ./scripts/real-judge-recovery-smoke.sh
 ```
 
-真实 `hydrojudge 4.0.6` 已完成 C++/Python 编译运行、完整状态回写和判题机断线重投。用户和判题 Session 存储在本地 MongoDB，API 重启后仍然有效。
+真实 `hydrojudge 4.0.6 + go-judge v1.13.3` 已完成 C++/Python 编译运行、完整状态回写和判题机断线重投。`v1.13.3` 已修复 symlink escape，详见 [判题沙箱安全评审](./docs/judge-security.md)。用户和判题 Session 存储在本地 MongoDB，API 重启后仍然有效。
 
 ## 域数据迁移工具
 
