@@ -31,17 +31,17 @@ export function SubmissionPage() {
     }
   }, [rid])
 
-  if (error) return <section className="panel"><div className="empty-state error-state">{error}</div></section>
-  if (!submission) return <section className="panel"><div className="empty-state">加载中...</div></section>
+  if (error) return <section className="section"><div className="empty-state error-state">{error}</div></section>
+  if (!submission) return <section className="section"><div className="empty-state">加载中...</div></section>
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">SUBMISSION</p>
-          <h1 className="panel-title">提交结果</h1>
+          <h1 className="section__title">提交结果</h1>
         </div>
-        <Link className="button" to="/p">返回题库</Link>
+        <Link className="rounded button" to="/p">返回题库</Link>
       </div>
       <div className="submission-summary">
         <div><span className="summary-label">状态</span><strong className={`status status-${submission.status}`}>{statusLabel(submission.status)}</strong></div>
@@ -49,8 +49,8 @@ export function SubmissionPage() {
         <div><span className="summary-label">时间</span><strong>{submission.time} ms</strong></div>
         <div><span className="summary-label">内存</span><strong>{submission.memory} KiB</strong></div>
       </div>
-      {submission.compilerTexts?.length ? <div className="panel-body compiler-output"><pre>{submission.compilerTexts.join('\n')}</pre></div> : null}
-      {submission.code ? <div className="panel-body code-view"><pre>{submission.code}</pre></div> : null}
+      {submission.compilerTexts?.length ? <div className="section__body compiler-output"><pre>{submission.compilerTexts.join('\n')}</pre></div> : null}
+      {submission.code ? <div className="section__body code-view"><pre>{submission.code}</pre></div> : null}
     </section>
   )
 }

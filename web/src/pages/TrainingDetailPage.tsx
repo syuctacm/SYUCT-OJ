@@ -13,20 +13,20 @@ export function TrainingDetailPage() {
     getTraining(tid).then(setTraining).catch((err: unknown) => setError(err instanceof Error ? err.message : '训练加载失败'))
   }, [tid])
 
-  if (error) return <section className="panel"><div className="empty-state error-state">{error}</div></section>
-  if (!training) return <section className="panel"><div className="empty-state">加载中...</div></section>
+  if (error) return <section className="section"><div className="empty-state error-state">{error}</div></section>
+  if (!training) return <section className="section"><div className="empty-state">加载中...</div></section>
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">TRAINING</p>
-          <h1 className="panel-title">{training.title}</h1>
-          {training.description ? <p className="panel-subtitle">{training.description}</p> : null}
+          <h1 className="section__title">{training.title}</h1>
+          {training.description ? <p className="supplementary">{training.description}</p> : null}
         </div>
         {training.pin ? <span className="tag">置顶</span> : null}
       </div>
-      <div className="panel-body problem-content">
+      <div className="section__body problem-content">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{training.content || '暂无训练内容'}</ReactMarkdown>
       </div>
     </section>

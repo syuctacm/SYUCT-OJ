@@ -26,17 +26,17 @@ export function ContestDetailPage() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '比赛加载失败'))
   }, [tid])
 
-  if (error) return <section className="panel"><div className="empty-state error-state">{error}</div></section>
-  if (!contest) return <section className="panel"><div className="empty-state">加载中...</div></section>
+  if (error) return <section className="section"><div className="empty-state error-state">{error}</div></section>
+  if (!contest) return <section className="section"><div className="empty-state">加载中...</div></section>
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">CONTEST</p>
-          <h1 className="panel-title">{contest.title}</h1>
+          <h1 className="section__title">{contest.title}</h1>
         </div>
-        <Link className="button" to="/contest">返回比赛</Link>
+        <Link className="rounded button" to="/contest">返回比赛</Link>
       </div>
       <div className="contest-meta">
         <span>赛制 {contest.rule || '-'}</span>
@@ -46,11 +46,11 @@ export function ContestDetailPage() {
         <span>题目 {contest.pids?.length ?? 0}</span>
         {contest.lockAt && !contest.unlocked && new Date(contest.lockAt).getTime() <= Date.now() ? <span className="tag">榜单已封存</span> : null}
       </div>
-      <div className="panel-body problem-content">
+      <div className="section__body problem-content">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{contest.content || '暂无比赛说明'}</ReactMarkdown>
       </div>
-      <div className="panel-header"><h2 className="panel-title">比赛榜单</h2></div>
-      <div className="table-wrap">
+      <div className="section__header"><h2 className="section__title">比赛榜单</h2></div>
+      <div className="section__table-container">
         <table className="data-table">
           <thead><tr><th className="col-id">排名</th><th>UID</th><th>过题</th><th>罚时</th>{contest.pids?.map((pid) => <th key={pid}>#{pid}</th>)}</tr></thead>
           <tbody>
@@ -70,8 +70,8 @@ export function ContestDetailPage() {
         </table>
         {scoreboard.length === 0 ? <div className="empty-state">暂无榜单数据</div> : null}
       </div>
-      <div className="panel-header"><h2 className="panel-title">比赛题目</h2></div>
-      <div className="table-wrap">
+      <div className="section__header"><h2 className="section__title">比赛题目</h2></div>
+      <div className="section__table-container">
         <table className="data-table">
           <thead><tr><th className="col-id">编号</th><th>题目</th><th className="col-difficulty">难度</th><th className="col-stat">通过 / 提交</th><th>操作</th></tr></thead>
           <tbody>
@@ -81,7 +81,7 @@ export function ContestDetailPage() {
                 <td><Link className="problem-link" to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}`}>{problem.title}</Link></td>
                 <td className="center">{problem.difficulty || '-'}</td>
                 <td className="center mono">{problem.nAccept} / {problem.nSubmit}</td>
-                <td><Link className="button" to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}/submit?contest=${encodeURIComponent(contest.docId)}`}>提交</Link></td>
+                <td><Link className="rounded button" to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}/submit?contest=${encodeURIComponent(contest.docId)}`}>提交</Link></td>
               </tr>
             ))}
           </tbody>

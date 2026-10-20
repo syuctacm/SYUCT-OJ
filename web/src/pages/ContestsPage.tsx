@@ -21,17 +21,17 @@ export function ContestsPage() {
   }, [])
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">CONTESTS</p>
-          <h1 className="panel-title">比赛</h1>
+          <h1 className="section__title">比赛</h1>
         </div>
       </div>
       {loading ? <div className="empty-state">加载中...</div> : null}
       {error ? <div className="empty-state error-state">{error}</div> : null}
       {!loading && !error ? (
-        <div className="table-wrap">
+        <div className="section__table-container">
           <table className="data-table">
             <thead><tr><th>比赛</th><th>赛制</th><th>开始时间</th><th>结束时间</th><th className="center">参赛人数</th></tr></thead>
             <tbody>
@@ -49,7 +49,7 @@ export function ContestsPage() {
           {items.length === 0 ? <div className="empty-state">暂无比赛</div> : null}
         </div>
       ) : null}
-      <div className="panel-footer">共 {items.length} 场比赛</div>
+      <div className="section__footer">共 {items.length} 场比赛</div>
     </section>
   )
 }

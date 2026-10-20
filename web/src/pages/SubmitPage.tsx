@@ -44,33 +44,33 @@ export function SubmitPage() {
     }
   }
 
-  if (loading) return <section className="panel"><div className="empty-state">加载中...</div></section>
-  if (!user) return <section className="panel"><div className="empty-state">请先 <Link to="/login">登录</Link> 后提交。</div></section>
+  if (loading) return <section className="section"><div className="empty-state">加载中...</div></section>
+  if (!user) return <section className="section"><div className="empty-state">请先 <Link to="/login">登录</Link> 后提交。</div></section>
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">SUBMIT</p>
-          <h1 className="panel-title">{problem?.title || pid}</h1>
-          {contestId ? <p className="panel-subtitle">比赛提交 · {contestId}</p> : null}
+          <h1 className="section__title">{problem?.title || pid}</h1>
+          {contestId ? <p className="supplementary">比赛提交 · {contestId}</p> : null}
         </div>
-        <Link className="button" to={`/p/${encodeURIComponent(pid)}`}>返回题目</Link>
+        <Link className="rounded button" to={`/p/${encodeURIComponent(pid)}`}>返回题目</Link>
       </div>
-      <form className="panel-body form-stack" onSubmit={handleSubmit}>
+      <form className="section__body form-stack" onSubmit={handleSubmit}>
         <label className="field field-inline">
           <span>语言</span>
-          <select className="input select" value={lang} onChange={(event) => setLang(event.target.value)}>
+          <select className="select" value={lang} onChange={(event) => setLang(event.target.value)}>
             <option value="cpp">C++17</option>
             <option value="python3">Python 3</option>
           </select>
         </label>
         <label className="field">
           <span>代码</span>
-          <textarea className="textarea code-editor" value={code} onChange={(event) => setCode(event.target.value)} spellCheck={false} />
+          <textarea className="textbox code-editor" value={code} onChange={(event) => setCode(event.target.value)} spellCheck={false} />
         </label>
         {error ? <p className="form-error">{error}</p> : null}
-        <button className="button button-primary" type="submit" disabled={submitting}>{submitting ? '提交中...' : '提交评测'}</button>
+        <button className="rounded primary button" type="submit" disabled={submitting}>{submitting ? '提交中...' : '提交评测'}</button>
       </form>
     </section>
   )

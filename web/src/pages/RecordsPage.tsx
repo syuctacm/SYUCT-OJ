@@ -23,21 +23,21 @@ export function RecordsPage() {
       .finally(() => setLoading(false))
   }, [authLoading, user])
 
-  if (authLoading) return <section className="panel"><div className="empty-state">加载中...</div></section>
-  if (!user) return <section className="panel"><div className="empty-state">请先 <Link to="/login">登录</Link> 查看提交记录。</div></section>
-  if (error) return <section className="panel"><div className="empty-state error-state">{error}</div></section>
+  if (authLoading) return <section className="section"><div className="empty-state">加载中...</div></section>
+  if (!user) return <section className="section"><div className="empty-state">请先 <Link to="/login">登录</Link> 查看提交记录。</div></section>
+  if (error) return <section className="section"><div className="empty-state error-state">{error}</div></section>
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">MY SUBMISSIONS</p>
-          <h1 className="panel-title">提交记录</h1>
+          <h1 className="section__title">提交记录</h1>
         </div>
-        <Link className="button" to="/p">去题库</Link>
+        <Link className="rounded button" to="/p">去题库</Link>
       </div>
       {loading ? <div className="empty-state">加载中...</div> : (
-        <div className="table-wrap">
+        <div className="section__table-container">
           <table className="data-table">
             <thead>
               <tr>
@@ -65,7 +65,7 @@ export function RecordsPage() {
           {page?.items.length === 0 ? <div className="empty-state">还没有提交记录</div> : null}
         </div>
       )}
-      <div className="panel-footer">共 {page?.total ?? 0} 条提交</div>
+      <div className="section__footer">共 {page?.total ?? 0} 条提交</div>
     </section>
   )
 }

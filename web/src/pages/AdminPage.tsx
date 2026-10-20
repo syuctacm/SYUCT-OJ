@@ -24,19 +24,19 @@ export function AdminPage() {
     getAdminStats().then(setStats).catch((err: unknown) => setError(err instanceof Error ? err.message : '后台数据加载失败'))
   }, [])
 
-  if (!user || ((user.priv ?? 0) & 1) === 0) return <section className="panel"><div className="empty-state error-state">需要管理员权限</div></section>
-  if (error) return <section className="panel"><div className="empty-state error-state">{error}</div></section>
+  if (!user || ((user.priv ?? 0) & 1) === 0) return <section className="section"><div className="empty-state error-state">需要管理员权限</div></section>
+  if (error) return <section className="section"><div className="empty-state error-state">{error}</div></section>
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className="section">
+      <div className="section__header">
         <div>
           <p className="eyebrow">ADMIN</p>
-          <h1 className="panel-title">后台概览</h1>
-          <p className="panel-subtitle">只读统计，当前不会修改线上数据</p>
+          <h1 className="section__title">后台概览</h1>
+          <p className="supplementary">只读统计，当前不会修改线上数据</p>
         </div>
       </div>
-      <div className="admin-actions"><Link className="button" to="/admin/users">用户管理</Link></div>
+      <div className="admin-actions"><Link className="rounded button" to="/admin/users">用户管理</Link></div>
       <div className="admin-grid">
         {labels.map(([key, label]) => (
           <div className="admin-stat" key={key}>
