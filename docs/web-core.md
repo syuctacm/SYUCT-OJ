@@ -23,6 +23,8 @@
 | `/homework/:tid/edit` | 编辑作业 |
 | `/homework/:tid` | 作业详情 |
 | `/training` | 训练列表 |
+| `/training/new` | 创建训练 |
+| `/training/:tid/edit` | 编辑训练 |
 | `/training/:tid` | 训练详情 |
 | `/discuss` | 讨论列表 |
 | `/discuss/new` | 创建讨论 |

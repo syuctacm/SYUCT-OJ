@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -22,11 +23,27 @@ const (
 var ErrNotFound = fmt.Errorf("training not found")
 
 type Node struct {
-	ID          int64   `json:"id"`
-	Title       string  `json:"title"`
-	Content     string  `json:"content,omitempty"`
-	RequireNids []int64 `json:"requireNids"`
-	Pids        []int64 `json:"pids"`
+	ID          int64   `bson:"_id" json:"id"`
+	Title       string  `bson:"title" json:"title"`
+	Content     string  `bson:"content,omitempty" json:"content,omitempty"`
+	RequireNids []int64 `bson:"requireNids" json:"requireNids"`
+	Pids        []int64 `bson:"pids" json:"pids"`
+}
+
+type EditNode struct {
+	ID          any    `json:"_id"`
+	Title       string `json:"title"`
+	Content     string `json:"content,omitempty"`
+	RequireNids []any  `json:"requireNids"`
+	Pids        []any  `json:"pids"`
+}
+
+type EditInput struct {
+	Title       string     `json:"title"`
+	Content     string     `json:"content"`
+	Description string     `json:"description"`
+	Pin         bool       `json:"pin"`
+	DAG         []EditNode `json:"dag"`
 }
 
 type Training struct {
@@ -82,7 +99,7 @@ type rawTraining struct {
 	Content     string        `bson:"content"`
 	Owner       int64         `bson:"owner"`
 	Attend      int64         `bson:"attend"`
-	Pin         bool          `bson:"pin"`
+	Pin         any           `bson:"pin"`
 	DAG         []rawNode     `bson:"dag"`
 }
 
@@ -117,6 +134,162 @@ func NewRepository(db *mongo.Database) *Repository {
 	}
 }
 
+func (r *Repository) Create(ctx context.Context, owner int64, input EditInput) (*Training, error) {
+	dag, err := r.normalizeDAG(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	oid := bson.NewObjectID()
+	document := bson.M{
+		"_id": oid, "docId": oid, "domainId": DomainSystem, "docType": DocumentTypeTraining,
+		"title": strings.TrimSpace(input.Title), "content": input.Content, "description": input.Description,
+		"owner": owner, "attend": int64(0), "pin": input.Pin, "dag": dag,
+	}
+	if _, err := r.documents.InsertOne(ctx, document); err != nil {
+		return nil, err
+	}
+	return r.Get(ctx, oid.Hex())
+}
+
+func (r *Repository) Update(ctx context.Context, tid string, input EditInput) (*Training, error) {
+	dag, err := r.normalizeDAG(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	result, err := r.documents.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeTraining,
+		"$or":      []bson.M{{"docId": oid}, {"_id": oid}},
+	}, bson.M{"$set": bson.M{
+		"title": strings.TrimSpace(input.Title), "content": input.Content,
+		"description": input.Description, "pin": input.Pin, "dag": dag,
+	}})
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, ErrNotFound
+	}
+	return r.Get(ctx, tid)
+}
+
+func (r *Repository) normalizeDAG(ctx context.Context, input EditInput) ([]Node, error) {
+	if strings.TrimSpace(input.Title) == "" {
+		return nil, fmt.Errorf("title is required")
+	}
+	if utf8.RuneCountInString(input.Content) > 500 {
+		return nil, fmt.Errorf("introduction must not exceed 500 characters")
+	}
+	if len(input.DAG) == 0 {
+		return nil, fmt.Errorf("dag must have at least one node")
+	}
+	ids := make(map[int64]bool, len(input.DAG))
+	nodeIDs := make([]int64, len(input.DAG))
+	for index, node := range input.DAG {
+		id, ok := number(node.ID)
+		if !ok || id <= 0 {
+			return nil, fmt.Errorf("each dag node needs a positive _id")
+		}
+		if strings.TrimSpace(node.Title) == "" {
+			return nil, fmt.Errorf("dag node %d title is required", id)
+		}
+		if ids[id] {
+			return nil, fmt.Errorf("duplicate dag node _id %d", id)
+		}
+		ids[id] = true
+		nodeIDs[index] = id
+	}
+	dag := make([]Node, 0, len(input.DAG))
+	for index, node := range input.DAG {
+		id := nodeIDs[index]
+		requires := make([]int64, 0, len(node.RequireNids))
+		seenRequires := make(map[int64]bool, len(node.RequireNids))
+		for _, rawRequired := range node.RequireNids {
+			required, ok := number(rawRequired)
+			if !ok {
+				return nil, fmt.Errorf("dag node %d has invalid required node %v", id, rawRequired)
+			}
+			if required == id {
+				return nil, fmt.Errorf("dag node %d cannot require itself", id)
+			}
+			if !ids[required] {
+				return nil, fmt.Errorf("required node _id %d does not exist", required)
+			}
+			if !seenRequires[required] {
+				seenRequires[required] = true
+				requires = append(requires, required)
+			}
+		}
+		pids, err := r.resolveProblemDocIDs(ctx, node.Pids)
+		if err != nil {
+			return nil, fmt.Errorf("dag node %d: %w", id, err)
+		}
+		if len(pids) == 0 {
+			return nil, fmt.Errorf("dag node %d must contain at least one problem", id)
+		}
+		dag = append(dag, Node{
+			ID: id, Title: strings.TrimSpace(node.Title), Content: node.Content,
+			RequireNids: requires, Pids: pids,
+		})
+	}
+	return dag, nil
+}
+
+func (r *Repository) resolveProblemDocIDs(ctx context.Context, values []any) ([]int64, error) {
+	result := make([]int64, 0, len(values))
+	seen := make(map[int64]bool, len(values))
+	for _, value := range values {
+		id, err := r.resolveProblemDocID(ctx, value)
+		if err != nil {
+			return nil, err
+		}
+		if !seen[id] {
+			seen[id] = true
+			result = append(result, id)
+		}
+	}
+	return result, nil
+}
+
+func (r *Repository) resolveProblemDocID(ctx context.Context, value any) (int64, error) {
+	if id, ok := number(value); ok {
+		if id <= 0 {
+			return 0, fmt.Errorf("invalid problem %v", value)
+		}
+		count, err := r.documents.CountDocuments(ctx, bson.M{
+			"domainId": DomainSystem, "docType": DocumentTypeProblem, "docId": id,
+		})
+		if err != nil {
+			return 0, err
+		}
+		if count == 0 {
+			return 0, fmt.Errorf("problem %d does not exist", id)
+		}
+		return id, nil
+	}
+	identifier := strings.TrimSpace(fmt.Sprint(value))
+	if identifier == "" {
+		return 0, fmt.Errorf("invalid empty problem")
+	}
+	var doc struct {
+		DocID int64 `bson:"docId"`
+	}
+	err := r.documents.FindOne(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeProblem, "pid": identifier,
+	}, options.FindOne().SetProjection(bson.M{"docId": 1})).Decode(&doc)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return 0, fmt.Errorf("problem %s does not exist", identifier)
+		}
+		return 0, err
+	}
+	return doc.DocID, nil
+}
+
 func (r *Repository) List(ctx context.Context) ([]Training, error) {
 	return r.ListFiltered(ctx, "")
 }
@@ -130,7 +303,7 @@ func (r *Repository) ListFiltered(ctx context.Context, query string) ([]Training
 		filter["title"] = bson.M{"$regex": regexp.QuoteMeta(query), "$options": "i"}
 	}
 	cursor, err := r.documents.Find(ctx, filter, options.Find().
-		SetProjection(bson.M{"docId": 1, "title": 1, "description": 1, "owner": 1, "attend": 1, "pin": 1, "dag": 1}).
+		SetProjection(bson.M{"docId": 1, "title": 1, "content": 1, "description": 1, "owner": 1, "attend": 1, "pin": 1, "dag": 1}).
 		SetSort(bson.D{{Key: "pin", Value: -1}, {Key: "_id", Value: -1}}))
 	if err != nil {
 		return nil, err
@@ -370,9 +543,18 @@ func (raw rawTraining) toTraining() Training {
 			RequireNids: requires, Pids: pids,
 		})
 	}
+	pin := false
+	switch value := raw.Pin.(type) {
+	case bool:
+		pin = value
+	default:
+		if pinNumber, ok := number(value); ok {
+			pin = pinNumber != 0
+		}
+	}
 	return Training{
 		ID: raw.ID, DocID: raw.DocID, Title: raw.Title, Description: raw.Description,
-		Content: raw.Content, Owner: raw.Owner, Attend: raw.Attend, Pin: raw.Pin, DAG: dag,
+		Content: raw.Content, Owner: raw.Owner, Attend: raw.Attend, Pin: pin, DAG: dag,
 	}
 }
 

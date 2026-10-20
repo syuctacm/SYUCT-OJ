@@ -5,7 +5,10 @@
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | GET | `/api/v1/trainings` | 训练列表 |
+| POST | `/api/v1/trainings` | 创建训练 |
 | GET | `/api/v1/trainings/:tid` | 训练详情、DAG 章节、题目和当前用户进度 |
+| GET | `/api/v1/trainings/:tid/edit` | 训练编辑数据 |
+| PATCH | `/api/v1/trainings/:tid` | 更新训练 |
 | POST | `/api/v1/trainings/:tid/enroll` | 报名训练 |
 
 数据读取 Hydro `document` 集合中的 `docType=40` 文档，章节保存在 `dag` 字段。训练兼容数字型和数字字符串形式的 `pid`。
@@ -39,18 +42,22 @@ enroll=1
 
 - `training_main.html`：训练列表、搜索、章节/题目数和报名人数
 - `training_detail.html`：训练说明、状态、章节和题目
+- `training_edit.html`：训练创建和编辑表单
 - `partials/training_detail.html`：DAG 章节状态、前置条件和题目表格
 
 路由：
 
 - `/training`：训练列表和标题搜索
+- `/training/new`：创建训练
+- `/training/:tid/edit`：编辑训练
 - `/training/:tid`：训练说明、总体进度、DAG 章节、题目完成状态和报名入口
+
+创建和编辑使用管理员权限；编辑还需要训练所有者或管理员。DAG JSON 会校验节点 ID 唯一、前置节点存在、每节至少一道题，并把 PID 或 docId 统一解析为题目 docId。
 
 未报名或章节未解锁时仍可查看内容，但题目入口不可点击。页面直接使用 Hydro 原版 `.training__section`、`.training__problems` 和训练状态类名。
 
 ## 尚未完成
 
-- 训练创建和编辑
 - 训练文件管理
 - 他人进度对比和完成排行榜
 - 训练通知
@@ -66,3 +73,5 @@ enroll=1
 - 重复报名幂等
 - 提交记录驱动 done/progress/open/invalid 状态
 - 全部章节完成后进度为 100%
+- 管理员创建、所有者/管理员编辑
+- DAG 节点、前置条件、PID/docId 和缺失题目校验
