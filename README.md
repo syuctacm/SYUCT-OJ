@@ -117,6 +117,7 @@ cd web && pnpm build
 JUDGE_USERNAME=judge
 JUDGE_PASSWORD=judge_dev_password
 JUDGE_FILE_ROOT=./data/judge-files
+SESSION_TTL=24h
 ```
 
 目前实现了 `hydrojudge` 兼容的登录、判题文件下载、测试数据下载、上传和 WebSocket 协议。详细契约见 [docs/judge-compat.md](./docs/judge-compat.md)。
@@ -136,7 +137,7 @@ JUDGE_TASK_LEASE=3s go run ./cmd/api
 ./scripts/real-judge-recovery-smoke.sh
 ```
 
-真实 `hydrojudge 4.0.6` 已完成 C++/Python 编译运行、完整状态回写和判题机断线重投。Session 当前仍是内存实现，仅用于本地开发。
+真实 `hydrojudge 4.0.6` 已完成 C++/Python 编译运行、完整状态回写和判题机断线重投。用户和判题 Session 存储在本地 MongoDB，API 重启后仍然有效。
 
 ## 域数据迁移工具
 

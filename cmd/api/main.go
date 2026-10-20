@@ -49,7 +49,11 @@ func main() {
 		os.Exit(1)
 	}
 	hub := judge.NewHub(judge.DefaultLanguages())
-	sessions := auth.NewSessionManager(24 * time.Hour)
+	sessions, err := auth.NewMongoSessionManager(ctx, db, cfg.SessionTTL)
+	if err != nil {
+		slog.Error("unable to initialize session store", "error", err)
+		os.Exit(1)
+	}
 	judgeHandler := judge.NewHandler(cfg.JudgeUsername, cfg.JudgePassword, sessions, judgeStore, hub)
 	userRepo := user.NewRepository(db)
 	authHandler := auth.NewHandler(userRepo, sessions)

@@ -124,7 +124,7 @@ func (h *SubmissionHandler) get(c *gin.Context) {
 
 func (h *SubmissionHandler) currentUser(c *gin.Context) (int64, bool) {
 	token := auth.Token(c)
-	session, ok := h.sessions.Get(token)
+	session, ok := h.sessions.GetContext(c.Request.Context(), token)
 	if !ok || session.Kind != "user" || session.UserID <= 0 {
 		return 0, false
 	}

@@ -29,7 +29,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 func (h *ProblemHandler) list(c *gin.Context) {
 	var uid int64
 	if h.sessions != nil {
-		if session, ok := h.sessions.Get(auth.Token(c)); ok && session.Kind == "user" {
+		if session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c)); ok && session.Kind == "user" {
 			uid = session.UserID
 		}
 	}
