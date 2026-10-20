@@ -154,3 +154,7 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `GET /api/v1/submissions/:rid`
 
 提交会写入 `record` 和 `task`，TaskPump 再将任务下发给兼容的判题机。详见 [docs/submissions.md](./docs/submissions.md)。
+
+## 前端核心页面
+
+已实现 `/login`、`/p`、`/p/:pid`、`/p/:pid/submit`、`/record/:rid`。本地联调时可以把 Vite 的 API 代理指向 `SERVER_PORT` 对应的后端端口。
