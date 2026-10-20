@@ -53,7 +53,7 @@ func main() {
 	problemRepo := problem.NewRepository(db)
 	contestRepo := contest.NewRepository(db)
 	submissionRepo := submission.NewRepository(db, problemRepo)
-	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions)
+	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions, contestRepo)
 	hub.SetResultHandler(func(payload map[string]any) {
 		if err := submissionRepo.ApplyJudgeResult(context.Background(), payload); err != nil {
 			slog.Warn("unable to apply judge result", "error", err)

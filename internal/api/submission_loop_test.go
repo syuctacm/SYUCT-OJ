@@ -77,7 +77,7 @@ func TestSubmissionJudgeLoopIntegration(t *testing.T) {
 	hub := judge.NewHub(judge.DefaultLanguages())
 	judgeHandler := judge.NewHandler("judge", "judge_secret", sessions, judgeStore, hub)
 	authHandler := auth.NewHandler(userRepo, sessions)
-	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions)
+	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions, nil)
 	hub.SetResultHandler(func(payload map[string]any) {
 		if err := submissionRepo.ApplyJudgeResult(context.Background(), payload); err != nil {
 			t.Errorf("apply judge result: %v", err)

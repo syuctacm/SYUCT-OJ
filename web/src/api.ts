@@ -103,10 +103,10 @@ export async function getProblem(pid: string): Promise<ProblemDetail> {
   return result.data
 }
 
-export async function createSubmission(pid: string, lang: string, code: string): Promise<Submission> {
+export async function createSubmission(pid: string, lang: string, code: string, contestId = ''): Promise<Submission> {
   const result = await request<Envelope<Submission>>('/api/v1/submissions', {
     method: 'POST',
-    body: JSON.stringify({ pid, lang, code }),
+    body: JSON.stringify({ pid, lang, code, contestId }),
   })
   return result.data
 }
@@ -160,5 +160,29 @@ export type ContestProblemPage = {
 
 export async function getContestProblems(tid: string): Promise<ContestProblemPage> {
   const result = await request<Envelope<ContestProblemPage>>(`/api/v1/contests/${encodeURIComponent(tid)}/problems`)
+  return result.data
+}
+
+export type ScoreboardCell = {
+  solved: boolean
+  attempts: number
+  time: number
+}
+
+export type ScoreboardRow = {
+  rank: number
+  uid: number
+  solved: number
+  penalty: number
+  problems: Record<string, ScoreboardCell>
+}
+
+export type ContestScoreboard = {
+  contest: Contest
+  rows: ScoreboardRow[]
+}
+
+export async function getContestScoreboard(tid: string): Promise<ContestScoreboard> {
+  const result = await request<Envelope<ContestScoreboard>>(`/api/v1/contests/${encodeURIComponent(tid)}/scoreboard`)
   return result.data
 }

@@ -97,3 +97,6 @@ button, input, select, textarea { font: inherit; }
 .record-status-20, .record-status-21, .record-status-22 { color: #b7791f; }
 
 .contest-meta { display: flex; flex-wrap: wrap; gap: 16px; padding: 0 24px 18px; color: #7b8794; font-size: 13px; border-bottom: 1px solid #edf0f3; }
+
+.scoreboard-cell { text-align: center; color: #8a96a3; font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
+.scoreboard-cell.solved { color: #1b8a4b; font-weight: 600; }

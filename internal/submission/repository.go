@@ -21,23 +21,24 @@ const (
 )
 
 type Record struct {
-	ID            bson.ObjectID `bson:"_id" json:"id"`
-	UID           int64         `bson:"uid" json:"uid"`
-	PID           int64         `bson:"pid" json:"pid"`
-	DomainID      string        `bson:"domainId" json:"domainId"`
-	Lang          string        `bson:"lang" json:"lang"`
-	Code          string        `bson:"code" json:"code,omitempty"`
-	Status        int           `bson:"status" json:"status"`
-	Score         int           `bson:"score" json:"score"`
-	Time          int           `bson:"time" json:"time"`
-	Memory        int           `bson:"memory" json:"memory"`
-	JudgeTexts    []any         `bson:"judgeTexts" json:"judgeTexts,omitempty"`
-	CompilerTexts []string      `bson:"compilerTexts" json:"compilerTexts,omitempty"`
-	TestCases     []any         `bson:"testCases" json:"testCases,omitempty"`
-	Judger        *int64        `bson:"judger" json:"judger,omitempty"`
-	JudgeAt       *time.Time    `bson:"judgeAt" json:"judgeAt,omitempty"`
-	Rejudged      bool          `bson:"rejudged" json:"rejudged"`
-	Source        string        `bson:"source" json:"source,omitempty"`
+	ID            bson.ObjectID  `bson:"_id" json:"id"`
+	UID           int64          `bson:"uid" json:"uid"`
+	PID           int64          `bson:"pid" json:"pid"`
+	DomainID      string         `bson:"domainId" json:"domainId"`
+	Lang          string         `bson:"lang" json:"lang"`
+	Code          string         `bson:"code" json:"code,omitempty"`
+	Status        int            `bson:"status" json:"status"`
+	Score         int            `bson:"score" json:"score"`
+	Time          int            `bson:"time" json:"time"`
+	Memory        int            `bson:"memory" json:"memory"`
+	JudgeTexts    []any          `bson:"judgeTexts" json:"judgeTexts,omitempty"`
+	CompilerTexts []string       `bson:"compilerTexts" json:"compilerTexts,omitempty"`
+	TestCases     []any          `bson:"testCases" json:"testCases,omitempty"`
+	Judger        *int64         `bson:"judger" json:"judger,omitempty"`
+	JudgeAt       *time.Time     `bson:"judgeAt" json:"judgeAt,omitempty"`
+	Rejudged      bool           `bson:"rejudged" json:"rejudged"`
+	Source        string         `bson:"source" json:"source,omitempty"`
+	Contest       *bson.ObjectID `bson:"contest,omitempty" json:"contest,omitempty"`
 }
 
 type ListResult struct {
@@ -61,7 +62,7 @@ func NewRepository(db *mongo.Database, problems *problem.Repository) *Repository
 	}
 }
 
-func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code string) (*Record, error) {
+func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code string, contestID ...string) (*Record, error) {
 	pdoc, err := r.problems.Get(ctx, pid)
 	if err != nil {
 		return nil, err
@@ -79,6 +80,16 @@ func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code stri
 		"judger": nil, "judgeAt": nil, "rejudged": false,
 		"source": fmt.Sprintf("system/%d", pdoc.DocID), "createdAt": now,
 	}
+	var contestObjectID *bson.ObjectID
+	if len(contestID) > 0 && contestID[0] != "" {
+		oid, err := bson.ObjectIDFromHex(contestID[0])
+		if err != nil {
+			_, _ = r.records.DeleteOne(ctx, bson.M{"_id": rid})
+			return nil, fmt.Errorf("invalid contest id: %w", err)
+		}
+		contestObjectID = &oid
+		record["contest"] = oid
+	}
 	if _, err := r.records.InsertOne(ctx, record); err != nil {
 		return nil, err
 	}
@@ -95,6 +106,9 @@ func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code stri
 		"source": fmt.Sprintf("system/%d", pdoc.DocID), "config": config,
 		"meta": bson.M{"problemOwner": pdoc.Owner}, "priority": 0,
 		"trusted": false,
+	}
+	if contestObjectID != nil {
+		task["contest"] = *contestObjectID
 	}
 	if _, err := r.tasks.InsertOne(ctx, task); err != nil {
 		_, _ = r.records.DeleteOne(ctx, bson.M{"_id": rid})

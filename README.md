@@ -164,5 +164,7 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 
 - `GET /api/v1/contests`
 - `GET /api/v1/contests/:tid`
+- `GET /api/v1/contests/:tid/problems`
+- `GET /api/v1/contests/:tid/scoreboard`
 
 比赛列表和详情读取 Hydro `document` 集合，详见 [docs/contests.md](./docs/contests.md)。

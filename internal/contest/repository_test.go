@@ -78,6 +78,22 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	if len(problems) != 2 || problems[0].DocID != 2 || problems[1].DocID != 1 {
 		t.Fatalf("unexpected contest problem order: %+v", problems)
 	}
+	_, err = db.Collection("record").InsertMany(ctx, []any{
+		bson.M{"_id": bson.NewObjectID(), "contest": newID, "domainId": "system", "uid": int64(7), "pid": int64(2), "status": 1},
+		bson.M{"_id": bson.NewObjectID(), "contest": newID, "domainId": "system", "uid": int64(7), "pid": int64(1), "status": 2},
+		bson.M{"_id": bson.NewObjectID(), "contest": newID, "domainId": "system", "uid": int64(7), "pid": int64(1), "status": 1},
+		bson.M{"_id": bson.NewObjectID(), "contest": newID, "domainId": "system", "uid": int64(8), "pid": int64(2), "status": 1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, rows, err := repo.Scoreboard(ctx, newID.Hex())
+	if err != nil {
+		t.Fatalf("scoreboard: %v", err)
+	}
+	if len(rows) != 2 || rows[0].UID != 7 || rows[0].Solved != 2 || rows[1].UID != 8 {
+		t.Fatalf("unexpected scoreboard: %+v", rows)
+	}
 	if _, err := repo.Get(ctx, "invalid"); err != contest.ErrNotFound {
 		t.Fatalf("invalid id error = %v", err)
 	}
