@@ -173,8 +173,9 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 
 - `GET /api/v1/trainings`
 - `GET /api/v1/trainings/:tid`
+- `POST /api/v1/trainings/:tid/enroll`
 
-训练列表和详情读取 Hydro `document` 集合，详见 [docs/training.md](./docs/training.md)。
+训练列表、DAG 章节、题目进度和报名读取/写入 Hydro `document` 集合，详见 [docs/training.md](./docs/training.md)。
 
 ## 作业接口
 

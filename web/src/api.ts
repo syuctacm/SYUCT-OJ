@@ -195,7 +195,41 @@ export type Training = {
   title: string
   description?: string
   content?: string
+  owner: number
+  attend: number
   pin: boolean
+  sectionCount: number
+  problemCount: number
+}
+
+export type TrainingProblem = {
+  docId: number
+  pid: string
+  title: string
+  difficulty?: number
+  nSubmit: number
+  nAccept: number
+  tried: boolean
+  solved: boolean
+  missing: boolean
+}
+
+export type TrainingSection = {
+  id: number
+  title: string
+  content?: string
+  requireNids: number[]
+  status: 'done' | 'progress' | 'open' | 'invalid'
+  progress: number
+  problems: TrainingProblem[]
+}
+
+export type TrainingDetail = Training & {
+  enrolled: boolean
+  completed: boolean
+  doneProblems: number
+  totalProblems: number
+  sections: TrainingSection[]
 }
 
 export async function getTrainings(): Promise<Training[]> {
@@ -203,8 +237,15 @@ export async function getTrainings(): Promise<Training[]> {
   return result.data.items
 }
 
-export async function getTraining(tid: string): Promise<Training> {
-  const result = await request<Envelope<Training>>(`/api/v1/trainings/${encodeURIComponent(tid)}`)
+export async function getTraining(tid: string): Promise<TrainingDetail> {
+  const result = await request<Envelope<TrainingDetail>>(`/api/v1/trainings/${encodeURIComponent(tid)}`)
+  return result.data
+}
+
+export async function enrollTraining(tid: string): Promise<{ enrolled: boolean; changed: boolean }> {
+  const result = await request<Envelope<{ enrolled: boolean; changed: boolean }>>(`/api/v1/trainings/${encodeURIComponent(tid)}/enroll`, {
+    method: 'POST',
+  })
   return result.data
 }
 
