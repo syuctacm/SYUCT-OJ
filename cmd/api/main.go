@@ -58,7 +58,7 @@ func main() {
 	trainingRepo := training.NewRepository(db)
 	discussionRepo := discussion.NewRepository(db)
 	submissionRepo := submission.NewRepository(db, problemRepo)
-	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions, contestRepo)
+	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions, contestRepo, userRepo)
 	adminHandler := handler.NewAdminHandler(db, userRepo, sessions)
 	hub.SetResultHandler(func(payload map[string]any) {
 		if err := submissionRepo.ApplyJudgeResult(context.Background(), payload); err != nil {

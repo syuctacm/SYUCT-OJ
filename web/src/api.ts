@@ -43,7 +43,19 @@ export type Submission = {
   memory: number
   judgeTexts?: Array<{ message?: string } | string>
   compilerTexts?: string[]
+  testCases?: Array<Record<string, unknown>>
   judgeAt?: string
+  createdAt: string
+  problem?: {
+    docId: number
+    pid: string
+    title: string
+  }
+  submitter?: {
+    id: number
+    username: string
+    displayName?: string
+  }
 }
 
 type Envelope<T> = {
@@ -131,8 +143,25 @@ export type SubmissionPage = {
   limit: number
 }
 
-export async function getSubmissions(page = 1, limit = 20): Promise<SubmissionPage> {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+export type SubmissionFilter = {
+  page?: number
+  limit?: number
+  uidOrName?: string
+  pid?: string
+  tid?: string
+  lang?: string
+  status?: string
+}
+
+export async function getSubmissions(filter: SubmissionFilter = {}): Promise<SubmissionPage> {
+  const params = new URLSearchParams({
+    page: String(filter.page ?? 1),
+    limit: String(filter.limit ?? 20),
+  })
+  for (const key of ['uidOrName', 'pid', 'tid', 'lang', 'status'] as const) {
+    const value = filter[key]
+    if (value) params.set(key, value)
+  }
   const result = await request<Envelope<SubmissionPage>>(`/api/v1/submissions?${params.toString()}`)
   return result.data
 }
