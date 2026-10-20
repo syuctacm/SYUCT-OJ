@@ -92,6 +92,21 @@ function mountMarkdownEditor(textarea: HTMLTextAreaElement, options: MarkdownHyd
   }
 }
 
+
+function attachHotkeys(root: HTMLElement): Cleanup {
+  if (!root.querySelector('[data-hotkey*="ctrl+enter"]')) return () => {}
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.defaultPrevented || !(event.ctrlKey || event.metaKey) || event.key !== 'Enter') return
+    const target = event.target as Element | null
+    const form = target?.closest('form')
+    if (!form) return
+    event.preventDefault()
+    form.requestSubmit()
+  }
+  root.addEventListener('keydown', onKeyDown)
+  return () => root.removeEventListener('keydown', onKeyDown)
+}
+
 function attachContestSwitches(root: HTMLElement): Cleanup {
   const cleanups: Cleanup[] = []
   const rule = root.querySelector<HTMLSelectElement>('[name="rule"]')
@@ -168,7 +183,7 @@ type HydrateOptions = MarkdownHydrationOptions & {
 }
 
 export function hydrateHydroEditForm(root: HTMLElement, options: HydrateOptions = {}) {
-  const cleanups: Cleanup[] = []
+  const cleanups: Cleanup[] = [attachHotkeys(root)]
   if (options.contestSwitches) cleanups.push(attachContestSwitches(root))
   if (options.dateTime) cleanups.push(attachDateTime(root))
 
