@@ -57,10 +57,10 @@
 
 - `record_main.html`：由 `HydroTemplate` 直接渲染筛选区、记录表格和分页
 - `record_main_tr.html`：状态、题目、提交者、时间、内存、语言和提交时间
-- `record_detail.html`：状态区、编译器/评测输出、测试点和代码
+- `record_detail.html`：由 `HydroTemplate` 直接渲染状态区、编译器/评测输出、测试点、代码和信息侧栏
 - `record_detail_status.html` / `record_detail_summary.html`：状态和统计信息
 
-记录列表的语言下拉和筛选表单由 React 交互岛接入，分页和重置链接保持原模板结构。rejudge/cancel 操作因后端尚未实现而从列表隐藏。
+记录列表的语言下拉和筛选表单由 React 交互岛接入，分页和重置链接保持原模板结构。记录详情在等待/评测中每秒轮询 API，状态和测试点更新后重新渲染原模板；记录列表的 rejudge/cancel 操作因后端尚未实现而隐藏。
 
 ## 验证
 
@@ -85,6 +85,11 @@
 - Hub 记录活跃 rid，避免同一连接正在评测时重复下发
 - `next` 续租，`end` 持久化成功后才删除 task
 - 判题机断线后，lease 到期自动重投
+
+## 已知差异
+
+- 记录详情暂未接入 rejudge/cancel 和代码下载
+- 记录列表暂未接入实时 WebSocket 状态推送
 - 默认 lease 为 `2m`，可通过 `JUDGE_TASK_LEASE` 调整
 
 `time` 使用浮点毫秒，展示时按原模板四舍五入。

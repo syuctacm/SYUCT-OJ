@@ -1,11 +1,39 @@
-import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to polling and mapping the submission API to Hydro rdoc fields.
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { getSubmission, type Submission } from '../api.ts'
-import { statusClass, statusLabel } from '../status.ts'
+import { useAuth } from '../auth.tsx'
+import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { statusClass, statusLabels } from '../status.ts'
 
-const languageNames: Record<string, string> = {
-  cpp: 'C++17',
-  python3: 'Python 3',
+const languageMap = Object.fromEntries(languageOptions.map((language) => [
+  language._id,
+  { display: language.name, highlight: language._id },
+]))
+
+const statusCodes = Object.fromEntries(Object.keys(statusLabels).map((status) => [
+  status,
+  statusClass(Number(status)),
+]))
+
+const statusShortTexts: Record<number, string> = {
+  1: 'AC',
+  2: 'WA',
+  3: 'TLE',
+  4: 'MLE',
+  5: 'OLE',
+  6: 'RE',
+  7: 'CE',
+  8: 'SE',
+  9: 'Canceled',
+  10: 'Unknown',
+  11: 'Hacked',
+  20: 'Running',
+  21: 'Compiling',
+  22: 'Fetched',
+  30: 'Ignored',
 }
 
 function judgeText(value: unknown) {
@@ -14,12 +42,13 @@ function judgeText(value: unknown) {
   return JSON.stringify(value)
 }
 
-function formatMemory(kib: number) {
-  return kib >= 1024 ? `${(kib / 1024).toFixed(1)}MiB` : `${kib}KiB`
+function formatDate(value: string) {
+  return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 
 export function SubmissionPage() {
   const { rid = '' } = useParams()
+  const { user } = useAuth()
   const [submission, setSubmission] = useState<Submission | null>(null)
   const [error, setError] = useState('')
 
@@ -44,88 +73,159 @@ export function SubmissionPage() {
     }
   }, [rid])
 
-  if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
-  if (!submission) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    root.querySelector('a[href="?download=true"]')?.closest('.section__tools')?.remove()
+    root.querySelectorAll('.compiler-text-mask').forEach((element) => element.remove())
+  }, [])
 
-  const className = statusClass(submission.status)
-  const cases = submission.testCases ?? []
+  const context = useMemo(() => {
+    if (!submission) return null
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    const testCases = (submission.testCases ?? []).map((item, index) => ({
+      id: Number(item.id ?? index + 1),
+      subtaskId: Number(item.subtaskId ?? 1),
+      status: Number(item.status ?? 0),
+      score: Number(item.score ?? 0),
+      time: Number(item.time ?? 0),
+      memory: Number(item.memory ?? 0),
+      message: item.message ?? '',
+    }))
+    const subtaskGroups = new Map<number, typeof testCases>()
+    for (const testCase of testCases) {
+      const group = subtaskGroups.get(testCase.subtaskId) ?? []
+      group.push(testCase)
+      subtaskGroups.set(testCase.subtaskId, group)
+    }
+    const subtasks = Object.fromEntries(Array.from(subtaskGroups.entries()).map(([id, cases]) => [
+      id,
+      {
+        type: 'min',
+        status: cases.every((testCase) => testCase.status === 1) ? 1 : 2,
+        score: cases.reduce((sum, testCase) => sum + testCase.score, 0),
+      },
+    ]))
+    const compilerTexts = (submission.compilerTexts ?? []).map(String)
+    const judgeTexts = (submission.judgeTexts ?? []).map(judgeText)
+    const submitter = submission.submitter ? {
+      _id: submission.submitter.id,
+      uname: submission.submitter.displayName || submission.submitter.username,
+      avatar: '',
+      hasPriv: () => false,
+      hasPerm: () => false,
+    } : null
+    const pdoc = submission.problem ? {
+      docId: submission.problem.docId,
+      pid: submission.problem.pid,
+      title: submission.problem.title,
+      hidden: false,
+      tag: [],
+      config: {
+        type: 'default',
+        hackable: false,
+        timeMin: '1000',
+        timeMax: '1000',
+        memoryMin: '256',
+        memoryMax: '256',
+      },
+    } : null
+    const dates = new Map([[submission.id, submission.createdAt]])
+    const rdoc = {
+      _id: submission.id,
+      uid: submission.uid,
+      pid: submission.pid,
+      domainId: 'system',
+      lang: submission.lang,
+      code: submission.code || '',
+      status: submission.status,
+      score: submission.score,
+      time: submission.time,
+      memory: submission.memory,
+      compilerTexts,
+      judgeTexts,
+      testCases,
+      subtasks,
+      judgeAt: submission.judgeAt,
+      createdAt: submission.createdAt,
+      files: { hack: false },
+      contest: null,
+    }
+    return {
+      page_name: 'record_detail',
+      rdoc,
+      pdoc,
+      tdoc: null,
+      udoc: submitter,
+      judge_udoc: null,
+      allRevs: [],
+      rev: false,
+      handler: {
+        user: {
+          _id: user?.id ?? 0,
+          viewLang: 'zh',
+          _dudoc: { join: true },
+          hasPerm: (permission: number) => Boolean(user) && permission === 2,
+          hasPriv: () => Boolean(user),
+          own: () => Boolean(user && isAdmin),
+        },
+        args: { domainId: 'system' },
+        request: { query: {}, headers: { 'user-agent': navigator.userAgent } },
+        session: { legacy: false, viewLang: 'zh' },
+        ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+      },
+      perm: { PERM_REJUDGE: 1, PERM_SUBMIT_PROBLEM: 2, PERM_VIEW_USER_PRIVATE_INFO: 3, PERM_MOD_BADGE: 4 },
+      PRIV: { PRIV_USER_PROFILE: 1, PRIV_READ_PROBLEM_DATA: 2 },
+      STATUS: {
+        STATUS_ACCEPTED: 1,
+        STATUS_TIME_LIMIT_EXCEEDED: 3,
+        STATUS_MEMORY_LIMIT_EXCEEDED: 4,
+        STATUS_OUTPUT_LIMIT_EXCEEDED: 5,
+        STATUS_JUDGING: 20,
+      },
+      model: {
+        builtin: {
+          LEVELS: {},
+          STATUS_CODES: statusCodes,
+          STATUS_TEXTS: statusLabels,
+          STATUS_SHORT_TEXTS: statusShortTexts,
+        },
+        setting: { langs: languageMap },
+        system: { get: () => false },
+        contest: { canShowSelfRecord: () => true },
+      },
+      utils: {
+        status: {
+          getScoreColor: (score: number) => score >= 100 ? '#25ad40' : score > 0 ? '#e64c72' : '#999',
+        },
+      },
+      datetimeSpan: (value: string) => {
+        const date = dates.get(String(value)) || String(value)
+        return `<span class="time">${formatDate(date)}</span>`
+      },
+      formatJudgeTexts: (values: unknown[]) => values.map(judgeText).join('\n'),
+      avatarUrl: (value?: string) => value || '/logo.png',
+      UiContext: {},
+      UserContext: user,
+    }
+  }, [submission, user])
+
+  if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  if (!submission || !context) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
+
   return (
-    <div className="row">
-      <div className="medium-9 columns">
-        <div className="section visible" id="status" data-status={submission.status}>
-          <div className="section__header">
-            <h1 className="section__title">
-              <span className={`icon record-status--icon ${className}`} />
-              <span>{submission.score} </span>
-              <span className={`record-status--text ${className}`}>{statusLabel(submission.status)}</span>
-            </h1>
-          </div>
-          {submission.compilerTexts?.length ? (
-            <div className="section__body"><pre className="compiler-text">{submission.compilerTexts.join('\n')}</pre></div>
-          ) : null}
-          {submission.judgeTexts?.length ? (
-            <div className="section__body"><pre className="judge-text">{submission.judgeTexts.map(judgeText).join('\n')}</pre></div>
-          ) : null}
-          {cases.length ? (
-            <div className="section__body no-padding">
-              <table className="data-table record_detail__table">
-                <colgroup><col className="col--case" /><col className="col--status" /><col className="col--time" /><col className="col--memory" /></colgroup>
-                <thead><tr><th className="col--case record-status--border">#</th><th className="col--status">状态</th><th className="col--time">时间</th><th className="col--memory">内存</th></tr></thead>
-                <tbody>
-                  {cases.map((item, index) => {
-                    const status = Number(item.status ?? 0)
-                    const itemClass = statusClass(status)
-                    return (
-                      <tr className="case" key={String(item.id ?? index)}>
-                        <td className={`col--case record-status--border ${itemClass}`}>#{String(item.id ?? index + 1)}</td>
-                        <td className="col--status">
-                          <span className={`icon record-status--icon ${itemClass}`} />
-                          <span className={`record-status--text ${itemClass}`}>{statusLabel(status)}</span>
-                          {item.message ? <span className="message">{judgeText(item.message)}</span> : null}
-                        </td>
-                        <td className="col--time">{item.time ? `${Math.round(Number(item.time))}ms` : '-'}</td>
-                        <td className="col--memory">{item.memory ? formatMemory(Number(item.memory)) : '-'}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </div>
-        {submission.code ? (
-          <div className="section">
-            <div className="section__header"><h1 className="section__title">代码</h1></div>
-            <div className="section__body"><pre className="line-numbers"><code className={`language-${submission.lang}`}>{submission.code}</code></pre></div>
-          </div>
-        ) : null}
-      </div>
-      <div className="medium-3 columns">
-        <div className="section side">
-          <div className="section__header"><h1 className="section__title">信息</h1></div>
-          <div className="section__body typo no-media">
-            <dl className="large horizontal">
-              <dt>提交者</dt>
-              <dd>{submission.submitter ? <Link to={`/user/${submission.submitter.id}`}>{submission.submitter.displayName || submission.submitter.username}</Link> : `UID ${submission.uid}`}</dd>
-              {submission.problem ? (
-                <>
-                  <dt>题目</dt>
-                  <dd><Link to={`/p/${encodeURIComponent(submission.problem.pid || String(submission.problem.docId))}`}>{submission.problem.pid} {submission.problem.title}</Link></dd>
-                </>
-              ) : null}
-              <dt>语言</dt><dd>{languageNames[submission.lang] || submission.lang}</dd>
-              {submission.code ? <><dt>代码长度</dt><dd>{new Blob([submission.code]).size} B</dd></> : null}
-              <dt>提交时间</dt><dd>{new Date(submission.createdAt).toLocaleString('zh-CN', { hour12: false })}</dd>
-              {submission.judgeAt ? <><dt>评测时间</dt><dd>{new Date(submission.judgeAt).toLocaleString('zh-CN', { hour12: false })}</dd></> : null}
-            </dl>
-            <dl className="large horizontal" id="summary">
-              <dt>分数</dt><dd>{submission.score}</dd>
-              {submission.time ? <><dt>总时间</dt><dd>{[3, 4, 5].includes(submission.status) ? '≥' : ''}{Math.round(submission.time)}ms</dd></> : null}
-              {submission.memory ? <><dt>峰值内存</dt><dd>{[3, 4, 5].includes(submission.status) ? '≥' : ''}{formatMemory(submission.memory)}</dd></> : null}
-            </dl>
-          </div>
-        </div>
-      </div>
-    </div>
+    <HydroTemplate
+      template="record_detail.html"
+      context={context}
+      onReady={handleReady}
+      url={(name, args = {}) => {
+        if (name === 'record_detail') return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
+        if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
+        if (name === 'problem_hack') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
+        if (name === 'user_detail') return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+        if (name === 'contest_detail' || name === 'homework_detail') {
+          return `/${name === 'contest_detail' ? 'contest' : 'homework'}/${encodeURIComponent(String(args.tid ?? ''))}`
+        }
+        return '/'
+      }}
+    />
   )
 }

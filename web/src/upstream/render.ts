@@ -60,6 +60,11 @@ env.addFilter('parseYaml', (value: string) => yaml.load(String(value)))
 env.addFilter('toString', (value: unknown) => String(value ?? ''))
 env.addFilter('contentLang', () => ['zh'])
 env.addFilter('content', (value: unknown) => value)
+env.addFilter('ansi', (value: unknown) => String(value ?? '')
+  .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;'))
 env.addFilter('problemPreview', (value: unknown) => String(value ?? '')
   .replace(/```[\s\S]*?```/g, ' ')
   .replace(/[#>*_`\[\]]/g, ' ')
@@ -99,6 +104,9 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     urlForFile: options.urlForFile ?? ((filename: string) => filename),
     size,
     isIE: () => false,
+    Object,
+    JSON,
+    Math,
     typeof: (value: unknown) => typeof value,
     eval: (code: string) => {
       if (code.replace(/\s/g, '') === 'rdoc=>rdoc._id.toString()') return (rdoc: { _id: unknown }) => String(rdoc._id)
