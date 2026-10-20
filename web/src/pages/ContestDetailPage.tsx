@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Link, useParams } from 'react-router-dom'
 import { getContestProblems, getContestScoreboard, type Contest, type ProblemSummary, type ScoreboardRow } from '../api.ts'
+import { useAuth } from '../auth.tsx'
 
 const ruleNames: Record<string, string> = {
   acm: 'ACM',
@@ -30,6 +31,7 @@ function contestStatus(contest: Contest) {
 
 export function ContestDetailPage() {
   const { tid = '' } = useParams()
+  const { user } = useAuth()
   const [contest, setContest] = useState<Contest | null>(null)
   const [problems, setProblems] = useState<ProblemSummary[]>([])
   const [scoreboard, setScoreboard] = useState<ScoreboardRow[]>([])
@@ -54,7 +56,12 @@ export function ContestDetailPage() {
     <div className="row">
       <div className="medium-9 columns">
         <div className="section">
-          <div className="section__header"><h1 className="section__title">{contest.title}</h1></div>
+          <div className="section__header">
+            <h1 className="section__title">{contest.title}</h1>
+            {user && (user.id === contest.owner || ((user.priv ?? 0) & 1) !== 0) ? (
+              <div className="section__tools"><Link className="rounded button" to={`/contest/${encodeURIComponent(contest.docId)}/edit`}>编辑比赛</Link></div>
+            ) : null}
+          </div>
           <div className="section__body">
             <span className="problem__tag-item">{locked ? '榜单已封存' : status}</span>
             <span className="problem__tag-item icon icon-award">{ruleNames[contest.rule] || contest.rule}</span>
@@ -76,8 +83,8 @@ export function ContestDetailPage() {
           <div className="section__body no-padding">
             {problems.length ? (
               <table className="data-table">
-                <colgroup><col className="col--status" /><col className="col--problem" /><col className="col--ac-tried" /><col className="col--difficulty" /></colgroup>
-                <thead><tr><th className="col--status">状态</th><th className="col--problem">题目</th><th className="col--ac-tried">通过 / 尝试</th><th className="col--difficulty">难度</th></tr></thead>
+                <colgroup><col className="col--status" /><col className="col--problem" /><col className="col--ac-tried" /><col className="col--difficulty" /><col className="col--actions" /></colgroup>
+                <thead><tr><th className="col--status">状态</th><th className="col--problem">题目</th><th className="col--ac-tried">通过 / 尝试</th><th className="col--difficulty">难度</th><th className="col--actions">操作</th></tr></thead>
                 <tbody>
                   {problems.map((problem, index) => (
                     <tr key={problem.id}>
@@ -85,6 +92,7 @@ export function ContestDetailPage() {
                       <td className="col--problem col--problem-name"><Link to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}`}><b>{problem.pid}</b>&nbsp;&nbsp;{problem.title}</Link></td>
                       <td className="col--ac-tried">{problem.nAccept} / {problem.nSubmit}</td>
                       <td className="col--difficulty">{problem.difficulty || '(None)'}</td>
+                      <td className="col--actions"><Link to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}/submit?contest=${encodeURIComponent(contest.docId)}`}>提交</Link></td>
                     </tr>
                   ))}
                 </tbody>

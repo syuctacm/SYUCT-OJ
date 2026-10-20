@@ -15,7 +15,9 @@
 | `/record` | 当前用户提交记录 |
 | `/record/:rid` | 提交状态轮询 |
 | `/contest` | 比赛列表 |
+| `/contest/new` | 创建比赛 |
 | `/contest/:tid` | 比赛详情 |
+| `/contest/:tid/edit` | 编辑比赛 |
 | `/homework` | 作业列表 |
 | `/homework/:tid` | 作业详情 |
 | `/training` | 训练列表 |

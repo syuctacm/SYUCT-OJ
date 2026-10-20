@@ -5,7 +5,10 @@
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | GET | `/api/v1/contests` | 比赛列表 |
+| POST | `/api/v1/contests` | 创建比赛 |
 | GET | `/api/v1/contests/:tid` | 比赛详情 |
+| GET | `/api/v1/contests/:tid/edit` | 比赛编辑数据 |
+| PATCH | `/api/v1/contests/:tid` | 更新比赛 |
 | GET | `/api/v1/contests/:tid/problems` | 比赛题目列表 |
 | GET | `/api/v1/contests/:tid/scoreboard` | 基础 ACM 榜单 |
 
@@ -14,14 +17,26 @@
 ## 前端
 
 - `/contest`：比赛列表
+- `/contest/new`：创建比赛
 - `/contest/:tid`：比赛详情
+- `/contest/:tid/edit`：编辑比赛
 
 页面结构对应 Hydro `ui-default`：
 
 - `contest_main.html`：进行中/即将开始比赛、全部比赛列表和筛选
 - `contest_detail.html`：比赛信息、说明和比赛侧栏
 
-详情下方保留当前已有实现中的题目列表和基础榜单。题目行提供比赛提交入口。比赛结束或未开始时后端拒绝比赛提交。
+详情下方保留题目列表和基础榜单。题目行提供带 `contest` 参数的提交入口，提交会写入比赛关联并进入榜单。比赛结束或未开始时后端拒绝比赛提交。
+
+比赛创建/编辑支持：
+
+- 赛制、标题、开始时间和时长
+- 按 docId 顺序配置题目
+- Rated 和 Markdown 比赛说明
+- 管理员创建；管理员或比赛所有者编辑
+- 时间窗口、题目存在性和赛制校验
+
+编辑页对应 Hydro `contest_edit.html` 的 section/form 结构。
 
 `lockAt` 到达且未设置 `unlocked` 时，封榜后的提交不会计入榜单。
 

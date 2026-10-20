@@ -186,7 +186,10 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 ## 比赛接口
 
 - `GET /api/v1/contests`
+- `POST /api/v1/contests`
 - `GET /api/v1/contests/:tid`
+- `GET /api/v1/contests/:tid/edit`
+- `PATCH /api/v1/contests/:tid`
 - `GET /api/v1/contests/:tid/problems`
 - `GET /api/v1/contests/:tid/scoreboard`
 

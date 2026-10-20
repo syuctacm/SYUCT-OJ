@@ -418,6 +418,34 @@ func (r *Repository) GetManyByDocIDs(ctx context.Context, ids []int64) ([]Proble
 	return result, nil
 }
 
+func (r *Repository) ValidateDocIDs(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return fmt.Errorf("at least one problem is required")
+	}
+	unique := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return fmt.Errorf("invalid problem docId %d", id)
+		}
+		unique[id] = struct{}{}
+	}
+	values := make([]int64, 0, len(unique))
+	for id := range unique {
+		values = append(values, id)
+	}
+	count, err := r.coll.CountDocuments(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeProblem,
+		"docId": bson.M{"$in": values},
+	})
+	if err != nil {
+		return err
+	}
+	if count != int64(len(values)) {
+		return fmt.Errorf("one or more problems do not exist")
+	}
+	return nil
+}
+
 func (r *Repository) Get(ctx context.Context, identifier string) (*Problem, error) {
 	return r.get(ctx, identifier, false)
 }
