@@ -6,8 +6,10 @@ import {
   createDiscussionReply,
   getDiscussion,
   getDiscussionReplies,
+  getPublicUser,
   type Discussion,
   type DiscussionReply,
+  type PublicUser,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 
@@ -15,10 +17,15 @@ function formatTime(value: string) {
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 
+function Time({ value }: { value: string }) {
+  return <span className="time" data-timestamp={Math.floor(new Date(value).getTime() / 1000)}>{formatTime(value)}</span>
+}
+
 export function DiscussionDetailPage() {
   const { did = '' } = useParams()
   const { user, loading: authLoading } = useAuth()
   const [discussion, setDiscussion] = useState<Discussion | null>(null)
+  const [owner, setOwner] = useState<PublicUser | null>(null)
   const [replies, setReplies] = useState<DiscussionReply[]>([])
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
@@ -35,6 +42,11 @@ export function DiscussionDetailPage() {
         setDiscussion(nextDiscussion)
         setReplies(nextReplies)
         setError('')
+        getPublicUser(String(nextDiscussion.owner)).then((profile) => {
+          if (!cancelled) setOwner(profile)
+        }).catch(() => {
+          if (!cancelled) setOwner(null)
+        })
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : '讨论加载失败')
@@ -68,96 +80,197 @@ export function DiscussionDetailPage() {
     }
   }
 
-  if (loading) return <section className="section"><div className="empty-state">加载中...</div></section>
-  if (error) return <section className="section"><div className="empty-state error-state">{error}</div></section>
-  if (!discussion) return <section className="section"><div className="empty-state">讨论不存在</div></section>
+  if (loading) {
+    return (
+      <div className="row"><div className="medium-9 columns"><div className="section"><div className="section__body">
+        <div className="nothing-placeholder"><div className="nothing-icon" />加载中...</div>
+      </div></div></div></div>
+    )
+  }
+  if (error || !discussion) {
+    return (
+      <div className="row"><div className="medium-9 columns"><div className="section"><div className="section__body">
+        <div className="nothing-placeholder">{error || '讨论不存在'}</div>
+      </div></div></div></div>
+    )
+  }
 
   return (
-    <section className="section">
-      <div className="section__header">
-        <div>
-          <p className="eyebrow">DISCUSSION</p>
-          <h1 className="section__title">{discussion.title}</h1>
-          <p className="supplementary">
-            <Link to={`/user/${discussion.owner}`}>UID {discussion.owner}</Link>
-            {' · '}{discussion.nReply} 回复 · {discussion.views} 浏览
-            {discussion.lock ? ' · 已锁定' : ''}
-          </p>
+    <div className="row">
+      <div className="medium-9 columns">
+        <div className="section">
+          <div className="section__body">
+            <ul className="supplementary list">
+              <li>
+                <Link className="discussion-node-tag" to={`/discuss?node=${encodeURIComponent(String(discussion.parentId ?? ''))}`}>
+                  <span className="v-center icon icon-flag" />
+                  {discussion.parentTitle || String(discussion.parentId || '讨论')}
+                </Link>
+              </li>
+              <li><h2>{discussion.title}</h2></li>
+              <li>
+                <Link to={`/user/${discussion.owner}`}>{owner?.displayName || owner?.username || `UID ${discussion.owner}`}</Link>
+                {' @ '}
+                <Time value={discussion.updateAt} />
+              </li>
+            </ul>
+            <div className="typo topic__content richmedia">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{discussion.content || '暂无内容'}</ReactMarkdown>
+            </div>
+          </div>
+          <ul className="section__footer supplementary dot list">
+            {discussion.lock ? <li>该讨论已锁定</li> : null}
+            <li>{discussion.views} 浏览</li>
+            <li><Link to="/discuss"><span className="icon icon-arrow-left" /> 返回讨论区</Link></li>
+          </ul>
         </div>
-        <Link className="rounded button" to="/discuss">返回讨论区</Link>
-      </div>
-      <div className="section__body problem-content">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{discussion.content || '暂无内容'}</ReactMarkdown>
-      </div>
 
-      <div className="discussion-replies-header">
-        <h2>回复 {discussion.nReply}</h2>
-      </div>
-      <div className="discussion-reply-list">
-        {replies.map((reply) => (
-          <article className="discussion-reply" key={reply.id}>
-            <div className="discussion-reply-meta">
-              <Link to={`/user/${reply.owner}`}>UID {reply.owner}</Link>
-              <span>{formatTime(reply.createdAt)}</span>
-              {reply.edited ? <span>已编辑</span> : null}
-            </div>
-            <div className="problem-content discussion-reply-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{reply.content}</ReactMarkdown>
-            </div>
-            {reply.replies?.length ? (
-              <div className="discussion-tail-replies">
-                {reply.replies.map((tail) => (
-                  <div className="discussion-tail-reply" key={tail.id}>
-                    <div className="discussion-reply-meta">
-                      <Link to={`/user/${tail.owner}`}>UID {tail.owner}</Link>
-                      <span>{formatTime(tail.createdAt)}</span>
-                      {tail.edited ? <span>已编辑</span> : null}
+        <div className="section">
+          <div className="section__header">
+            <h1 className="section__title">{discussion.nReply} 条评论</h1>
+          </div>
+          <div className="section__body">
+            <ul className="dczcomments__list view--discussion">
+              <li className="dczcomments__item">
+                <div className="media">
+                  <div className="media__left top">
+                    {user?.avatar ? (
+                      <img src={user.avatar} width="60" height="60" className="medium user-profile-avatar" alt="" />
+                    ) : (
+                      <div className="medium user-profile-avatar" aria-hidden="true" />
+                    )}
+                  </div>
+                  <div className="media__body top">
+                    {discussion.lock ? (
+                      <textarea className="textbox" name="dczcomments__dummy-box" readOnly placeholder="该讨论已锁定，不能再回复。" />
+                    ) : authLoading ? (
+                      <div className="nothing-placeholder compact">正在确认登录状态...</div>
+                    ) : user ? (
+                      <form className="dczcomments__box" onSubmit={handleReply}>
+                        <div>
+                          <textarea
+                            name="content"
+                            className="textbox"
+                            value={content}
+                            onChange={(event) => setContent(event.target.value)}
+                            onKeyDown={(event) => {
+                              if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                                event.preventDefault()
+                                event.currentTarget.form?.requestSubmit()
+                              }
+                            }}
+                            placeholder="写下评论"
+                            required
+                          />
+                        </div>
+                        {replyError ? <blockquote className="warn"><p>{replyError}</p></blockquote> : null}
+                        <div>
+                          <input
+                            type="submit"
+                            className="rounded primary button dczcomments__box__submit"
+                            value={submitting ? '发表中...' : '评论 (Ctrl+Enter)'}
+                            disabled={submitting}
+                          />
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="nothing-placeholder compact"><Link to="/login">登录</Link> 后参与讨论。</div>
+                    )}
+                  </div>
+                </div>
+              </li>
+
+              {replies.map((reply) => (
+                <li className="dczcomments__item" key={reply.id}>
+                  <div className="media">
+                    <div className="media__left top">
+                      <div className="medium user-profile-avatar" aria-hidden="true" />
                     </div>
-                    <div className="problem-content discussion-reply-content">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{tail.content}</ReactMarkdown>
+                    <div className="media__body top" id={`comment-${reply.docId}`}>
+                      <div className="clearfix">
+                        <div className="supplementary dczcomments__supplementary">
+                          <Link to={`/user/${reply.owner}`}>UID {reply.owner}</Link>
+                          {' @ '}
+                          <Time value={reply.createdAt} />
+                          {reply.edited ? <div className="history"><a>已编辑</a></div> : null}
+                        </div>
+                      </div>
+                      <div className="typo richmedia">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{reply.content}</ReactMarkdown>
+                      </div>
+                      {reply.replies?.length ? (
+                        <ul className="dczcomments__replies">
+                          {reply.replies.map((tail) => (
+                            <li className="dczcomments__reply" key={tail.id}>
+                              <div className="media">
+                                <div className="media__left top">
+                                  <div className="medium user-profile-avatar" aria-hidden="true" />
+                                </div>
+                                <div className="media__body top">
+                                  <div className="clearfix">
+                                    <div className="supplementary dczcomments__supplementary">
+                                      <Link to={`/user/${tail.owner}`}>UID {tail.owner}</Link>
+                                      {' @ '}
+                                      <Time value={tail.createdAt} />
+                                      {tail.edited ? <div className="history"><a>已编辑</a></div> : null}
+                                    </div>
+                                  </div>
+                                  <div className="typo richmedia">
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{tail.content}</ReactMarkdown>
+                                  </div>
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
                   </div>
-                ))}
-              </div>
+                </li>
+              ))}
+            </ul>
+            {replies.length === 0 ? (
+              <div className="nothing-placeholder"><div className="nothing-icon" />还没有评论</div>
             ) : null}
-          </article>
-        ))}
-        {replies.length === 0 ? <div className="empty-state">还没有回复</div> : null}
+          </div>
+        </div>
       </div>
 
-      <div className="discussion-reply-compose">
-        {discussion.lock ? (
-          <p className="form-hint">该讨论已锁定，不能再回复。</p>
-        ) : authLoading ? (
-          <p className="form-hint">正在确认登录状态...</p>
-        ) : user ? (
-          <form className="form-stack" onSubmit={handleReply}>
-            <label className="field">
-              <span>写下回复</span>
-              <textarea
-                className="textbox discussion-reply-input"
-                value={content}
-                onChange={(event) => setContent(event.target.value)}
-                onKeyDown={(event) => {
-                  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                    event.preventDefault()
-                    event.currentTarget.form?.requestSubmit()
-                  }
-                }}
-                placeholder="支持 Markdown，Ctrl+Enter 提交"
-              />
-            </label>
-            {replyError ? <p className="form-error">{replyError}</p> : null}
-            <div>
-              <button className="rounded primary button" type="submit" disabled={submitting}>
-                {submitting ? '回复中...' : '发表回复'}
-              </button>
+      <div className="medium-3 columns">
+        <div className="section side">
+          <div className="profile__bg user-profile-bg--1" />
+          <div className="section__body">
+            <div className="media sidebar-user-profile">
+              <div className="media__left">
+                {owner?.avatar ? (
+                  <img src={owner.avatar} width="80" height="80" className="medium user-profile-avatar" alt="" />
+                ) : (
+                  <div className="medium user-profile-avatar" aria-hidden="true" />
+                )}
+              </div>
+              <div className="media__body">
+                <p><Link to={`/user/${discussion.owner}`}>{owner?.displayName || owner?.username || `UID ${discussion.owner}`}</Link></p>
+              </div>
             </div>
-          </form>
-        ) : (
-          <p className="form-hint"><Link to="/login">登录</Link> 后参与讨论。</p>
-        )}
+          </div>
+          <div className="section__body">
+            <div className="balancer sidebar-user-stat">
+              <div className="balancer__body">
+                <div className="numbox">
+                  <div className="numbox__num medium">{owner?.nAccept ?? 0}</div>
+                  <div className="numbox__text">通过</div>
+                </div>
+              </div>
+              <div className="balancer__body">
+                <div className="numbox">
+                  <div className="numbox__num medium">0</div>
+                  <div className="numbox__text">获赞题解</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
   )
 }

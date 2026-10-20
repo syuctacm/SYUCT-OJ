@@ -48,7 +48,7 @@ export function SubmitPage() {
   if (!problem) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
 
   return (
-    <>
+    <div className="row">
       <div className="medium-9 columns">
         <div className="section">
           <div className="section__header"><h1 className="section__title">提交评测</h1></div>
@@ -107,6 +107,6 @@ export function SubmitPage() {
       <div className="medium-3 columns">
         <ProblemSidebar problem={problem} pageName="problem_submit" />
       </div>
-    </>
+    </div>
   )
 }

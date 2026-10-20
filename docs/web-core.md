@@ -42,9 +42,12 @@
 - `web/public/hydro-theme.css`：Hydro `ui-default` 4.58.5 主题 CSS
 - `web/public/nav_logo_dark.png`：旧站导航 Logo
 - `web/public/hydro-icons.*`：Hydro 图标字体
-- `web/src/index.css`：仅保留 React 页面与旧主题类名之间的兼容样式
+- `web/src/index.css`：只保留 React 应用壳的兼容样式，不仿制页面视觉
+- `web/src/legacy/`：从旧站原样迁移的独立插件 CSS，例如 Activity Calendar
 - 页面使用 `.section`、`.section__header`、`.section__body`、`.section__footer`、`.data-table`、`.button`、`.textbox` 等原版类名
 - 导航、移动端侧滑菜单、页脚使用 `ui-default` 对应的 DOM 结构和类名
+- `web/src/page-meta.ts` 根据路由设置原模板的 `data-page`、`data-layout` 和 `page--*` 类
+- 页面组件自己输出顶层 `.row`，`Layout` 的 `.main` 不再额外添加网格容器
 
 主题来源：
 

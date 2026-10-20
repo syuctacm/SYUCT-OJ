@@ -63,7 +63,7 @@ export function ProblemsPage() {
   const luckyProblem = page?.items.length ? page.items[Math.floor(Math.random() * page.items.length)] : null
 
   return (
-    <>
+    <div className="row">
       <div className="medium-9 columns">
         <div className="section display-mode">
           <div className="section__body no-padding">
@@ -191,6 +191,6 @@ export function ProblemsPage() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }

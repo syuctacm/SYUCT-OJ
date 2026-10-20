@@ -82,7 +82,7 @@ export function TagRankingPage() {
             <>
               <table className="data-table">
                 <colgroup><col className="col--rank" /><col className="col--user" /><col className="col--ac" /><col className="col--tried" /><col className="col--rate" /></colgroup>
-                <thead><tr><th className="col--rank">排名</th><th className="col--user">用户</th><th className="col--ac center">通过</th><th className="col--tried center">尝试</th><th className="col--rate center">通过率</th></tr></thead>
+                <thead><tr><th className="col--rank">排名</th><th className="col--user">用户</th><th className="col--ac text-center">通过</th><th className="col--tried text-center">尝试</th><th className="col--rate text-center">通过率</th></tr></thead>
                 <tbody>
                   {ranking.items.map((item) => {
                     const rate = item.submissions > 0 ? ((item.solved / item.submissions) * 100).toFixed(1) : '0.0'
@@ -90,9 +90,9 @@ export function TagRankingPage() {
                       <tr key={item.uid}>
                         <td className="col--rank">{item.rank <= 3 ? <strong>{item.rank}</strong> : item.rank}</td>
                         <td className="col--user"><Link to={`/user/${item.uid}`}>{item.displayName || item.username || `UID ${item.uid}`}</Link></td>
-                        <td className="col--ac center">{item.solved}</td>
-                        <td className="col--tried center">{item.submissions}</td>
-                        <td className="col--rate center">{rate}%</td>
+                        <td className="col--ac text-center">{item.solved}</td>
+                        <td className="col--tried text-center">{item.submissions}</td>
+                        <td className="col--rate text-center">{rate}%</td>
                       </tr>
                     )
                   })}

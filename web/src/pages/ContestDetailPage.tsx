@@ -51,7 +51,7 @@ export function ContestDetailPage() {
   const status = contestStatus(contest)
   const locked = Boolean(contest.lockAt && !contest.unlocked && new Date(contest.lockAt).getTime() <= Date.now())
   return (
-    <>
+    <div className="row">
       <div className="medium-9 columns">
         <div className="section">
           <div className="section__header"><h1 className="section__title">{contest.title}</h1></div>
@@ -141,6 +141,6 @@ export function ContestDetailPage() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth.tsx'
+import { applyPageMeta, pageMetaForPath } from '../page-meta.ts'
 
 const navClass = ({ isActive }: { isActive: boolean }) => `nav__item${isActive ? ' nav--active' : ''}`
 
@@ -11,6 +12,10 @@ export function Layout() {
 
   useEffect(() => {
     setMenuOpen(false)
+  }, [location.pathname])
+
+  useLayoutEffect(() => {
+    applyPageMeta(pageMetaForPath(location.pathname))
   }, [location.pathname])
 
   useEffect(() => {
@@ -53,13 +58,14 @@ export function Layout() {
           </ol>
         </div></div>
       </nav>
+      <nav className="nav--shadow" />
 
       <div className="slideout-panel" id="panel">
         <div className="slideout-overlay" onClick={() => setMenuOpen(false)} />
         <div className="header--mobile">
           <div className="row"><div className="columns clearfix">
             <div className="float-left">
-              <NavLink className="header--mobile__domain" to="/p" target="_self">
+              <NavLink className="header--mobile__domain" to="/" target="_self">
                 <img src="/nav_logo_dark.png" alt="SYUCT ACM" />
               </NavLink>
             </div>
@@ -74,37 +80,35 @@ export function Layout() {
         </div>
 
         <div className="main">
-          <div className="row">
-            <Outlet />
-          </div>
+          <Outlet />
         </div>
 
         <div className="footer">
           <div className="row"><div className="columns">
             <div className="row footer__links">
-              <div className="medium-3 large-2 columns footer__category">
-                <h1>状态</h1>
-                <ul className="footer__category__list">
+              <div className="medium-3 large-2 columns footer__category expandable">
+                <h1>状态<span className="expand-icon"><span className="icon icon-expand_more" /></span></h1>
+                <div className="footer__category__expander"><ul className="footer__category__list">
                   <li className="footer__category__item"><NavLink to="/record">评测记录</NavLink></li>
-                </ul>
+                </ul></div>
               </div>
-              <div className="medium-3 large-2 columns footer__category">
-                <h1>开发</h1>
-                <ul className="footer__category__list">
+              <div className="medium-3 large-2 columns footer__category expandable">
+                <h1>开发<span className="expand-icon"><span className="icon icon-expand_more" /></span></h1>
+                <div className="footer__category__expander"><ul className="footer__category__list">
                   <li className="footer__category__item"><a href="https://github.com/hydro-dev/Hydro" target="_blank" rel="noreferrer">Open Source</a></li>
-                </ul>
+                </ul></div>
               </div>
-              <div className="medium-3 large-2 columns footer__category">
-                <h1>支持</h1>
-                <ul className="footer__category__list">
+              <div className="medium-3 large-2 columns footer__category expandable">
+                <h1>支持<span className="expand-icon"><span className="icon icon-expand_more" /></span></h1>
+                <div className="footer__category__expander"><ul className="footer__category__list">
                   <li className="footer__category__item"><NavLink to="/discuss">帮助与反馈</NavLink></li>
-                </ul>
+                </ul></div>
               </div>
-              <div className="medium-3 large-2 columns footer__category end">
-                <h1>关于</h1>
-                <ul className="footer__category__list">
+              <div className="medium-3 large-2 columns footer__category expandable end">
+                <h1>关于<span className="expand-icon"><span className="icon icon-expand_more" /></span></h1>
+                <div className="footer__category__expander"><ul className="footer__category__list">
                   <li className="footer__category__item">SYUCT ACM</li>
-                </ul>
+                </ul></div>
               </div>
             </div>
             <div className="footer__extra-link clearfix">

@@ -46,7 +46,7 @@ export function DiscussionCreatePage() {
   if (!user) return <Navigate to="/login" replace />
 
   return (
-    <>
+    <div className="row">
       <div className="medium-9 columns">
         <div className="section">
           <div className="section__header">
@@ -164,6 +164,6 @@ export function DiscussionCreatePage() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }

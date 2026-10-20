@@ -80,7 +80,7 @@ export function ContestsPage() {
   const upcoming = items.filter((contest) => new Date(contest.beginAt).getTime() > now)
 
   return (
-    <>
+    <div className="row">
       <div className="medium-9 columns">
         {important.map((contest) => <ImportantContest key={`live-${contest.id}`} contest={contest} view="live" title="Live..." />)}
         {upcoming.map((contest) => <ImportantContest key={`ready-${contest.id}`} contest={contest} view="ready" title="Ready (☆▽☆)" />)}
@@ -138,6 +138,6 @@ export function ContestsPage() {
         </div>
       </div>
       <div className="medium-3 columns" />
-    </>
+    </div>
   )
 }
