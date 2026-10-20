@@ -168,3 +168,10 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `GET /api/v1/contests/:tid/scoreboard`
 
 比赛列表和详情读取 Hydro `document` 集合，详见 [docs/contests.md](./docs/contests.md)。
+
+## 训练接口
+
+- `GET /api/v1/trainings`
+- `GET /api/v1/trainings/:tid`
+
+训练列表和详情读取 Hydro `document` 集合，详见 [docs/training.md](./docs/training.md)。
