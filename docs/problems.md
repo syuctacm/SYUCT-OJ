@@ -49,12 +49,14 @@
 
 详情 API 额外返回 `problemType`、`timeLimit` 和 `memoryLimit`，由 Hydro 题目 `config` 生成展示信息。
 
-题目创建和编辑页对应 `problem_edit.html`：
+题目创建和编辑页由 `HydroTemplate` 直接渲染上游 `problem_edit.html`：
 
 - `/p/new`
 - `/p/:pid/edit`
-- PID、标题、标签、难度、可见性、Markdown 题面
+- PID、标题、标签、难度、可见性、Markdown 题面和原版分类/文件侧栏
+- Markdown 编辑器上传写入题目附加文件，并刷新原版附加文件侧栏
 - 管理员可创建，管理员或题目所有者可编辑
+- React 只负责数据、提交和上传接入，不复制主表单 DOM
 
 判题配置页对应 `problem_config.html`：
 
@@ -78,7 +80,13 @@ problem/system/<docId>/testdata/<name>
 problem/system/<docId>/additional_file/<name>
 ```
 
-上传 `config.yaml` 或 `config.yml` 时，内容会同步写入题目的 `config` 字段，供判题机读取。
+上传 `config.yaml` 或 `config.yml` 时，内容会同步写入题目的 `config` 字段，供判题机读取。编辑接口会将 Hydro 的 `- key: ... / value: ...` 配置列表规范化为 YAML 对象，避免旧数据编辑后无法保存。
+
+## 已知差异
+
+- 题目删除 API 尚未实现，编辑页暂不展示原模板删除按钮
+- 题目分类配置尚未从 Go 设置接口读取，分类侧栏目前为空
+- 题目文件重命名和批量选择脚本尚未接入
 
 ## 响应
 
