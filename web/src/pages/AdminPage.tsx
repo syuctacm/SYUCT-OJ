@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getAdminStats, type AdminStats } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 
@@ -35,6 +36,7 @@ export function AdminPage() {
           <p className="panel-subtitle">只读统计，当前不会修改线上数据</p>
         </div>
       </div>
+      <div className="admin-actions"><Link className="button" to="/admin/users">用户管理</Link></div>
       <div className="admin-grid">
         {labels.map(([key, label]) => (
           <div className="admin-stat" key={key}>

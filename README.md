@@ -200,6 +200,7 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 ## 后台概览
 
 - `GET /api/v1/admin/stats`
+- `GET /api/v1/admin/users`
 - `/admin`
 
 需要 `PRIV_EDIT_SYSTEM` 权限，详见 [docs/admin.md](./docs/admin.md)。

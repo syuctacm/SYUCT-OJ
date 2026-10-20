@@ -112,3 +112,5 @@ button, input, select, textarea { font: inherit; }
 .admin-stat { display: flex; flex-direction: column; gap: 10px; padding: 24px; background: #fff; color: #7b8794; font-size: 13px; }
 .admin-stat strong { color: #1d2733; font-size: 28px; font-family: "SFMono-Regular", Consolas, monospace; }
 @media (max-width: 700px) { .admin-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.admin-actions { display: flex; gap: 10px; padding: 16px 24px; border-bottom: 1px solid #edf0f3; }

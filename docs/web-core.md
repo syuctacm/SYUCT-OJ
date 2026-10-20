@@ -11,6 +11,7 @@
 | `/contest` | 比赛列表 |
 | `/contest/:tid` | 比赛详情 |
 | `/admin` | 管理员后台概览 |
+| `/admin/users` | 管理员用户列表 |
 | `/user/:uid` | 用户主页 |
 | `/discuss` | 讨论列表 |
 | `/discuss/:did` | 讨论详情 |

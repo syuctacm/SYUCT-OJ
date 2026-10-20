@@ -271,3 +271,29 @@ export async function getAdminStats(): Promise<AdminStats> {
   const result = await request<Envelope<AdminStats>>('/api/v1/admin/stats')
   return result.data
 }
+
+export type AdminUser = {
+  id: number
+  username: string
+  displayName?: string
+  email: string
+  studentId?: string
+  priv: number
+  regAt: string
+  loginAt: string
+}
+
+export type AdminUserPage = {
+  items: AdminUser[]
+  total: number
+  page: number
+  limit: number
+}
+
+export async function getAdminUsers(query = ''): Promise<AdminUserPage> {
+  const params = new URLSearchParams()
+  if (query.trim()) params.set('q', query.trim())
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const result = await request<Envelope<AdminUserPage>>(`/api/v1/admin/users${suffix}`)
+  return result.data
+}
