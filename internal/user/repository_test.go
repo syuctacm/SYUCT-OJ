@@ -72,4 +72,20 @@ func TestRepositoryIntegration(t *testing.T) {
 	if submit != 3 || accepted != 2 {
 		t.Fatalf("statistics submit=%d accepted=%d", submit, accepted)
 	}
+	activityRecords := []any{
+		bson.M{"_id": bson.NewObjectIDFromTimestamp(time.Now().Add(-72 * time.Hour)), "uid": int64(9), "pid": int64(10), "domainId": "system", "status": 1},
+		bson.M{"_id": bson.NewObjectIDFromTimestamp(time.Now().Add(-48 * time.Hour)), "uid": int64(9), "pid": int64(11), "domainId": "system", "status": 1},
+		bson.M{"_id": bson.NewObjectIDFromTimestamp(time.Now().Add(-48 * time.Hour).Add(time.Second)), "uid": int64(9), "pid": int64(12), "domainId": "system", "status": 2},
+		bson.M{"_id": bson.NewObjectIDFromTimestamp(time.Now().Add(-24 * time.Hour)), "uid": int64(9), "pid": int64(10), "domainId": "system", "status": 2},
+	}
+	if _, err := db.Collection("record").InsertMany(ctx, activityRecords); err != nil {
+		t.Fatal(err)
+	}
+	activity, err := repo.Activity(ctx, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if activity.TotalSubmissions != 4 || activity.ActiveDays != 3 || activity.MaxStreak != 3 || activity.TotalSolved != 2 {
+		t.Fatalf("activity: %+v", activity)
+	}
 }

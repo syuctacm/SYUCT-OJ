@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useParams } from 'react-router-dom'
 import { getPublicUser, type PublicUser } from '../api.ts'
+import { ActivityCalendar } from '../components/ActivityCalendar.tsx'
 
 function formatDate(value?: string) {
   if (!value) return '-'
@@ -54,6 +55,12 @@ export function UserProfilePage() {
                     {user.bio ? <div className="section__body typo richmedia"><ReactMarkdown remarkPlugins={[remarkGfm]}>{user.bio}</ReactMarkdown></div> : (
                       <div className="nothing-placeholder compact">这位用户还没有填写简介。</div>
                     )}
+                  </div>
+                </li>
+                <li className="section__tab-item">
+                  <h1 className="section__tab-title">活跃日历</h1>
+                  <div className="section__tab-main">
+                    <div className="section__body"><ActivityCalendar uid={user.id} /></div>
                   </div>
                 </li>
               </ul>

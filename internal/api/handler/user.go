@@ -19,6 +19,21 @@ func NewUserHandler(users *user.Repository) *UserHandler {
 
 func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/users/:uid", h.get)
+	router.GET("/api/v1/users/:uid/activity", h.activity)
+}
+
+func (h *UserHandler) activity(c *gin.Context) {
+	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
+	if err != nil || uid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+	activity, err := h.users.Activity(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load activity"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": activity})
 }
 
 func (h *UserHandler) get(c *gin.Context) {

@@ -459,3 +459,20 @@ body {
 .tag-stat-table { width: 100%; margin-bottom: 0; }
 .tag-stat-table td { padding: 6px 8px; vertical-align: middle; }
 .text-right { text-align: right; }
+
+.activity-calendar-wrapper { margin: 8px 0 22px; padding: 6px 0 24px; border-bottom: 1px solid #edf0f3; }
+.ac-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
+.ac-header-left { display: flex; flex-direction: column; }
+.ac-title { font-size: 20px; font-weight: 700; color: #1a1f2c; line-height: 1.2; letter-spacing: -0.3px; }
+.ac-subtitle { font-size: 13px; color: #656d76; margin-top: 6px; }
+.ac-subtitle strong { color: #1e86ff; font-weight: 600; }
+.ac-header-right { display: flex; align-items: baseline; font-size: 14px; color: #656d76; }
+.ac-stat-num { font-size: 32px; font-weight: 800; color: #1e86ff; line-height: 1; margin: 0 4px; letter-spacing: -0.5px; }
+.ac-graph-container { width: 100%; overflow-x: auto; overflow-y: hidden; padding: 4px 0 6px; }
+.ac-svg { display: block; width: 100%; min-width: 780px; height: auto; }
+.ac-svg text { font-size: 11px; fill: #656d76; font-weight: 400; font-family: inherit; }
+.ac-day-cell { cursor: pointer; rx: 2.2px; ry: 2.2px; transition: stroke .12s ease, stroke-width .12s ease; }
+.ac-day-cell:hover { stroke: #0969da; stroke-width: 1.5px; }
+.ac-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 12px; color: #8c959f; }
+.ac-legend { display: flex; align-items: center; gap: 4px; }
+.ac-legend-box { display: inline-block; width: 11px; height: 11px; border-radius: 2px; }
