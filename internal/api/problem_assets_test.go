@@ -175,6 +175,114 @@ func TestProblemAssetManagementIntegration(t *testing.T) {
 	if len(pdoc.Data) != 0 || pdoc.Config != "" {
 		t.Fatalf("files after delete: data=%+v config=%q", pdoc.Data, pdoc.Config)
 	}
+
+	body, _ = json.Marshal(map[string]any{
+		"pid": "PNEW", "title": "Created problem", "content": "# Created",
+		"tags": []string{"Math", "Math", "Graph"}, "difficulty": 3, "hidden": false,
+		"config": "type: default\ntime: 1000ms\nmemory: 256m\n",
+	})
+	request, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/problems", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range adminCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createdBody, _ := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("create problem = %d: %s", response.StatusCode, createdBody)
+	}
+	var createdEnvelope struct {
+		Data struct {
+			Problem struct {
+				DocID int64    `json:"docId"`
+				PID   string   `json:"pid"`
+				Tags  []string `json:"tags"`
+			} `json:"problem"`
+			Config string `json:"config"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(createdBody, &createdEnvelope); err != nil {
+		t.Fatal(err)
+	}
+	if createdEnvelope.Data.Problem.DocID != 6 || createdEnvelope.Data.Problem.PID != "PNEW" || len(createdEnvelope.Data.Problem.Tags) != 2 {
+		t.Fatalf("created problem: %+v", createdEnvelope.Data)
+	}
+
+	body, _ = json.Marshal(map[string]any{"pid": "PNEW", "title": "Duplicate"})
+	request, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/problems", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range adminCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("duplicate problem = %d", response.StatusCode)
+	}
+
+	body, _ = json.Marshal(map[string]any{"pid": "BAD", "title": "Bad", "config": "not: [valid"})
+	request, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/problems", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range adminCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid config = %d", response.StatusCode)
+	}
+
+	body, _ = json.Marshal(map[string]any{"pid": "NOPE", "title": "Nope"})
+	request, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/problems", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range normalCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("non-admin create = %d", response.StatusCode)
+	}
+
+	body, _ = json.Marshal(map[string]any{
+		"pid": "PNEW2", "title": "Updated problem", "content": "Updated content",
+		"tags": []string{"Graph"}, "difficulty": 4, "hidden": true,
+		"config": "type: default\ntime: 5000ms\nmemory: 512m\n",
+	})
+	request, _ = http.NewRequest(http.MethodPatch, server.URL+"/api/v1/problems/PNEW", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range adminCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updatedBody, _ := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("update problem = %d: %s", response.StatusCode, updatedBody)
+	}
+	updatedProblem, err := problemRepo.GetForEditor(ctx, "PNEW2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updatedProblem.Title != "Updated problem" || !updatedProblem.Hidden || updatedProblem.Difficulty != 4 || !strings.Contains(updatedProblem.Config.(string), "5000ms") {
+		t.Fatalf("updated problem: %+v", updatedProblem)
+	}
 }
 
 type problemAssetsResponse struct {

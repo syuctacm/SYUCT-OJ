@@ -10,7 +10,10 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/') return basic('homepage', '首页')
   if (pathname === '/login') return { name: 'user_login', layout: 'immersive', title: '登录' }
   if (pathname === '/p') return basic('problem_main', '题库')
+  if (pathname === '/p/new') return basic('problem_create', '创建题目')
   if (pathname.startsWith('/p/tag/')) return basic('problem_tag', '标签榜单')
+  if (/^\/p\/[^/]+\/edit\/?$/.test(pathname)) return basic('problem_edit', '编辑题目')
+  if (/^\/p\/[^/]+\/config\/?$/.test(pathname)) return basic('problem_config', '判题配置')
   if (/^\/p\/[^/]+\/files\/?$/.test(pathname)) return basic('problem_files', '题目文件')
   if (/^\/p\/[^/]+\/submit\/?$/.test(pathname)) return basic('problem_submit', '提交题目')
   if (/^\/p\/[^/]+\/?$/.test(pathname)) return basic('problem_detail', '题目详情')

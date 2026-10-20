@@ -61,6 +61,7 @@ export function ProblemsPage() {
   }
 
   const luckyProblem = page?.items.length ? page.items[Math.floor(Math.random() * page.items.length)] : null
+  const canCreateProblem = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
 
   return (
     <div className="row">
@@ -154,6 +155,19 @@ export function ProblemsPage() {
         </div>
       </div>
       <div className="medium-3 columns">
+        {canCreateProblem ? (
+          <div className="section side">
+            <div className="section__header"><h1 className="section__title">创建题目</h1></div>
+            <ol className="menu">
+              <li className="menu__item">
+                <Link className="menu__link" to="/p/new"><span className="icon icon-add" /> 新建题目</Link>
+              </li>
+            </ol>
+            <div className="section__body">
+              <div className="typo supplementary"><p>你有权限为本站创建题目。</p></div>
+            </div>
+          </div>
+        ) : null}
         <div className="section side">
           <div className="section__header edit-mode-hide"><h1 className="section__title">标签统计</h1></div>
           <div className="section__body">

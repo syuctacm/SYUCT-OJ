@@ -19,7 +19,10 @@ const (
 	DomainSystem        = "system"
 )
 
-var ErrNotFound = fmt.Errorf("problem not found")
+var (
+	ErrNotFound     = fmt.Errorf("problem not found")
+	ErrDuplicatePID = fmt.Errorf("problem pid already exists")
+)
 
 type ProblemFile struct {
 	ID           string    `bson:"_id" json:"-"`
@@ -54,6 +57,16 @@ type Problem struct {
 type UserStatus struct {
 	Status int    `json:"status"`
 	RID    string `json:"rid"`
+}
+
+type EditInput struct {
+	PID        string
+	Title      string
+	Content    string
+	Tags       []string
+	Difficulty int
+	Hidden     bool
+	Config     string
 }
 
 type ListOptions struct {
@@ -99,15 +112,116 @@ type TagRanking struct {
 }
 
 type Repository struct {
-	coll    *mongo.Collection
-	records *mongo.Collection
-	users   *mongo.Collection
+	coll     *mongo.Collection
+	records  *mongo.Collection
+	users    *mongo.Collection
+	counters *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
 	return &Repository{
 		coll: db.Collection("document"), records: db.Collection("record"), users: db.Collection("user"),
+		counters: db.Collection("counter"),
 	}
+}
+
+func (r *Repository) Create(ctx context.Context, owner int64, input EditInput) (*Problem, error) {
+	pid := strings.TrimSpace(input.PID)
+	title := strings.TrimSpace(input.Title)
+	if pid == "" || title == "" {
+		return nil, fmt.Errorf("pid and title are required")
+	}
+	count, err := r.coll.CountDocuments(ctx, bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "pid": pid})
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, ErrDuplicatePID
+	}
+	docID, err := r.nextDocID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tags := input.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+	document := bson.M{
+		"_id": bson.NewObjectID(), "domainId": DomainSystem, "docType": DocumentTypeProblem,
+		"docId": docID, "pid": pid, "title": title, "content": input.Content,
+		"owner": owner, "tag": tags, "difficulty": input.Difficulty, "hidden": input.Hidden,
+		"nSubmit": int64(0), "nAccept": int64(0), "config": input.Config,
+		"data": []ProblemFile{}, "additional_file": []ProblemFile{},
+	}
+	if _, err := r.coll.InsertOne(ctx, document); err != nil {
+		return nil, err
+	}
+	return r.GetForEditor(ctx, strconv.FormatInt(docID, 10))
+}
+
+func (r *Repository) Update(ctx context.Context, docID int64, input EditInput) (*Problem, error) {
+	pid := strings.TrimSpace(input.PID)
+	title := strings.TrimSpace(input.Title)
+	if pid == "" || title == "" {
+		return nil, fmt.Errorf("pid and title are required")
+	}
+	count, err := r.coll.CountDocuments(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeProblem,
+		"pid": pid, "docId": bson.M{"$ne": docID},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, ErrDuplicatePID
+	}
+	tags := input.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+	result, err := r.coll.UpdateOne(ctx,
+		bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "docId": docID},
+		bson.M{"$set": bson.M{
+			"pid": pid, "title": title, "content": input.Content, "tag": tags,
+			"difficulty": input.Difficulty, "hidden": input.Hidden, "config": input.Config,
+		}},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, ErrNotFound
+	}
+	return r.GetForEditor(ctx, strconv.FormatInt(docID, 10))
+}
+
+func (r *Repository) nextDocID(ctx context.Context) (int64, error) {
+	var latest Problem
+	err := r.coll.FindOne(ctx,
+		bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem},
+		options.FindOne().SetSort(bson.D{{Key: "docId", Value: -1}}).SetProjection(bson.M{"docId": 1}),
+	).Decode(&latest)
+	if err != nil && err != mongo.ErrNoDocuments {
+		return 0, err
+	}
+	if _, err := r.counters.UpdateOne(ctx,
+		bson.M{"_id": "problem"},
+		bson.M{"$max": bson.M{"seq": latest.DocID}},
+		options.UpdateOne().SetUpsert(true),
+	); err != nil {
+		return 0, err
+	}
+	var counter struct {
+		Seq int64 `bson:"seq"`
+	}
+	if err := r.counters.FindOneAndUpdate(ctx,
+		bson.M{"_id": "problem"},
+		bson.M{"$inc": bson.M{"seq": 1}},
+		options.FindOneAndUpdate().SetReturnDocument(options.After),
+	).Decode(&counter); err != nil {
+		return 0, err
+	}
+	return counter.Seq, nil
 }
 
 func (r *Repository) List(ctx context.Context, opts ListOptions) (*ListResult, error) {

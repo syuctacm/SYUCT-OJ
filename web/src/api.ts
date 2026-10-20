@@ -15,12 +15,49 @@ export type ProblemSummary = {
   title: string
   tags: string[] | null
   difficulty?: number
+  hidden?: boolean
   nSubmit: number
   nAccept: number
   userStatus?: {
     status: number
     rid: string
   }
+}
+
+export type ProblemEditInput = {
+  pid: string
+  title: string
+  content: string
+  tags: string[]
+  difficulty: number
+  hidden: boolean
+  config: string
+}
+
+export type ProblemEditorData = {
+  problem: ProblemDetail
+  config: string
+}
+
+export async function getProblemEditor(pid: string): Promise<ProblemEditorData> {
+  const result = await request<Envelope<ProblemEditorData>>(`/api/v1/problems/${encodeURIComponent(pid)}/edit`)
+  return result.data
+}
+
+export async function createProblem(input: ProblemEditInput): Promise<ProblemEditorData> {
+  const result = await request<Envelope<ProblemEditorData>>('/api/v1/problems', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return result.data
+}
+
+export async function updateProblem(pid: string, input: ProblemEditInput): Promise<ProblemEditorData> {
+  const result = await request<Envelope<ProblemEditorData>>(`/api/v1/problems/${encodeURIComponent(pid)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  return result.data
 }
 
 export type ProblemAsset = {

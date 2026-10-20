@@ -6,6 +6,9 @@
 |---|---|---|
 | GET | `/api/v1/problems` | 题目列表、分页、搜索和筛选 |
 | GET | `/api/v1/problems/:pid` | 题目详情，支持 `pid`、`docId` 或 ObjectId |
+| POST | `/api/v1/problems` | 创建题目 |
+| GET | `/api/v1/problems/:pid/edit` | 编辑数据和原始 YAML 配置 |
+| PATCH | `/api/v1/problems/:pid` | 更新题目和判题配置 |
 | GET | `/api/v1/problems/:pid/assets` | 测试数据和附加文件列表 |
 | POST | `/api/v1/problems/:pid/assets` | multipart 上传文件 |
 | DELETE | `/api/v1/problems/:pid/assets` | 批量删除文件 |
@@ -45,6 +48,19 @@
 - `partials/problem_sidebar.html`：提交入口和题目信息侧栏
 
 详情 API 额外返回 `problemType`、`timeLimit` 和 `memoryLimit`，由 Hydro 题目 `config` 生成展示信息。
+
+题目创建和编辑页对应 `problem_edit.html`：
+
+- `/p/new`
+- `/p/:pid/edit`
+- PID、标题、标签、难度、可见性、Markdown 题面
+- 管理员可创建，管理员或题目所有者可编辑
+
+判题配置页对应 `problem_config.html`：
+
+- `/p/:pid/config`
+- 直接编辑 YAML 配置
+- 保存前校验 YAML 对象
 
 题目文件页对应 `problem_files.html` / `partials/problem_files.html`：
 

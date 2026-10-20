@@ -1,14 +1,17 @@
 import { Link } from 'react-router-dom'
 import type { ProblemDetail } from '../api.ts'
+import { useAuth } from '../auth.tsx'
 import { formatMemoryLimit, formatTimeLimit } from '../problem-format.ts'
 
 type ProblemSidebarProps = {
   problem: ProblemDetail
-  pageName: 'problem_detail' | 'problem_submit' | 'problem_files'
+  pageName: 'problem_detail' | 'problem_submit' | 'problem_files' | 'problem_edit' | 'problem_config'
 }
 
 export function ProblemSidebar({ problem, pageName }: ProblemSidebarProps) {
+  const { user } = useAuth()
   const problemPath = `/p/${encodeURIComponent(problem.pid || String(problem.docId))}`
+  const canEdit = Boolean(user && (user.id === problem.owner || ((user.priv ?? 0) & 1) !== 0))
   return (
     <>
       <div className="section side section--problem-sidebar">
@@ -27,11 +30,25 @@ export function ProblemSidebar({ problem, pageName }: ProblemSidebarProps) {
                 <span className="icon icon-send" /> 提交
               </Link>
             </li>
-            <li className="menu__item">
-              <Link className={`menu__link${pageName === 'problem_files' ? ' active' : ''}`} to={`${problemPath}/files`}>
-                <span className="icon icon-file" /> 文件
-              </Link>
-            </li>
+            {canEdit ? (
+              <>
+                <li className="menu__item">
+                  <Link className={`menu__link${pageName === 'problem_files' ? ' active' : ''}`} to={`${problemPath}/files`}>
+                    <span className="icon icon-file" /> 文件
+                  </Link>
+                </li>
+                <li className="menu__item">
+                  <Link className={`menu__link${pageName === 'problem_config' ? ' active' : ''}`} to={`${problemPath}/config`}>
+                    <span className="icon icon-settings" /> 判题配置
+                  </Link>
+                </li>
+                <li className="menu__item">
+                  <Link className={`menu__link${pageName === 'problem_edit' ? ' active' : ''}`} to={`${problemPath}/edit`}>
+                    <span className="icon icon-edit" /> 编辑题目
+                  </Link>
+                </li>
+              </>
+            ) : null}
           </ol>
         </div>
       </div>

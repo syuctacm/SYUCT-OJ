@@ -161,6 +161,9 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 
 - `GET /api/v1/problems`
 - `GET /api/v1/problems/:pid`
+- `POST /api/v1/problems`
+- `GET /api/v1/problems/:pid/edit`
+- `PATCH /api/v1/problems/:pid`
 - `GET /api/v1/problem-tags`
 - `GET /api/v1/problem-tags/:tag/ranking`
 - `GET/POST/DELETE /api/v1/problems/:pid/assets`
