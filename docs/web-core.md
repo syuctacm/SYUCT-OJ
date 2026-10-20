@@ -10,6 +10,7 @@
 | `/p/:pid/submit` | 提交代码 |
 | `/contest` | 比赛列表 |
 | `/contest/:tid` | 比赛详情 |
+| `/user/:uid` | 用户主页 |
 | `/discuss` | 讨论列表 |
 | `/discuss/:did` | 讨论详情 |
 | `/homework` | 作业列表 |

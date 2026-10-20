@@ -28,7 +28,7 @@ export function Layout() {
           <div className="account">
             {user ? (
               <>
-                <span className="account-name">{user.displayName || user.username}</span>
+                <NavLink to={`/user/${user.id}`} className="account-name">{user.displayName || user.username}</NavLink>
                 <button className="link-button" onClick={handleLogout}>退出</button>
               </>
             ) : (

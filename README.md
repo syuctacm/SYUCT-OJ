@@ -189,3 +189,10 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `GET /api/v1/discussions/:did`
 
 讨论读取 Hydro `document` 的 `docType=21` 文档，详见 [docs/discussion.md](./docs/discussion.md)。
+
+## 用户主页
+
+- `GET /api/v1/users/:uid`
+- `/user/:uid`
+
+公开资料不包含邮箱和密码字段，详见 [docs/user-profile.md](./docs/user-profile.md)。

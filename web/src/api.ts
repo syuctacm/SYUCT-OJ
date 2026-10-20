@@ -240,3 +240,17 @@ export async function getDiscussion(did: string): Promise<Discussion> {
   const result = await request<Envelope<Discussion>>(`/api/v1/discussions/${encodeURIComponent(did)}`)
   return result.data
 }
+
+export type PublicUser = {
+  id: number
+  username: string
+  displayName?: string
+  studentId?: string
+  avatar?: string
+  regAt: string
+}
+
+export async function getPublicUser(uid: string): Promise<PublicUser> {
+  const result = await request<Envelope<PublicUser>>(`/api/v1/users/${encodeURIComponent(uid)}`)
+  return result.data
+}
