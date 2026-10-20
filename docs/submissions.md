@@ -55,10 +55,12 @@
 
 记录页面结构对应 Hydro `ui-default`：
 
-- `record_main.html`：筛选区和记录表格
+- `record_main.html`：由 `HydroTemplate` 直接渲染筛选区、记录表格和分页
 - `record_main_tr.html`：状态、题目、提交者、时间、内存、语言和提交时间
 - `record_detail.html`：状态区、编译器/评测输出、测试点和代码
 - `record_detail_status.html` / `record_detail_summary.html`：状态和统计信息
+
+记录列表的语言下拉和筛选表单由 React 交互岛接入，分页和重置链接保持原模板结构。rejudge/cancel 操作因后端尚未实现而从列表隐藏。
 
 ## 验证
 

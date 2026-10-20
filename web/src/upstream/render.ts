@@ -100,6 +100,10 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     size,
     isIE: () => false,
     typeof: (value: unknown) => typeof value,
+    eval: (code: string) => {
+      if (code.replace(/\s/g, '') === 'rdoc=>rdoc._id.toString()') return (rdoc: { _id: unknown }) => String(rdoc._id)
+      return () => undefined
+    },
     set: (target: RenderContext, keyOrValues: string | RenderContext, value?: unknown) => {
       if (typeof keyOrValues === 'string') target[keyOrValues] = value
       else Object.assign(target, keyOrValues)

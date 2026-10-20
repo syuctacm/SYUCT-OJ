@@ -1,27 +1,49 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to data mapping, filters and pagination state.
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { getSubmissions, type SubmissionPage } from '../api.ts'
 import { useAuth } from '../auth.tsx'
-import { RecordStatusCell } from '../components/RecordStatus.tsx'
-import { statusLabels } from '../status.ts'
+import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { statusClass, statusLabels } from '../status.ts'
 
-const languageNames: Record<string, string> = {
-  cpp: 'C++17',
-  python3: 'Python 3',
+const languageMap = Object.fromEntries(languageOptions.map((language) => [
+  language._id,
+  { display: language.name, highlight: language._id },
+]))
+
+const statusCodes = Object.fromEntries(Object.keys(statusLabels).map((status) => [
+  status,
+  statusClass(Number(status)),
+]))
+
+const statusShortTexts: Record<number, string> = {
+  1: 'AC',
+  2: 'WA',
+  3: 'TLE',
+  4: 'MLE',
+  5: 'OLE',
+  6: 'RE',
+  7: 'CE',
+  8: 'SE',
+  9: 'Canceled',
+  10: 'Unknown',
+  11: 'Hacked',
+  20: 'Running',
+  21: 'Compiling',
+  22: 'Fetched',
+  30: 'Ignored',
 }
 
-function formatMemory(kib: number) {
-  if (!kib) return '-'
-  return kib >= 1024 ? `${(kib / 1024).toFixed(1)}MiB` : `${kib}KiB`
-}
-
-function formatTime(ms: number) {
-  return ms ? `${Math.round(ms)}ms` : '-'
+function formatDate(value: string) {
+  return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 
 export function RecordsPage() {
   const { user, loading: authLoading } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const filters = {
     uidOrName: searchParams.get('uidOrName') ?? '',
     pid: searchParams.get('pid') ?? '',
@@ -30,17 +52,9 @@ export function RecordsPage() {
     status: searchParams.get('status') ?? '',
     page: Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1),
   }
-  const [uidOrName, setUidOrName] = useState(filters.uidOrName)
-  const [pid, setPid] = useState(filters.pid)
-  const [tid, setTid] = useState(filters.tid)
   const [page, setPage] = useState<SubmissionPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    setUidOrName(filters.uidOrName)
-    setPid(filters.pid)
-  }, [filters.uidOrName, filters.pid])
 
   useEffect(() => {
     if (authLoading) return
@@ -56,128 +70,171 @@ export function RecordsPage() {
       .finally(() => setLoading(false))
   }, [authLoading, user, filters.uidOrName, filters.pid, filters.tid, filters.lang, filters.status, filters.page])
 
-  function handleFilter(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const params = new URLSearchParams()
-    if (uidOrName.trim()) params.set('uidOrName', uidOrName.trim())
-    if (pid.trim()) params.set('pid', pid.trim())
-    if (tid.trim()) params.set('tid', tid.trim())
-    if (filters.lang) params.set('lang', filters.lang)
-    if (filters.status) params.set('status', filters.status)
-    setSearchParams(params)
-  }
+  const hasMore = Boolean(page && page.page * page.limit < page.total)
 
-  function updateSelect(name: string, value: string) {
-    const params = new URLSearchParams(searchParams)
-    if (value) params.set(name, value)
-    else params.delete(name)
-    params.delete('page')
-    setSearchParams(params)
-  }
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    const form = root.querySelector<HTMLFormElement>('form[method="get"]')
+    const langSelect = root.querySelector<HTMLSelectElement>('select[name="lang"]')
+    if (langSelect) {
+      langSelect.replaceChildren()
+      const all = document.createElement('option')
+      all.value = ''
+      all.textContent = '所有语言'
+      langSelect.appendChild(all)
+      for (const language of languageOptions) {
+        const option = document.createElement('option')
+        option.value = language._id
+        option.textContent = language.name
+        langSelect.appendChild(option)
+      }
+      langSelect.value = filters.lang
+    }
+    if (!hasMore) root.querySelector('.pager')?.remove()
+    const onSubmit = (event: SubmitEvent) => {
+      event.preventDefault()
+      const data = new FormData(form!)
+      const params = new URLSearchParams()
+      for (const key of ['uidOrName', 'pid', 'tid', 'lang', 'status']) {
+        const value = String(data.get(key) ?? '').trim()
+        if (value) params.set(key, value)
+      }
+      navigate(`/record${params.toString() ? `?${params.toString()}` : ''}`)
+    }
+    form?.addEventListener('submit', onSubmit)
+    return () => form?.removeEventListener('submit', onSubmit)
+  }, [filters.lang, hasMore, navigate])
+
+  const context = useMemo(() => {
+    if (!page) return null
+    const rdocs = page.items.map((submission) => ({
+      _id: submission.id,
+      uid: submission.uid,
+      pid: submission.pid,
+      status: submission.status,
+      score: submission.score,
+      time: submission.time,
+      memory: submission.memory,
+      lang: submission.lang,
+      contest: null,
+      judgeAt: submission.judgeAt,
+      createdAt: submission.createdAt,
+      files: {},
+    }))
+    const udict = Object.fromEntries(page.items.map((submission) => [
+      String(submission.uid),
+      {
+        _id: submission.uid,
+        uname: submission.submitter?.displayName || submission.submitter?.username || `UID ${submission.uid}`,
+        avatar: '',
+        hasPriv: () => false,
+        hasPerm: () => false,
+      },
+    ]))
+    const pdict = Object.fromEntries(page.items.map((submission) => [
+      String(submission.pid),
+      submission.problem ? {
+        docId: submission.problem.docId,
+        pid: submission.problem.pid,
+        title: submission.problem.title,
+        hidden: false,
+        tag: [],
+      } : null,
+    ]))
+    const dates = new Map(page.items.map((submission) => [submission.id, submission.createdAt]))
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    return {
+      page_name: 'record_main',
+      rdocs,
+      udict,
+      pdict,
+      page: page.page,
+      filterUidOrName: filters.uidOrName,
+      filterPid: filters.pid,
+      filterTid: filters.tid,
+      filterLang: filters.lang,
+      filterStatus: filters.status ? Number(filters.status) : '',
+      all: false,
+      allDomain: false,
+      statistics: null,
+      handler: {
+        user: {
+          _id: user?.id ?? 0,
+          viewLang: 'zh',
+          _dudoc: { join: true },
+          hasPerm: () => false,
+          hasPriv: (privilege: number) => Boolean(user) && privilege === 1 && hasMore,
+          own: () => Boolean(user && isAdmin),
+        },
+        args: { domainId: 'system' },
+        request: { query: filters, headers: { 'user-agent': navigator.userAgent } },
+        session: { legacy: false, viewLang: 'zh' },
+        ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+      },
+      perm: { PERM_REJUDGE: 1, PERM_VIEW_PROBLEM_HIDDEN: 2, PERM_VIEW_USER_PRIVATE_INFO: 3, PERM_MOD_BADGE: 4 },
+      PRIV: { PRIV_VIEW_JUDGE_STATISTICS: 1, PRIV_USER_PROFILE: 2, PRIV_READ_PROBLEM_DATA: 3 },
+      STATUS: {
+        STATUS_ACCEPTED: 1,
+        STATUS_JUDGING: 20,
+        STATUS_TIME_LIMIT_EXCEEDED: 3,
+        STATUS_MEMORY_LIMIT_EXCEEDED: 4,
+        STATUS_OUTPUT_LIMIT_EXCEEDED: 5,
+      },
+      model: {
+        builtin: {
+          LEVELS: {},
+          STATUS_CODES: statusCodes,
+          STATUS_TEXTS: statusLabels,
+          STATUS_SHORT_TEXTS: statusShortTexts,
+        },
+        setting: { langs: languageMap },
+        system: { get: () => false },
+      },
+      utils: {
+        status: {
+          STATUS_TEXTS: statusLabels,
+          getScoreColor: (score: number) => score >= 100 ? '#25ad40' : score > 0 ? '#e64c72' : '#999',
+        },
+      },
+      datetimeSpan: (id: string) => `<span class="time">${formatDate(dates.get(String(id)) ?? '')}</span>`,
+      size: (bytes: number, base = 1) => {
+        let value = bytes * base
+        const units = ['Bytes', 'KiB', 'MiB', 'GiB']
+        let index = 0
+        while (value >= 1024 && index < units.length - 1) {
+          value /= 1024
+          index++
+        }
+        return `${Math.round(value * 10) / 10} ${units[index]}`
+      },
+      avatarUrl: (value?: string) => value || '/logo.png',
+      UiContext: {},
+      UserContext: user,
+    }
+  }, [filters.lang, filters.pid, filters.status, filters.tid, filters.uidOrName, hasMore, page, user])
 
   if (authLoading) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
   if (!user) return <div className="row"><div className="columns"><div className="nothing-placeholder">请先 <Link to="/login">登录</Link> 查看评测记录。</div></div></div>
-
-  const nextHref = (() => {
-    const params = new URLSearchParams(searchParams)
-    params.set('page', String(filters.page + 1))
-    return `/record?${params.toString()}`
-  })()
+  if (loading) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
+  if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  if (!context) return null
 
   return (
-    <div className="row">
-      <div className="medium-12 columns">
-        <form method="get" onSubmit={handleFilter}>
-          <div className="section">
-            <div className="section__header">
-              <h1 className="section__title">筛选</h1>
-              <div className="section__tools">
-                <button type="submit" className="primary button"><span className="icon icon-filter" /> 筛选</button>
-                <Link to="/record" className="button">重置</Link>
-              </div>
-            </div>
-            <div className="section__body">
-              <div className="row">
-                <div className="medium-2 columns">
-                  <label className="filter-user">
-                    用户名 / UID
-                    <input name="uidOrName" type="text" className="textbox" value={uidOrName} onChange={(event) => setUidOrName(event.target.value)} autoComplete="off" />
-                  </label>
-                </div>
-                <div className="medium-2 columns">
-                  <label>题目<input name="pid" type="text" className="textbox" value={pid} onChange={(event) => setPid(event.target.value)} /></label>
-                </div>
-                <div className="medium-2 columns">
-                  <label>比赛<input name="tid" type="text" className="textbox" value={tid} onChange={(event) => setTid(event.target.value)} /></label>
-                </div>
-                <div className="medium-3 columns">
-                  <label>语言</label>
-                  <select className="compact select" name="lang" value={filters.lang} onChange={(event) => updateSelect('lang', event.target.value)}>
-                    <option value="">所有语言</option>
-                    <option value="cpp">C++17</option>
-                    <option value="python3">Python 3</option>
-                  </select>
-                </div>
-                <div className="medium-3 columns">
-                  <label>状态</label>
-                  <select className="compact select" name="status" value={filters.status} onChange={(event) => updateSelect('status', event.target.value)}>
-                    <option value="">所有提交</option>
-                    {Object.entries(statusLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-        </form>
-        <div className="section">
-          <div className="section__body no-padding">
-            {loading ? <div className="nothing-placeholder">加载中...</div> : null}
-            {error ? <div className="nothing-placeholder error-state">{error}</div> : null}
-            {!loading && !error && page?.items.length === 0 ? <div className="nothing-placeholder"><div className="nothing-icon" />没有匹配的提交记录</div> : null}
-            {!loading && !error && page && page.items.length > 0 ? (
-              <>
-                <table className="data-table record_main__table">
-                  <colgroup>
-                    <col className="col--status" /><col className="col--problem" /><col className="col--submit-by" />
-                    <col className="col--time" /><col className="col--memory" /><col className="col--lang" /><col className="col--submit-at" />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="col--status record-status--border">状态</th>
-                      <th className="col--problem">题目</th>
-                      <th className="col--submit-by">提交者</th>
-                      <th className="col--time">时间</th>
-                      <th className="col--memory">内存</th>
-                      <th className="col--lang">语言</th>
-                      <th className="col--submit-at">提交时间</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {page.items.map((submission) => (
-                      <tr data-rid={submission.id} key={submission.id}>
-                        <RecordStatusCell status={submission.status} rid={submission.id} />
-                        <td className="col--problem col--problem-name">
-                          {submission.problem ? <Link to={`/p/${encodeURIComponent(submission.problem.pid || String(submission.problem.docId))}`}><b>{submission.problem.pid}</b>&nbsp;&nbsp;{submission.problem.title}</Link> : '*'}
-                        </td>
-                        <td className="col--submit-by">
-                          {submission.submitter ? <Link to={`/user/${submission.submitter.id}`}>{submission.submitter.displayName || submission.submitter.username}</Link> : `UID ${submission.uid}`}
-                        </td>
-                        <td className="col--time">{submission.time ? `${[3, 4, 5].includes(submission.status) ? '≥' : ''}${formatTime(submission.time)}` : '-'}</td>
-                        <td className="col--memory">{submission.memory ? `${[3, 4, 5].includes(submission.status) ? '≥' : ''}${formatMemory(submission.memory)}` : '-'}</td>
-                        <td className="col--lang">{languageNames[submission.lang] || submission.lang}</td>
-                        <td className="col--submit-at">{new Date(submission.createdAt).toLocaleString('zh-CN', { hour12: false })}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {page.page * page.limit < page.total ? (
-                  <ul className="pager"><li><Link className="pager__item next link" to={nextHref}>下一页</Link></li></ul>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </div>
+    <HydroTemplate
+      template="record_main.html"
+      context={context}
+      onReady={handleReady}
+      url={(name, args = {}) => {
+        const query = (args.query ?? {}) as Record<string, unknown>
+        if (name === 'record_detail') return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
+        if (name === 'record_main') {
+          const params = new URLSearchParams()
+          for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') params.set(key, String(value))
+          return `/record${params.toString() ? `?${params.toString()}` : ''}`
+        }
+        if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
+        if (name === 'user_detail') return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+        return '/'
+      }}
+    />
   )
 }
