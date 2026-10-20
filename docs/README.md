@@ -11,3 +11,4 @@
 - [React 核心页面](./web-core.md)
 - [比赛 API 与页面](./contests.md)
 - [训练 API 与页面](./training.md)
+- [作业 API 与页面](./homework.md)

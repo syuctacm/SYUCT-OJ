@@ -20,6 +20,7 @@ export function Layout() {
             <NavLink to="/p" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>题库</NavLink>
             <NavLink to="/contest" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>比赛</NavLink>
             <NavLink to="/training" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>训练</NavLink>
+            <NavLink to="/homework" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>作业</NavLink>
             <NavLink to="/record" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>提交记录</NavLink>
             <a className="nav-link" href="https://oj.syuctacm.cn" target="_blank" rel="noreferrer">旧 OJ</a>
           </nav>

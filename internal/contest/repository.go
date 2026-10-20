@@ -73,6 +73,7 @@ func (r *Repository) List(ctx context.Context) ([]Contest, error) {
 	cursor, err := r.coll.Find(ctx, bson.M{
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeContest,
+		"rule":     bson.M{"$ne": "homework"},
 	}, options.Find().
 		SetProjection(projection).
 		SetSort(bson.D{{Key: "beginAt", Value: -1}}))
@@ -85,6 +86,40 @@ func (r *Repository) List(ctx context.Context) ([]Contest, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+func (r *Repository) ListHomework(ctx context.Context) ([]Contest, error) {
+	projection := bson.M{
+		"docId": 1, "title": 1, "beginAt": 1, "endAt": 1,
+		"rule": 1, "attend": 1, "pids": 1, "duration": 1, "rated": 1,
+	}
+	cursor, err := r.coll.Find(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"rule":     "homework",
+	}, options.Find().
+		SetProjection(projection).
+		SetSort(bson.D{{Key: "endAt", Value: -1}, {Key: "_id", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]Contest, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) GetHomework(ctx context.Context, tid string) (*Contest, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, err
+	}
+	if item.Rule != "homework" {
+		return nil, ErrNotFound
+	}
+	return item, nil
 }
 
 func (r *Repository) Problems(ctx context.Context, tid string) (*Contest, []problem.Problem, error) {

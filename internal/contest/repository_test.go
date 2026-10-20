@@ -49,6 +49,15 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	homeworkID := bson.NewObjectID()
+	_, err = db.Collection("document").InsertOne(ctx, bson.M{
+		"_id": bson.NewObjectID(), "domainId": "system", "docType": 30,
+		"docId": homeworkID, "title": "Homework 1", "rule": "homework",
+		"beginAt": time.Now().Add(-time.Hour), "endAt": time.Now().Add(time.Hour), "pids": []int64{1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = db.Collection("document").InsertMany(ctx, []any{
 		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(1), "pid": "P1", "title": "First"},
 		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(2), "pid": "P2", "title": "Second"},
@@ -93,6 +102,16 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	}
 	if len(rows) != 2 || rows[0].UID != 7 || rows[0].Solved != 2 || rows[1].UID != 8 {
 		t.Fatalf("unexpected scoreboard: %+v", rows)
+	}
+	homeworks, err := repo.ListHomework(ctx)
+	if err != nil {
+		t.Fatalf("list homework: %v", err)
+	}
+	if len(homeworks) != 1 || homeworks[0].Title != "Homework 1" {
+		t.Fatalf("unexpected homeworks: %+v", homeworks)
+	}
+	if _, err := repo.GetHomework(ctx, oldID.Hex()); err != contest.ErrNotFound {
+		t.Fatalf("non-homework rule should not be returned: %v", err)
 	}
 	if _, err := repo.Get(ctx, "invalid"); err != contest.ErrNotFound {
 		t.Fatalf("invalid id error = %v", err)
