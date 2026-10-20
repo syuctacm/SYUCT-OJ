@@ -9,6 +9,11 @@ body,
   min-height: 100%;
 }
 
+html.hasjs .section {
+  transform: none;
+  opacity: 1;
+}
+
 body {
   font-family: var(--font-family);
 }
@@ -419,6 +424,8 @@ body {
   }
 }
 
+.hide-problem-tag .problem__tags { display: none; }
+.toggle-tag { cursor: pointer; user-select: none; }
 .training-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .training-enrolled-badge { color: #25ad40; font-size: 13px; }
 .training-overview { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 15px; border-bottom: 1px solid #ddd; color: #aaa; font-size: 13px; }
