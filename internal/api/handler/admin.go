@@ -30,6 +30,7 @@ func NewAdminHandler(db *mongo.Database, users *user.Repository, sessions *auth.
 func (h *AdminHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/admin/stats", h.stats)
 	router.GET("/api/v1/admin/users", h.userList)
+	router.PATCH("/api/v1/admin/users/:uid/priv", h.updateUserPriv)
 }
 
 func (h *AdminHandler) stats(c *gin.Context) {
@@ -110,6 +111,39 @@ func (h *AdminHandler) userList(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"items": items, "total": total, "page": page, "limit": limit}})
+}
+
+func (h *AdminHandler) updateUserPriv(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+	session, _ := h.sessions.Get(auth.Token(c))
+	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
+	if err != nil || uid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+	if uid == session.UserID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot change your own privileges"})
+		return
+	}
+	var request struct {
+		Priv int64 `json:"priv"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || request.Priv < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid privilege value"})
+		return
+	}
+	result, err := h.db.Collection("user").UpdateOne(c.Request.Context(), bson.M{"_id": uid}, bson.M{"$set": bson.M{"priv": request.Priv}})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update user"})
+		return
+	}
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"id": uid, "priv": request.Priv}})
 }
 
 func (h *AdminHandler) requireAdmin(c *gin.Context) bool {

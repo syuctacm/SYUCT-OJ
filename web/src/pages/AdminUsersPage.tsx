@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { getAdminUsers, type AdminUserPage } from '../api.ts'
+import { getAdminUsers, updateAdminUserPriv, type AdminUserPage } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 
 export function AdminUsersPage() {
@@ -10,6 +10,7 @@ export function AdminUsersPage() {
   const [data, setData] = useState<AdminUserPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [busyUID, setBusyUID] = useState<number | null>(null)
 
   useEffect(() => {
     if (!user || ((user.priv ?? 0) & 1) === 0) {
@@ -26,6 +27,24 @@ export function AdminUsersPage() {
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmittedQuery(query)
+  }
+
+  async function toggleAdmin(uid: number, currentPriv: number) {
+    const nextPriv = (currentPriv & 1) === 1 ? (currentPriv & ~1) : (currentPriv | 1)
+    if (!window.confirm(nextPriv & 1 ? '确认将该用户设为管理员？' : '确认取消该用户的管理员权限？')) return
+    setBusyUID(uid)
+    setError('')
+    try {
+      await updateAdminUserPriv(uid, nextPriv)
+      setData((current) => current ? {
+        ...current,
+        items: current.items.map((item) => item.id === uid ? { ...item, priv: nextPriv } : item),
+      } : current)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '权限更新失败')
+    } finally {
+      setBusyUID(null)
+    }
   }
 
   if (!user || ((user.priv ?? 0) & 1) === 0) return <section className="panel"><div className="empty-state error-state">需要管理员权限</div></section>
@@ -47,7 +66,7 @@ export function AdminUsersPage() {
       {!loading && !error ? (
         <div className="table-wrap">
           <table className="data-table">
-            <thead><tr><th className="col-id">UID</th><th>用户名</th><th>姓名</th><th>学号</th><th>邮箱</th><th>权限</th><th>注册时间</th></tr></thead>
+            <thead><tr><th className="col-id">UID</th><th>用户名</th><th>姓名</th><th>学号</th><th>邮箱</th><th>权限</th><th>操作</th><th>注册时间</th></tr></thead>
             <tbody>
               {data?.items.map((item) => (
                 <tr key={item.id}>
@@ -57,6 +76,7 @@ export function AdminUsersPage() {
                   <td className="mono">{item.studentId || '-'}</td>
                   <td>{item.email}</td>
                   <td className="mono">{item.priv}</td>
+                  <td><button className="link-button" disabled={busyUID === item.id || item.id === user.id} onClick={() => toggleAdmin(item.id, item.priv)}>{(item.priv & 1) === 1 ? '取消管理员' : '设为管理员'}</button></td>
                   <td>{new Date(item.regAt).toLocaleString('zh-CN', { hour12: false })}</td>
                 </tr>
               ))}
