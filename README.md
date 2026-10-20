@@ -187,11 +187,13 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 ## 讨论接口
 
 - `GET /api/v1/discussions`
+- `GET /api/v1/discussion-nodes`
+- `POST /api/v1/discussions`
 - `GET /api/v1/discussions/:did`
 - `GET /api/v1/discussions/:did/replies`
 - `POST /api/v1/discussions/:did/replies`
 
-讨论读取 Hydro `document` 的 `docType=21`、`docType=22` 文档，详见 [docs/discussion.md](./docs/discussion.md)。
+讨论读取 Hydro `document` 的 `docType=20`、`docType=21`、`docType=22` 文档，详见 [docs/discussion.md](./docs/discussion.md)。
 
 ## 用户主页
 

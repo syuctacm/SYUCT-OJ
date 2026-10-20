@@ -271,6 +271,16 @@ export type Discussion = {
   pin: boolean
   highlight: boolean
   lock: boolean
+  parentType: number
+  parentId?: string | number
+  parentTitle?: string
+}
+
+export type DiscussionNode = {
+  docId: string
+  title: string
+  category: string
+  pic?: string
 }
 
 export type DiscussionTailReply = {
@@ -295,6 +305,25 @@ export type DiscussionReply = {
 export async function getDiscussions(): Promise<Discussion[]> {
   const result = await request<Envelope<{ items: Discussion[]; total: number }>>('/api/v1/discussions')
   return result.data.items
+}
+
+export async function getDiscussionNodes(): Promise<DiscussionNode[]> {
+  const result = await request<Envelope<{ items: DiscussionNode[]; total: number }>>('/api/v1/discussion-nodes')
+  return result.data.items
+}
+
+export async function createDiscussion(input: {
+  nodeId: string
+  title: string
+  content: string
+  pin?: boolean
+  highlight?: boolean
+}): Promise<Discussion> {
+  const result = await request<Envelope<Discussion>>('/api/v1/discussions', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return result.data
 }
 
 export async function getDiscussion(did: string): Promise<Discussion> {

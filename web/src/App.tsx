@@ -4,6 +4,7 @@ import { AdminPage } from './pages/AdminPage.tsx'
 import { AdminUsersPage } from './pages/AdminUsersPage.tsx'
 import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
 import { ContestsPage } from './pages/ContestsPage.tsx'
+import { DiscussionCreatePage } from './pages/DiscussionCreatePage.tsx'
 import { DiscussionDetailPage } from './pages/DiscussionDetailPage.tsx'
 import { DiscussionsPage } from './pages/DiscussionsPage.tsx'
 import { HomeworkDetailPage } from './pages/HomeworkDetailPage.tsx'
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/contest" element={<ContestsPage />} />
         <Route path="/contest/:tid" element={<ContestDetailPage />} />
         <Route path="/discuss" element={<DiscussionsPage />} />
+        <Route path="/discuss/new" element={<DiscussionCreatePage />} />
         <Route path="/discuss/:did" element={<DiscussionDetailPage />} />
         <Route path="/homework" element={<HomeworksPage />} />
         <Route path="/homework/:tid" element={<HomeworkDetailPage />} />
