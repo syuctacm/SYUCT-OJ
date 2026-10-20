@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -45,8 +46,14 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 		return
 	}
 	if request.ContestID != "" && h.contests != nil {
-		if _, err := h.contests.Get(c.Request.Context(), request.ContestID); err != nil {
+		item, err := h.contests.Get(c.Request.Context(), request.ContestID)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "contest not found"})
+			return
+		}
+		now := time.Now()
+		if now.Before(item.BeginAt) || now.After(item.EndAt) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "contest is not running"})
 			return
 		}
 	}

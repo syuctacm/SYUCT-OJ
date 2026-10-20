@@ -33,6 +33,8 @@ type Contest struct {
 	PIDs     []int64       `bson:"pids" json:"pids"`
 	Duration int           `bson:"duration" json:"duration"`
 	Rated    bool          `bson:"rated" json:"rated"`
+	LockAt   *time.Time    `bson:"lockAt,omitempty" json:"lockAt,omitempty"`
+	Unlocked bool          `bson:"unlocked,omitempty" json:"unlocked,omitempty"`
 }
 
 type ProblemCell struct {
@@ -148,6 +150,9 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 			continue
 		}
 		rid, _ := record["_id"].(bson.ObjectID)
+		if item.LockAt != nil && !item.Unlocked && rid.Timestamp().After(*item.LockAt) {
+			continue
+		}
 		if status == 1 {
 			minutes := int(rid.Timestamp().Sub(item.BeginAt).Minutes())
 			if minutes < 0 {

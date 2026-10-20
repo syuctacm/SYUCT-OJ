@@ -44,6 +44,7 @@ export function ContestDetailPage() {
         <span>结束 {formatTime(contest.endAt)}</span>
         <span>参赛 {contest.attend}</span>
         <span>题目 {contest.pids?.length ?? 0}</span>
+        {contest.lockAt && !contest.unlocked && new Date(contest.lockAt).getTime() <= Date.now() ? <span className="tag">榜单已封存</span> : null}
       </div>
       <div className="panel-body problem-content">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{contest.content || '暂无比赛说明'}</ReactMarkdown>
