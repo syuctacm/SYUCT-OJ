@@ -44,8 +44,10 @@
 题目详情和提交页对应：
 
 - `problem_detail.html`：题目标题、标签信息、Markdown 内容
-- `problem_submit.html`：语言选择、代码输入和提交按钮
+- `problem_submit.html`：由 `HydroTemplate` 直接渲染，保留原版语言选择、代码输入和提交结构
 - `partials/problem_sidebar.html`：提交入口和题目信息侧栏
+
+提交页的 React 适配层只负责语言下拉、提交请求和 Ctrl+Enter；代码文件上传和 Monaco/CodeMirror 编辑器尚未接入。
 
 详情 API 额外返回 `problemType`、`timeLimit` 和 `memoryLimit`，由 Hydro 题目 `config` 生成展示信息。
 

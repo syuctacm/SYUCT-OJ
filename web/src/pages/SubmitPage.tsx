@@ -1,38 +1,147 @@
-import { useEffect, useState, type FormEvent } from 'react'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to language selection, submission and error state.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { createSubmission, getProblem, type ProblemDetail } from '../api.ts'
 import { useAuth } from '../auth.tsx'
-import { ProblemSidebar } from '../components/ProblemSidebar.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
 
-const defaultCode = `#include <bits/stdc++.h>
-using namespace std;
-
-int main() {
-    ios::sync_with_stdio(false);
-    cin.tie(nullptr);
-    return 0;
+function configSummary(problem: ProblemDetail) {
+  return {
+    type: problem.problemType || 'default',
+    timeMin: String(problem.timeLimit || '1000').replace(/ms$/i, ''),
+    timeMax: String(problem.timeLimit || '1000').replace(/ms$/i, ''),
+    memoryMin: String(problem.memoryLimit || '256').replace(/[a-z]+$/i, ''),
+    memoryMax: String(problem.memoryLimit || '256').replace(/[a-z]+$/i, ''),
+  }
 }
-`
 
 export function SubmitPage() {
   const { pid = '' } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const contestId = searchParams.get('contest') ?? ''
+  const contestId = searchParams.get('contest') ?? searchParams.get('tid') ?? ''
   const { user, loading } = useAuth()
   const [problem, setProblem] = useState<ProblemDetail | null>(null)
-  const [code, setCode] = useState(defaultCode)
-  const [lang, setLang] = useState('cpp')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
 
   useEffect(() => {
     getProblem(pid).then(setProblem).catch(() => setProblem(null))
   }, [pid])
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    const form = root.querySelector('form')
+    const onSubmit = (event: SubmitEvent) => submitRef.current(event)
+    form?.addEventListener('submit', onSubmit)
+
+    const fallback = root.querySelector('.hasjs--hide')
+    fallback?.remove()
+    const selector = root.querySelector<HTMLElement>('#codelang-selector')
+    if (selector) {
+      selector.classList.remove('nojs--hide')
+      selector.style.display = ''
+      selector.replaceChildren()
+      const field = document.createElement('div')
+      field.className = 'medium-5 columns form__item end'
+      const label = document.createElement('label')
+      label.textContent = '代码语言'
+      const container = document.createElement('div')
+      container.className = 'select-container'
+      const select = document.createElement('select')
+      select.name = 'lang'
+      select.className = 'select'
+      for (const language of languageOptions) {
+        const option = document.createElement('option')
+        option.value = language._id
+        option.textContent = language.name
+        select.appendChild(option)
+      }
+      select.value = 'cpp'
+      container.appendChild(select)
+      label.appendChild(container)
+      field.appendChild(label)
+      selector.appendChild(field)
+    }
+
+    const fileRow = root.querySelector<HTMLInputElement>('input[name="file"]')?.closest('.row')
+    fileRow?.remove()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key !== 'Enter') return
+      event.preventDefault()
+      form?.requestSubmit()
+    }
+    form?.addEventListener('keydown', onKeyDown)
+    return () => {
+      form?.removeEventListener('submit', onSubmit)
+      form?.removeEventListener('keydown', onKeyDown)
+      selector?.replaceChildren()
+    }
+  }, [])
+
+  const context = useMemo(() => {
+    if (!problem) return null
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    return {
+      page_name: 'problem_submit',
+      pdoc: { ...problem, tag: problem.tags ?? [], config: configSummary(problem) },
+      tdoc: null,
+      langRange: Object.fromEntries(languageOptions.map((language) => [language._id, language.name])),
+      handler: {
+        user: {
+          _id: user?.id ?? 0,
+          viewLang: 'zh',
+          codeLang: 'cpp',
+          _dudoc: { join: true },
+          hasPerm: (permission: number) => Boolean(user) && [1, 2, 3, 4].includes(permission),
+          hasPriv: () => Boolean(user),
+          own: () => Boolean(user && (problem.owner === user.id || isAdmin)),
+        },
+        ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+        request: { query: {}, headers: { 'user-agent': navigator.userAgent } },
+        session: { legacy: false, viewLang: 'zh' },
+      },
+      perm: {
+        PERM_EDIT_PROBLEM: 1,
+        PERM_EDIT_PROBLEM_SELF: 2,
+        PERM_SUBMIT_PROBLEM: 3,
+        PERM_READ_PROBLEM_DATA: 4,
+        PERM_VIEW_DISCUSSION: 5,
+        PERM_CREATE_DISCUSSION: 6,
+        PERM_REJUDGE_PROBLEM: 7,
+        PERM_VIEW_PROBLEM_SOLUTION: 8,
+      },
+      PRIV: { PRIV_USER_PROFILE: 1, PRIV_READ_PROBLEM_DATA: 2, PRIV_REGISTER_USER: 3 },
+      STATUS: { STATUS_ACCEPTED: 1 },
+      psdoc: { status: 1 },
+      tdocs: [],
+      ctdocs: [],
+      htdocs: [],
+      discussionCount: 0,
+      solutionCount: 0,
+      UiContext: { cdn_prefix: '/' },
+      avatarUrl: (value?: string) => value || '/logo.png',
+      model: {
+        builtin: { LEVELS: {} },
+        system: { get: (key: string) => key === 'server.login' },
+        setting: { SETTINGS_BY_KEY: {} },
+      },
+      lib: { difficulty: () => 0 },
+      utils: { getAlphabeticId: () => '' },
+      UserContext: user,
+    }
+  }, [problem, user])
+
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!user) return
+    const form = event.target as HTMLFormElement
+    const data = new FormData(form)
+    const lang = String(data.get('lang') ?? 'cpp')
+    const code = String(data.get('code') ?? '')
     setSubmitting(true)
     setError('')
     try {
@@ -45,68 +154,44 @@ export function SubmitPage() {
     }
   }
 
-  if (!problem) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
+  submitRef.current = (event) => void handleSubmit(event)
+
+  if (loading) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">正在确认登录状态...</div></div></div>
+  }
+  if (!user) {
+    return <div className="row"><div className="columns"><blockquote className="note"><p>请先 <Link to="/login">登录</Link> 后提交。</p></blockquote></div></div>
+  }
+  if (!problem || !context) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
+  }
 
   return (
-    <div className="row">
-      <div className="medium-9 columns">
-        <div className="section">
-          <div className="section__header"><h1 className="section__title">提交评测</h1></div>
-          <div className="section__body typo">
-            {loading ? <div className="nothing-placeholder compact">正在确认登录状态...</div> : !user ? (
-              <blockquote className="note"><p>请先 <Link to="/login">登录</Link> 后提交。</p></blockquote>
-            ) : (
-              <form method="post" onSubmit={handleSubmit}>
-                <div className="row">
-                  <div className="medium-12 columns form__item">
-                    <label>
-                      代码语言
-                      <div className="select-container">
-                        <select name="lang" className="select" value={lang} onChange={(event) => setLang(event.target.value)}>
-                          <option value="cpp">C++17</option>
-                          <option value="python3">Python 3</option>
-                        </select>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-                <div className="row">
-                  <div className="medium-12 columns form__item end" data-hotkey="ctrl+enter:submit">
-                    <label>
-                      代码
-                      <div className="textarea-container">
-                        <textarea
-                          name="code"
-                          className="textbox monospace"
-                          value={code}
-                          onChange={(event) => setCode(event.target.value)}
-                          onKeyDown={(event) => {
-                            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                              event.preventDefault()
-                              event.currentTarget.form?.requestSubmit()
-                            }
-                          }}
-                          spellCheck={false}
-                          autoFocus
-                          required
-                        />
-                      </div>
-                    </label>
-                  </div>
-                </div>
-                {contestId ? <blockquote className="note"><p>比赛提交 · {contestId}</p></blockquote> : null}
-                {error ? <p className="form-error">{error}</p> : null}
-                <div className="row"><div className="columns">
-                  <input type="submit" className="rounded primary button" value={submitting ? '提交中...' : '提交'} disabled={submitting} />
-                </div></div>
-              </form>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="medium-3 columns">
-        <ProblemSidebar problem={problem} pageName="problem_submit" />
-      </div>
-    </div>
+    <>
+      {error ? <div className="row"><div className="columns"><blockquote className="warn"><p>{error}</p></blockquote></div></div> : null}
+      {submitting ? <div className="row"><div className="columns"><blockquote className="note"><p>提交中...</p></blockquote></div></div> : null}
+      {contestId ? <div className="row"><div className="columns"><blockquote className="note"><p>比赛提交 · {contestId}</p></blockquote></div></div> : null}
+      <HydroTemplate
+        template="problem_submit.html"
+        context={context}
+        url={(name, args = {}) => {
+          const id = encodeURIComponent(String(args.pid ?? problem.pid ?? problem.docId))
+          const query = (args.query ?? {}) as Record<string, unknown>
+          const routes: Record<string, string> = {
+            problem_main: query.q ? `/p?q=${encodeURIComponent(String(query.q))}` : '/p',
+            problem_detail: `/p/${id}`,
+            problem_submit: `/p/${id}/submit${contestId ? `?contest=${encodeURIComponent(contestId)}` : ''}`,
+            problem_files: `/p/${id}/files`,
+            problem_config: `/p/${id}/config`,
+            problem_edit: `/p/${id}/edit`,
+            problem_statistics: `/p/${id}`,
+            record_main: `/record${query.pid ? `?pid=${encodeURIComponent(String(query.pid))}` : ''}`,
+            user_detail: `/user/${encodeURIComponent(String(args.uid ?? ''))}`,
+          }
+          return routes[name] ?? '/'
+        }}
+        onReady={handleReady}
+      />
+    </>
   )
 }
