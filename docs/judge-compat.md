@@ -47,21 +47,43 @@ domainId = "system"
 {"key": "status", "info": {}}
 ```
 
-## 当前验证
+## 真实判题机联调
 
-- 登录 Cookie
-- 文件检查与提交代码下载
-- 题目测试文件链接与下载
-- WebSocket Bearer 认证
-- language 消息
-- task 下发契约
+本地容器固定使用：
+
+- `@hydrooj/hydrojudge@4.0.6`
+- `go-judge v1.9.4`
+- 上游 `install/docker/judge` 的 mount 配置
+
+启动：
+
+```bash
+docker compose -f deploy/compose.dev.yaml --profile judge up -d --build judge
+./scripts/seed-local-judge.sh
+./scripts/real-judge-smoke.sh
+```
+
+判题机通过 `host.docker.internal:18080` 连接宿主机上的 Go API。容器启用 `privileged` 和 host cgroup namespace，否则 `go-judge` 无法启用 memory cgroup，内存统计和限制会不准确。该配置只用于本地开发。
+
+## 已验证
+
+- 登录 Cookie、文件检查、提交代码和题目测试数据下载
+- WebSocket Bearer 认证和纯文本 `ping/pong` 心跳
+- 真实 `hydrojudge` 建立 `/judge/conn`
+- C++ 编译、运行并通过
+- Python 编译、运行并通过
+- 状态链路：`waiting(0) → compiling(21) → judging(20) → accepted(1)`
+- 编译错误写入 `compilerTexts`
+- WA 的测试点结果写入 `testCases`
+- 系统级判题错误写入 `judgeTexts`
 
 ## 尚未完成
 
-- 真实 `hydrojudge` 进程联调
-- 任务队列从提交数据库到判题机的完整链路
-- 判题结果持久化和状态广播
-- 测试数据缓存、重判、Hack 等高级流程
+- 任务领取确认、判题机断线后的自动重试
 - 持久化 Session
+- 重判、Hack、交互题和特殊 checker 的完整验证
+- 生产判题机版本与服务端协议的长期兼容矩阵
 
 真实联调只在本地 Docker 和测试环境中进行，不连接生产 OJ。
+
+> 上游本地镜像的 `go-judge v1.9.4` 会输出 symlink escape 安全警告。本项目按“不修改判题机”的边界未改动它，只用于本地隔离测试，不能据此直接暴露到公网。

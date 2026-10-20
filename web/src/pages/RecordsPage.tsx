@@ -16,7 +16,7 @@ function formatMemory(kib: number) {
 }
 
 function formatTime(ms: number) {
-  return ms ? `${ms}ms` : '-'
+  return ms ? `${Math.round(ms)}ms` : '-'
 }
 
 export function RecordsPage() {

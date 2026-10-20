@@ -29,12 +29,12 @@ type Task struct {
 }
 
 type Result struct {
-	Key          string `json:"key"`
-	Rid          string `json:"rid"`
-	Status       int    `json:"status,omitempty"`
-	Score        int    `json:"score,omitempty"`
-	Time         int    `json:"time,omitempty"`
-	Memory       int    `json:"memory,omitempty"`
-	Message      any    `json:"message,omitempty"`
-	CompilerText string `json:"compilerText,omitempty"`
+	Key          string  `json:"key"`
+	Rid          string  `json:"rid"`
+	Status       int     `json:"status,omitempty"`
+	Score        int     `json:"score,omitempty"`
+	Time         float64 `json:"time,omitempty"`
+	Memory       int     `json:"memory,omitempty"`
+	Message      any     `json:"message,omitempty"`
+	CompilerText string  `json:"compilerText,omitempty"`
 }

@@ -119,6 +119,32 @@ func TestSubmissionJudgeLoopIntegration(t *testing.T) {
 	if !bytes.Contains(taskMessage, []byte(record.ID)) || !bytes.Contains(taskMessage, []byte("P1001")) && !bytes.Contains(taskMessage, []byte("judge")) {
 		t.Fatalf("task message: %s", taskMessage)
 	}
+	var taskEnvelope struct {
+		Task struct {
+			Source string `json:"source"`
+			Data   []struct {
+				ID   string `json:"_id"`
+				Name string `json:"name"`
+				Size int64  `json:"size"`
+			} `json:"data"`
+		} `json:"task"`
+	}
+	if err := json.Unmarshal(taskMessage, &taskEnvelope); err != nil {
+		t.Fatalf("decode task: %v", err)
+	}
+	if taskEnvelope.Task.Source != "system/1" || len(taskEnvelope.Task.Data) != 2 {
+		t.Fatalf("task metadata: %s", taskMessage)
+	}
+	names := map[string]bool{}
+	for _, file := range taskEnvelope.Task.Data {
+		if file.ID == "" || file.Size == 0 {
+			t.Fatalf("task data file: %+v", file)
+		}
+		names[file.Name] = true
+	}
+	if !names["1.in"] || !names["1.out"] {
+		t.Fatalf("task data filenames: %+v", taskEnvelope.Task.Data)
+	}
 	if err := clientWS.WriteJSON(map[string]any{
 		"key": "end", "rid": record.ID, "status": 1, "score": 100,
 		"time": 12, "memory": 1024, "message": "Accepted",

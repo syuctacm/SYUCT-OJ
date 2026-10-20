@@ -176,3 +176,64 @@ func TestJudgeWebSocketContract(t *testing.T) {
 		t.Fatalf("unexpected task message: %s", taskMessage)
 	}
 }
+
+func TestJudgeWebSocketPingContract(t *testing.T) {
+	_, _, sessions, router := newTestHandler(t)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	token, err := sessions.Issue()
+	if err != nil {
+		t.Fatalf("issue session: %v", err)
+	}
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/judge/conn"
+	client, _, err := websocket.DefaultDialer.Dial(wsURL, http.Header{
+		"Authorization": []string{"Bearer " + token},
+	})
+	if err != nil {
+		t.Fatalf("dial websocket: %v", err)
+	}
+	defer client.Close()
+	_ = client.SetReadDeadline(time.Now().Add(2 * time.Second))
+
+	if _, _, err := client.ReadMessage(); err != nil {
+		t.Fatalf("read language message: %v", err)
+	}
+
+	if err := client.WriteMessage(websocket.TextMessage, []byte("ping")); err != nil {
+		t.Fatalf("send text ping: %v", err)
+	}
+	_, pong, err := client.ReadMessage()
+	if err != nil {
+		t.Fatalf("read text pong: %v", err)
+	}
+	if string(pong) != "pong" {
+		t.Fatalf("unexpected text heartbeat response: %q", pong)
+	}
+
+	if err := client.WriteJSON(map[string]string{"key": "ping"}); err != nil {
+		t.Fatalf("send JSON ping: %v", err)
+	}
+	_ = client.SetReadDeadline(time.Now().Add(150 * time.Millisecond))
+	if _, message, err := client.ReadMessage(); err == nil {
+		t.Fatalf("JSON ping must not produce a websocket response: %s", message)
+	}
+}
+
+func TestDefaultLanguagesMatchHydroContract(t *testing.T) {
+	languages := DefaultLanguages()
+	for name, raw := range languages {
+		lang, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("language %s is %T", name, raw)
+		}
+		if lang["key"] != name {
+			t.Fatalf("language %s key = %v", name, lang["key"])
+		}
+		for _, key := range []string{"display", "compile", "execute", "code_file", "target"} {
+			if value, ok := lang[key].(string); !ok || value == "" {
+				t.Fatalf("language %s missing %s: %v", name, key, lang[key])
+			}
+		}
+	}
+}

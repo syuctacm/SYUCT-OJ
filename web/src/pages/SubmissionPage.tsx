@@ -83,7 +83,7 @@ export function SubmissionPage() {
                           <span className={`record-status--text ${itemClass}`}>{statusLabel(status)}</span>
                           {item.message ? <span className="message">{judgeText(item.message)}</span> : null}
                         </td>
-                        <td className="col--time">{item.time ? `${String(item.time)}ms` : '-'}</td>
+                        <td className="col--time">{item.time ? `${Math.round(Number(item.time))}ms` : '-'}</td>
                         <td className="col--memory">{item.memory ? formatMemory(Number(item.memory)) : '-'}</td>
                       </tr>
                     )
@@ -120,7 +120,7 @@ export function SubmissionPage() {
             </dl>
             <dl className="large horizontal" id="summary">
               <dt>分数</dt><dd>{submission.score}</dd>
-              {submission.time ? <><dt>总时间</dt><dd>{[3, 4, 5].includes(submission.status) ? '≥' : ''}{submission.time}ms</dd></> : null}
+              {submission.time ? <><dt>总时间</dt><dd>{[3, 4, 5].includes(submission.status) ? '≥' : ''}{Math.round(submission.time)}ms</dd></> : null}
               {submission.memory ? <><dt>峰值内存</dt><dd>{[3, 4, 5].includes(submission.status) ? '≥' : ''}{formatMemory(submission.memory)}</dd></> : null}
             </dl>
           </div>

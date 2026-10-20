@@ -19,6 +19,20 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+  judge:
+    profiles: ["judge"]
+    build:
+      context: ./judge
+    image: syuct-oj-judge-dev:hydrojudge-4.0.6
+    container_name: syuct-oj-dev-judge
+    restart: unless-stopped
+    privileged: true
+    cgroup: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./judge/judge.yaml:/root/.hydro/judge.yaml:ro
+      - ./judge/mount.yaml:/root/.hydro/mount.yaml:ro
 
 volumes:
   mongo-data:
