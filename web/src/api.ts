@@ -253,8 +253,18 @@ export type ContestEditInput = {
   duration: number
   rated: boolean
   penaltySince?: string
+  penaltyRules?: Record<string, number>
   lockAt?: string
   unlocked: boolean
+  maintainer?: number[]
+  assign?: string[]
+  langs?: string[]
+  autoHide?: boolean
+  allowViewCode?: boolean
+  allowPrint?: boolean
+  allowTeam?: boolean
+  keepScoreboardHidden?: boolean
+  invitationCode?: string
 }
 
 export async function getContestEditor(tid: string): Promise<Contest> {
@@ -294,6 +304,16 @@ export type Contest = {
   lockAt?: string
   unlocked?: boolean
   penaltySince?: string
+  penaltyRules?: Record<string, number>
+  maintainer?: number[]
+  assign?: string[]
+  langs?: string[]
+  autoHide?: boolean
+  allowViewCode?: boolean
+  allowPrint?: boolean
+  allowTeam?: boolean
+  keepScoreboardHidden?: boolean
+  invitationCode?: string
 }
 
 export async function getContests(query = '', rule = ''): Promise<Contest[]> {
@@ -413,6 +433,27 @@ export async function getHomeworks(query = ''): Promise<Contest[]> {
   const suffix = params.toString() ? `?${params.toString()}` : ''
   const result = await request<Envelope<{ items: Contest[]; total: number }>>(`/api/v1/homeworks${suffix}`)
   return result.data.items
+}
+
+export async function getHomeworkEditor(tid: string): Promise<Contest> {
+  const result = await request<Envelope<Contest>>(`/api/v1/homeworks/${encodeURIComponent(tid)}/edit`)
+  return result.data
+}
+
+export async function createHomework(input: ContestEditInput): Promise<Contest> {
+  const result = await request<Envelope<Contest>>('/api/v1/homeworks', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return result.data
+}
+
+export async function updateHomework(tid: string, input: ContestEditInput): Promise<Contest> {
+  const result = await request<Envelope<Contest>>(`/api/v1/homeworks/${encodeURIComponent(tid)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  return result.data
 }
 
 export async function getHomework(tid: string): Promise<Contest> {

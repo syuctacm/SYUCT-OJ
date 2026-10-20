@@ -27,6 +27,8 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/training') return basic('training_main', '训练')
   if (/^\/training\/[^/]+\/?$/.test(pathname)) return basic('training_detail', '训练详情')
   if (pathname === '/homework') return basic('homework_main', '作业')
+  if (pathname === '/homework/new') return basic('homework_create', '创建作业')
+  if (/^\/homework\/[^/]+\/edit\/?$/.test(pathname)) return basic('homework_edit', '编辑作业')
   if (/^\/homework\/[^/]+\/?$/.test(pathname)) return basic('homework_detail', '作业详情')
   if (pathname === '/discuss') return basic('discussion_main', '讨论')
   if (pathname === '/discuss/new') return basic('discussion_create', '创建讨论')
