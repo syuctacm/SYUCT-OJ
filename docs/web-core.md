@@ -62,6 +62,19 @@ packages/ui-default
 
 主题文件包含上游字体声明。当前仓库只内置实际使用的 Source Code Pro 字体文件，其余字体使用系统回退。
 
+## 旧 URL 兼容
+
+React Router 统一处理 `/d/:domainId/*`：
+
+```text
+/d/system/p/P1001              -> /p/P1001
+/d/contest2025/contest/<tid>   -> /contest/<tid>
+/d/select2025/record/<rid>     -> /record/<rid>
+/d/system                      -> /
+```
+
+使用 `replace` 跳转，不会在浏览器历史中增加一层；query 和 hash 原样保留。
+
 ## 本地联调
 
 ```bash
@@ -77,5 +90,4 @@ VITE_API_PROXY=http://127.0.0.1:18080 pnpm dev
 
 - 原版 KaTeX、代码高亮和富媒体渲染插件
 - 原版全部下拉菜单和前端插件行为
-- 旧 URL `/d/system/...` 的完整兼容重定向
 - 自动截图回归基线

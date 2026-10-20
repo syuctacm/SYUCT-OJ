@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout.tsx'
+import { LegacyDomainRedirect } from './components/LegacyDomainRedirect.tsx'
 import { AdminPage } from './pages/AdminPage.tsx'
 import { AdminUsersPage } from './pages/AdminUsersPage.tsx'
 import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/record/:rid" element={<SubmissionPage />} />
         <Route path="/user/:uid" element={<UserProfilePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/d/:domainId/*" element={<LegacyDomainRedirect />} />
         <Route path="*" element={<Navigate to="/p" replace />} />
       </Route>
     </Routes>

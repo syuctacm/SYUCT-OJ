@@ -8,6 +8,7 @@ const basic = (name: string, title: string): PageMeta => ({ name, layout: 'basic
 
 export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/') return basic('homepage', '首页')
+  if (pathname.startsWith('/d/')) return basic('redirect', '跳转中')
   if (pathname === '/login') return { name: 'user_login', layout: 'immersive', title: '登录' }
   if (pathname === '/p') return basic('problem_main', '题库')
   if (pathname === '/p/new') return basic('problem_create', '创建题目')
