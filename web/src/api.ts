@@ -23,6 +23,45 @@ export type ProblemSummary = {
   }
 }
 
+export type ProblemAsset = {
+  id: string
+  name: string
+  size: number
+  etag?: string
+  lastModified: string
+  downloadUrl: string
+}
+
+export type ProblemAssetList = {
+  problem: ProblemDetail
+  testdata: ProblemAsset[]
+  additional: ProblemAsset[]
+}
+
+export async function getProblemAssets(pid: string): Promise<ProblemAssetList> {
+  const result = await request<Envelope<ProblemAssetList>>(`/api/v1/problems/${encodeURIComponent(pid)}/assets`)
+  return result.data
+}
+
+export async function uploadProblemAssets(pid: string, type: 'testdata' | 'additional', files: File[]): Promise<ProblemAssetList> {
+  const body = new FormData()
+  body.set('type', type)
+  for (const file of files) body.append('files', file)
+  const result = await request<Envelope<ProblemAssetList>>(`/api/v1/problems/${encodeURIComponent(pid)}/assets`, {
+    method: 'POST',
+    body,
+  })
+  return result.data
+}
+
+export async function deleteProblemAssets(pid: string, type: 'testdata' | 'additional', names: string[]): Promise<ProblemAssetList> {
+  const result = await request<Envelope<ProblemAssetList>>(`/api/v1/problems/${encodeURIComponent(pid)}/assets`, {
+    method: 'DELETE',
+    body: JSON.stringify({ type, names }),
+  })
+  return result.data
+}
+
 export type ProblemDetail = ProblemSummary & {
   content: string
   owner?: number
@@ -67,13 +106,14 @@ type Envelope<T> = {
 type LoginResponse = { user: User }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers)
+  if (!(init?.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
   const response = await fetch(path, {
     credentials: 'include',
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    headers,
   })
   const payload = await response.json().catch(() => null) as { error?: string } | T | null
   if (!response.ok) {

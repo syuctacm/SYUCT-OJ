@@ -30,24 +30,25 @@ type ProblemFile struct {
 }
 
 type Problem struct {
-	ID          bson.ObjectID `bson:"_id" json:"id"`
-	DocID       int64         `bson:"docId" json:"docId"`
-	PID         string        `bson:"pid" json:"pid"`
-	Title       string        `bson:"title" json:"title"`
-	Content     string        `bson:"content" json:"content,omitempty"`
-	Tags        []string      `bson:"tag" json:"tags"`
-	Difficulty  int           `bson:"difficulty" json:"difficulty,omitempty"`
-	NSubmit     int64         `bson:"nSubmit" json:"nSubmit"`
-	NAccept     int64         `bson:"nAccept" json:"nAccept"`
-	Hidden      bool          `bson:"hidden" json:"hidden"`
-	Sort        string        `bson:"sort" json:"sort,omitempty"`
-	Owner       int64         `bson:"owner" json:"owner,omitempty"`
-	Config      any           `bson:"config" json:"-"`
-	Data        []ProblemFile `bson:"data" json:"-"`
-	UserStatus  *UserStatus   `bson:"-" json:"userStatus,omitempty"`
-	ProblemType string        `bson:"-" json:"problemType,omitempty"`
-	TimeLimit   string        `bson:"-" json:"timeLimit,omitempty"`
-	MemoryLimit string        `bson:"-" json:"memoryLimit,omitempty"`
+	ID              bson.ObjectID `bson:"_id" json:"id"`
+	DocID           int64         `bson:"docId" json:"docId"`
+	PID             string        `bson:"pid" json:"pid"`
+	Title           string        `bson:"title" json:"title"`
+	Content         string        `bson:"content" json:"content,omitempty"`
+	Tags            []string      `bson:"tag" json:"tags"`
+	Difficulty      int           `bson:"difficulty" json:"difficulty,omitempty"`
+	NSubmit         int64         `bson:"nSubmit" json:"nSubmit"`
+	NAccept         int64         `bson:"nAccept" json:"nAccept"`
+	Hidden          bool          `bson:"hidden" json:"hidden"`
+	Sort            string        `bson:"sort" json:"sort,omitempty"`
+	Owner           int64         `bson:"owner" json:"owner,omitempty"`
+	Config          any           `bson:"config" json:"-"`
+	Data            []ProblemFile `bson:"data" json:"-"`
+	AdditionalFiles []ProblemFile `bson:"additional_file" json:"-"`
+	UserStatus      *UserStatus   `bson:"-" json:"userStatus,omitempty"`
+	ProblemType     string        `bson:"-" json:"problemType,omitempty"`
+	TimeLimit       string        `bson:"-" json:"timeLimit,omitempty"`
+	MemoryLimit     string        `bson:"-" json:"memoryLimit,omitempty"`
 }
 
 type UserStatus struct {
@@ -206,6 +207,68 @@ func (r *Repository) fillUserStatus(ctx context.Context, uid int64, items []Prob
 	return nil
 }
 
+func (r *Repository) UpdateConfig(ctx context.Context, docID int64, config string) error {
+	result, err := r.coll.UpdateOne(ctx,
+		bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "docId": docID},
+		bson.M{"$set": bson.M{"config": config}},
+	)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *Repository) UpsertFile(ctx context.Context, docID int64, kind string, file ProblemFile) error {
+	field, err := problemFileField(kind)
+	if err != nil {
+		return err
+	}
+	filter := bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "docId": docID}
+	if _, err := r.coll.UpdateOne(ctx, filter, bson.M{"$pull": bson.M{field: bson.M{"name": file.Name}}}); err != nil {
+		return err
+	}
+	result, err := r.coll.UpdateOne(ctx, filter, bson.M{"$push": bson.M{field: file}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *Repository) DeleteFiles(ctx context.Context, docID int64, kind string, names []string) error {
+	field, err := problemFileField(kind)
+	if err != nil {
+		return err
+	}
+	result, err := r.coll.UpdateOne(ctx,
+		bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "docId": docID},
+		bson.M{"$pull": bson.M{field: bson.M{"name": bson.M{"$in": names}}}},
+	)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func problemFileField(kind string) (string, error) {
+	switch kind {
+	case "testdata":
+		return "data", nil
+	case "additional":
+		return "additional_file", nil
+	default:
+		return "", fmt.Errorf("invalid problem file kind %q", kind)
+	}
+}
+
 func (r *Repository) GetManyByDocIDs(ctx context.Context, ids []int64) ([]Problem, error) {
 	if len(ids) == 0 {
 		return []Problem{}, nil
@@ -242,6 +305,14 @@ func (r *Repository) GetManyByDocIDs(ctx context.Context, ids []int64) ([]Proble
 }
 
 func (r *Repository) Get(ctx context.Context, identifier string) (*Problem, error) {
+	return r.get(ctx, identifier, false)
+}
+
+func (r *Repository) GetForEditor(ctx context.Context, identifier string) (*Problem, error) {
+	return r.get(ctx, identifier, true)
+}
+
+func (r *Repository) get(ctx context.Context, identifier string, includeHidden bool) (*Problem, error) {
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" {
 		return nil, ErrNotFound
@@ -256,8 +327,10 @@ func (r *Repository) Get(ctx context.Context, identifier string) (*Problem, erro
 	filter := bson.M{
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeProblem,
-		"hidden":   bson.M{"$ne": true},
 		"$or":      or,
+	}
+	if !includeHidden {
+		filter["hidden"] = bson.M{"$ne": true}
 	}
 	var p Problem
 	err := r.coll.FindOne(ctx, filter).Decode(&p)
