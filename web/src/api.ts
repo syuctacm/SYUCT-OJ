@@ -274,8 +274,11 @@ export type TrainingDetail = Training & {
   sections: TrainingSection[]
 }
 
-export async function getTrainings(): Promise<Training[]> {
-  const result = await request<Envelope<{ items: Training[]; total: number }>>('/api/v1/trainings')
+export async function getTrainings(query = ''): Promise<Training[]> {
+  const params = new URLSearchParams()
+  if (query.trim()) params.set('q', query.trim())
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const result = await request<Envelope<{ items: Training[]; total: number }>>(`/api/v1/trainings${suffix}`)
   return result.data.items
 }
 

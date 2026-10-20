@@ -25,7 +25,7 @@ func (h *TrainingHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *TrainingHandler) list(c *gin.Context) {
-	items, err := h.repo.List(c.Request.Context())
+	items, err := h.repo.ListFiltered(c.Request.Context(), c.Query("q"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list trainings"})
 		return
