@@ -15,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"gopkg.in/yaml.v3"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/judge"
@@ -45,11 +46,152 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/problems", h.list)
 	router.GET("/api/v1/problem-tags", h.tags)
 	router.GET("/api/v1/problem-tags/:tag/ranking", h.tagRanking)
+	router.POST("/api/v1/problems", h.create)
+	router.GET("/api/v1/problems/:pid/edit", h.editData)
+	router.PATCH("/api/v1/problems/:pid", h.update)
 	router.GET("/api/v1/problems/:pid/assets", h.listAssets)
 	router.POST("/api/v1/problems/:pid/assets", h.uploadAssets)
 	router.DELETE("/api/v1/problems/:pid/assets", h.deleteAssets)
 	router.GET("/api/v1/problems/:pid/assets/download", h.downloadAsset)
 	router.GET("/api/v1/problems/:pid", h.get)
+}
+
+type problemEditRequest struct {
+	PID        string   `json:"pid"`
+	Title      string   `json:"title"`
+	Content    string   `json:"content"`
+	Tags       []string `json:"tags"`
+	Difficulty int      `json:"difficulty"`
+	Hidden     bool     `json:"hidden"`
+	Config     string   `json:"config"`
+}
+
+type problemEditorView struct {
+	Problem *problem.Problem `json:"problem"`
+	Config  string           `json:"config"`
+}
+
+func (h *ProblemHandler) create(c *gin.Context) {
+	u, ok := h.requireAdmin(c)
+	if !ok {
+		return
+	}
+	input, ok := bindProblemEdit(c)
+	if !ok {
+		return
+	}
+	item, err := h.repo.Create(c.Request.Context(), u.ID, input)
+	if err != nil {
+		writeProblemEditError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": editorView(item)})
+}
+
+func (h *ProblemHandler) editData(c *gin.Context) {
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": editorView(pdoc)})
+}
+
+func (h *ProblemHandler) update(c *gin.Context) {
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	input, ok := bindProblemEdit(c)
+	if !ok {
+		return
+	}
+	item, err := h.repo.Update(c.Request.Context(), pdoc.DocID, input)
+	if err != nil {
+		writeProblemEditError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": editorView(item)})
+}
+
+func bindProblemEdit(c *gin.Context) (problem.EditInput, bool) {
+	var request problemEditRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return problem.EditInput{}, false
+	}
+	request.PID = strings.TrimSpace(request.PID)
+	request.Title = strings.TrimSpace(request.Title)
+	if request.PID == "" || request.Title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pid and title are required"})
+		return problem.EditInput{}, false
+	}
+	if request.Difficulty < 0 || request.Difficulty > 10 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "difficulty must be between 0 and 10"})
+		return problem.EditInput{}, false
+	}
+	config, err := normalizeProblemConfig(request.Config)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return problem.EditInput{}, false
+	}
+	tags := make([]string, 0, len(request.Tags))
+	seen := map[string]bool{}
+	for _, value := range request.Tags {
+		tag := strings.TrimSpace(value)
+		if tag == "" || seen[tag] {
+			continue
+		}
+		seen[tag] = true
+		tags = append(tags, tag)
+	}
+	return problem.EditInput{
+		PID: request.PID, Title: request.Title, Content: request.Content,
+		Tags: tags, Difficulty: request.Difficulty, Hidden: request.Hidden, Config: config,
+	}, true
+}
+
+func normalizeProblemConfig(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	var value map[string]any
+	if err := yaml.Unmarshal([]byte(raw), &value); err != nil {
+		return "", fmt.Errorf("invalid judge config YAML: %w", err)
+	}
+	if value == nil {
+		return "", errors.New("judge config must be a YAML object")
+	}
+	return raw, nil
+}
+
+func editorView(item *problem.Problem) problemEditorView {
+	return problemEditorView{Problem: item, Config: problemConfigString(item)}
+}
+
+func problemConfigString(item *problem.Problem) string {
+	if value, ok := item.Config.(string); ok {
+		return value
+	}
+	if item.Config == nil {
+		return ""
+	}
+	value, err := yaml.Marshal(item.Config)
+	if err != nil {
+		return ""
+	}
+	return string(value)
+}
+
+func writeProblemEditError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, problem.ErrDuplicatePID):
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	case errors.Is(err, problem.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
 }
 
 func (h *ProblemHandler) list(c *gin.Context) {
@@ -312,6 +454,28 @@ func (h *ProblemHandler) downloadAsset(c *gin.Context) {
 	c.Header("Content-Disposition", contentDisposition)
 	c.Header("Content-Type", "application/octet-stream")
 	_, _ = io.Copy(c.Writer, reader)
+}
+
+func (h *ProblemHandler) requireAdmin(c *gin.Context) (*user.User, bool) {
+	if h.sessions == nil || h.users == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, false
+	}
+	session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
+	if !ok || session.Kind != "user" || session.UserID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, false
+	}
+	u, err := h.users.FindByID(c.Request.Context(), session.UserID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, false
+	}
+	if u.Priv&1 == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return nil, false
+	}
+	return u, true
 }
 
 func (h *ProblemHandler) requireEditor(c *gin.Context) (*problem.Problem, bool) {
