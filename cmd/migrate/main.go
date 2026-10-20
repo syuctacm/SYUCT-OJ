@@ -58,6 +58,9 @@ func main() {
 		}
 	}
 	_, _ = os.Stdout.Write(append(data, '\n'))
+	if report.Validation != nil && !report.Validation.OK {
+		fail("migration finished with residual source-domain data; see validation.residuals")
+	}
 }
 
 func fail(format string, args ...any) {

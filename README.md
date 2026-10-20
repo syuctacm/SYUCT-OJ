@@ -147,7 +147,7 @@ JUDGE_TASK_LEASE=3s go run ./cmd/api
 go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/domain-migration.json
 ```
 
-默认不会修改数据；只有显式传入 `--execute` 才会执行。存储文件路径迁移尚未包含。
+默认不会修改数据；只有显式传入 `--execute` 才会执行。工具会同时迁移 `storage.path` 的逻辑域前缀，并在执行后校验源域残留；物理对象文件不会移动。
 
 ## 用户认证接口
 
