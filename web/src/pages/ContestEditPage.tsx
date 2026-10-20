@@ -1,23 +1,24 @@
-import { useEffect, useState, type FormEvent } from 'react'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to data and event adapters; do not re-create the DOM in JSX.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   createContest,
+  getActivityFiles,
   getContestEditor,
   updateContest,
+  uploadActivityFiles,
+  type ActivityFile,
+  type Contest,
   type ContestEditInput,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
-import {
-  FormAutocomplete,
-  FormCheckbox,
-  FormSelect,
-  FormText,
-  FormTextarea,
-  MarkdownHint,
-} from '../components/LegacyForm.tsx'
-import { dateParts, formatEndTime, parseDateTime } from '../legacy-date.ts'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
+import { legacyMoment } from '../upstream/moment.ts'
+import { renderHydroTemplate } from '../upstream/render.ts'
 
-const ruleNames: Record<string, string> = {
+const rules = {
   acm: 'XCPC / ACM',
   oi: 'OI',
   ioi: 'IOI',
@@ -25,57 +26,37 @@ const ruleNames: Record<string, string> = {
   ledo: 'Ledo',
 }
 
-type ContestDraft = {
-  title: string
-  content: string
-  rule: string
-  beginDate: string
-  beginTime: string
-  duration: string
-  pids: string
-  rated: boolean
-  maintainer: string
-  permission: string
-  assign: string
-  invitationCode: string
-  langs: string
-  autoHide: boolean
-  allowViewCode: boolean
-  allowPrint: boolean
-  allowTeam: boolean
-  keepScoreboardHidden: boolean
-  lock: string
-}
-
-function nextHour() {
+function nextSlot() {
   const date = new Date()
-  date.setMinutes(0, 0, 0)
-  date.setHours(date.getHours() + 1)
+  date.setSeconds(0, 0)
+  date.setMinutes(date.getMinutes() - (date.getMinutes() % 15) + 15)
   return date
 }
 
-function defaultDraft(): ContestDraft {
-  const begin = dateParts(nextHour())
+function emptyContest(owner = 0): Contest {
+  const begin = nextSlot()
   return {
+    id: '',
+    docId: '',
     title: '',
     content: '',
+    beginAt: begin.toISOString(),
+    endAt: new Date(begin.getTime() + 2 * 3600000).toISOString(),
     rule: 'acm',
-    beginDate: begin.date,
-    beginTime: begin.time,
-    duration: '3',
-    pids: '',
+    owner,
+    attend: 0,
+    pids: [],
+    duration: 2,
     rated: true,
-    maintainer: '',
-    permission: 'public',
-    assign: '',
-    invitationCode: '',
-    langs: '',
+    maintainer: [],
+    assign: [],
+    langs: [],
     autoHide: true,
     allowViewCode: true,
     allowPrint: false,
     allowTeam: false,
     keepScoreboardHidden: false,
-    lock: '',
+    invitationCode: '',
   }
 }
 
@@ -83,103 +64,180 @@ function splitList(value: string) {
   return value.replace(/，/g, ',').split(',').map((item) => item.trim()).filter(Boolean)
 }
 
+function listOfNumbers(value: string) {
+  return splitList(value).map((item) => Number.parseInt(item, 10)).filter((item) => item > 0)
+}
+
 export function ContestEditPage({ mode }: { mode: 'create' | 'edit' }) {
   const { tid = '' } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
-  const draft = (location.state as { draft?: Partial<ContestDraft> } | null)?.draft
-  const [form, setForm] = useState<ContestDraft>(() => ({ ...defaultDraft(), ...draft }))
+  const draft = (location.state as { draft?: Partial<Contest> } | null)?.draft
+  const [item, setItem] = useState<Contest | null>(() => (
+    mode === 'create' ? { ...emptyContest(user?.id ?? 0), ...draft } : null
+  ))
   const [loading, setLoading] = useState(mode === 'edit')
-  const [ownerID, setOwnerID] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const files = useRef<ActivityFile[]>([])
+  const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
 
   useEffect(() => {
     if (mode !== 'edit') return
     setLoading(true)
-    getContestEditor(tid)
-      .then((item) => {
-        setOwnerID(item.owner)
-        const begin = dateParts(item.beginAt)
-        setForm({
-          title: item.title,
-          content: item.content || '',
-          rule: item.rule,
-          beginDate: begin.date,
-          beginTime: begin.time,
-          duration: String(item.duration || Math.max(1, Math.round((new Date(item.endAt).getTime() - new Date(item.beginAt).getTime()) / 3600000))),
-          pids: (item.pids ?? []).join(','),
-          rated: Boolean(item.rated),
-          maintainer: (item.maintainer ?? []).join(', '),
-          permission: item.assign?.length ? 'assign' : (item.invitationCode ? 'invite' : 'public'),
-          assign: (item.assign ?? []).join(', '),
-          invitationCode: item.invitationCode || '',
-          langs: (item.langs ?? []).join(', '),
-          autoHide: item.autoHide ?? true,
-          allowViewCode: item.allowViewCode ?? true,
-          allowPrint: Boolean(item.allowPrint),
-          allowTeam: Boolean(item.allowTeam),
-          keepScoreboardHidden: Boolean(item.keepScoreboardHidden),
-          lock: item.lockAt
-            ? String(Math.max(0, Math.round((new Date(item.endAt).getTime() - new Date(item.lockAt).getTime()) / 60000)))
-            : '',
-        })
+    Promise.all([getContestEditor(tid), getActivityFiles('contests', tid)])
+      .then(([contest, contestFiles]) => {
+        files.current = contestFiles
+        setItem(contest)
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '比赛加载失败'))
       .finally(() => setLoading(false))
   }, [mode, tid])
 
-  function updateField<K extends keyof ContestDraft>(key: K, value: ContestDraft[K]) {
-    setForm((current) => ({ ...current, [key]: value }))
-  }
+  const refreshFiles = useCallback(async (root: HTMLElement, nextFiles?: ActivityFile[]) => {
+    if (mode !== 'edit' || !tid) return
+    const resolved = nextFiles ?? await getActivityFiles('contests', tid)
+    files.current = resolved
+    const current = root.querySelector('.files')
+    if (!current) return
+    const rendered = renderHydroTemplate('partials/files.html', {
+      context: { files: resolved, sidebar: true, filetype: 'public' },
+      urlForFile: (name) => `/api/v1/contests/${encodeURIComponent(tid)}/files/${encodeURIComponent(name)}`,
+    })
+    const holder = document.createElement('div')
+    holder.innerHTML = rendered
+    current.replaceWith(holder.firstElementChild!)
+  }, [mode, tid])
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    const form = root.querySelector('form')
+    const onSubmit = (event: SubmitEvent) => submitRef.current(event)
+    form?.addEventListener('submit', onSubmit)
+    const stopHydration = hydrateHydroEditForm(root, {
+      resource: mode === 'edit' ? 'contests' : undefined,
+      tid: mode === 'edit' ? tid : undefined,
+      autocomplete: { problems: 'pids', users: 'maintainer', assign: 'assign', langs: 'langs' },
+      contestSwitches: true,
+      dateTime: true,
+      onUploaded: (uploaded) => void refreshFiles(root, uploaded),
+    })
+    const upload = root.querySelector<HTMLButtonElement>('[name="upload_file"]')
+    const onClick = () => {
+      const picker = document.createElement('input')
+      picker.type = 'file'
+      picker.multiple = true
+      picker.onchange = async () => {
+        if (!picker.files?.length || !tid) return
+        try {
+          const uploaded = await uploadActivityFiles('contests', tid, Array.from(picker.files!))
+          await refreshFiles(root, uploaded)
+        } catch (err) {
+          window.alert(err instanceof Error ? err.message : '文件上传失败')
+        }
+      }
+      picker.click()
+    }
+    upload?.addEventListener('click', onClick)
+    return () => {
+      form?.removeEventListener('submit', onSubmit)
+      upload?.removeEventListener('click', onClick)
+      stopHydration()
+    }
+  }, [mode, refreshFiles, tid])
+
+  const context = useMemo(() => {
+    if (!item) return null
+    const begin = new Date(item.beginAt)
+    const end = new Date(item.endAt)
+    const duration = Math.max(0, Math.round(((end.getTime() - begin.getTime()) / 3600000) * 100) / 100)
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    return {
+      page_name: mode === 'edit' ? 'contest_edit' : 'contest_create',
+      rules,
+      tdoc: mode === 'edit' ? {
+        ...item,
+        _code: item.invitationCode ?? '',
+        assign: item.assign ?? [],
+        langs: (item.langs ?? []).join(','),
+        maintainer: (item.maintainer ?? []).join(','),
+        endAt: end.getTime(),
+        lockAt: item.lockAt ? new Date(item.lockAt).getTime() : 0,
+        files: files.current,
+      } : null,
+      beginAt: legacyMoment(begin),
+      duration,
+      pids: (item.pids ?? []).join(','),
+      handler: {
+        user: {
+          // Delete is hidden until the Go API exposes resource deletion.
+          hasPerm: (permission: number) => permission === 1 && isAdmin,
+          hasPriv: () => isAdmin,
+          own: () => false,
+        },
+      },
+      perm: {
+        PERM_EDIT_PROBLEM: 1,
+        PERM_EDIT_CONTEST: 2,
+      },
+      UserContext: user,
+    }
+  }, [item, mode, user])
+
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
-    const begin = parseDateTime(form.beginDate, form.beginTime)
-    const duration = Number(form.duration)
-    if (!begin || !Number.isFinite(duration) || duration <= 0) {
+    const submitter = event.submitter as HTMLButtonElement | null
+    const form = event.target as HTMLFormElement
+    const data = new FormData(form)
+    const text = (name: string) => String(data.get(name) ?? '')
+    const begin = new Date(`${text('beginAtDate')}T${text('beginAtTime') || '00:00'}:00`)
+    const duration = Number(text('duration'))
+    if (Number.isNaN(begin.getTime()) || !Number.isFinite(duration) || duration <= 0) {
       setError('开始时间或持续时间不正确')
       return
     }
-    const problemIDs = splitList(form.pids).map((value) => Number.parseInt(value, 10)).filter((value) => value > 0)
-    if (!problemIDs.length) {
+    const end = new Date(begin.getTime() + duration * 3600000)
+    const pids = listOfNumbers(text('pids'))
+    if (!pids.length) {
       setError('至少需要一道题目')
       return
     }
-    const maintainer = splitList(form.maintainer).map((value) => Number.parseInt(value, 10)).filter((value) => value > 0)
-    const lockMinutes = form.lock.trim() ? Number(form.lock) : 0
-    if (form.lock.trim() && (!Number.isFinite(lockMinutes) || lockMinutes < 0)) {
+    const permission = text('permission')
+    const lockMinutes = Number(text('lock') || 0)
+    if (!Number.isFinite(lockMinutes) || lockMinutes < 0) {
       setError('封榜时间不正确')
       return
     }
-    const end = new Date(begin.getTime() + duration * 3600000)
     const input: ContestEditInput = {
-      title: form.title.trim(),
-      content: form.content,
+      title: text('title').trim(),
+      content: text('content'),
       beginAt: begin.toISOString(),
       endAt: end.toISOString(),
-      rule: form.rule,
-      pids: problemIDs,
+      rule: text('rule'),
+      pids,
       duration,
-      rated: form.rated,
+      rated: data.get('rated') !== null,
       unlocked: false,
-      maintainer,
-      assign: form.permission === 'assign' ? splitList(form.assign) : [],
-      invitationCode: form.permission === 'invite' ? form.invitationCode : '',
-      langs: splitList(form.langs),
-      autoHide: form.autoHide,
-      allowViewCode: form.allowViewCode,
-      allowPrint: form.allowPrint,
-      allowTeam: form.allowTeam,
-      keepScoreboardHidden: form.keepScoreboardHidden,
+      maintainer: listOfNumbers(text('maintainer')),
+      assign: permission === 'assign' ? splitList(text('assign')) : [],
+      invitationCode: permission === 'invite' ? text('code') : '',
+      langs: splitList(text('langs')),
+      ...(data.has('autoHide') ? { autoHide: data.get('autoHide') !== null } : {}),
+      ...(data.has('allowViewCode') ? { allowViewCode: data.get('allowViewCode') !== null } : {}),
+      ...(data.has('allowPrint') ? { allowPrint: data.get('allowPrint') !== null } : {}),
+      ...(data.has('allowTeam') ? { allowTeam: data.get('allowTeam') !== null } : {}),
+      ...(data.has('keepScoreboardHidden') ? { keepScoreboardHidden: data.get('keepScoreboardHidden') !== null } : {}),
       ...(lockMinutes > 0 ? { lockAt: new Date(end.getTime() - lockMinutes * 60000).toISOString() } : {}),
+    }
+    if (submitter?.formAction && mode === 'edit' && submitter.formAction.endsWith('/contest/new')) {
+      navigate('/contest/new', { state: { draft: input } })
+      return
     }
     setSaving(true)
     setError('')
     try {
-      const item = mode === 'create' ? await createContest(input) : await updateContest(tid, input)
-      navigate(`/contest/${item.docId}`, { replace: true })
+      const saved = mode === 'create' ? await createContest(input) : await updateContest(tid, input)
+      navigate(`/contest/${saved.docId}`, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : '比赛保存失败')
     } finally {
@@ -187,286 +245,30 @@ export function ContestEditPage({ mode }: { mode: 'create' | 'edit' }) {
     }
   }
 
-  function cloneContest() {
-    navigate('/contest/new', { state: { draft: form } })
+  submitRef.current = (event) => void handleSubmit(event)
+
+  const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+  if (mode === 'create' && user && !isAdmin) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">没有创建比赛的权限</div></div></div>
   }
 
   if (loading) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder"><div className="nothing-icon" />加载中...</div></div></div>
   }
-  if (error && mode === 'edit' && !form.title) {
-    return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  if (!item || !context) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">{error || '比赛不存在'}</div></div></div>
   }
-  const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
-  if (user && !isAdmin && (mode === 'create' || ownerID !== user.id)) {
-    return <div className="row"><div className="columns"><div className="nothing-placeholder">没有编辑这个比赛的权限</div></div></div>
-  }
-
-  const begin = parseDateTime(form.beginDate, form.beginTime)
-  const duration = Number(form.duration)
-  const endText = begin && Number.isFinite(duration) && duration > 0 ? formatEndTime(begin, duration) : ''
 
   return (
-    <div className="row">
-      <div className="medium-9 columns">
-        <div className="section">
-          <form method="post" onSubmit={handleSubmit}>
-            <div className="section__header">
-              <h2 className="section__title">基础信息</h2>
-            </div>
-            <div className="section__body">
-              {error ? <blockquote className="warn"><p>{error}</p></blockquote> : null}
-              <div className="row">
-                <FormSelect
-                  columns={3}
-                  row={false}
-                  label="规则"
-                  name="rule"
-                  value={form.rule}
-                  onChange={(event) => updateField('rule', event.target.value)}
-                >
-                  {Object.entries(ruleNames).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
-                </FormSelect>
-                <FormText
-                  columns={9}
-                  row={false}
-                  label="标题"
-                  name="title"
-                  placeholder="标题"
-                  value={form.title}
-                  autoFocus={mode === 'create'}
-                  onChange={(event) => updateField('title', event.target.value)}
-                />
-              </div>
-              <div className="row">
-                <FormText
-                  columns={3}
-                  row={false}
-                  label="开始日期"
-                  name="beginAtDate"
-                  placeholder="YYYY-mm-dd"
-                  value={form.beginDate}
-                  date
-                  onChange={(event) => updateField('beginDate', event.target.value)}
-                  onValueChange={(value) => updateField('beginDate', value)}
-                />
-                <FormText
-                  columns={3}
-                  row={false}
-                  label="开始时间"
-                  name="beginAtTime"
-                  placeholder="HH:MM"
-                  value={form.beginTime}
-                  time
-                  onChange={(event) => updateField('beginTime', event.target.value)}
-                  onValueChange={(value) => updateField('beginTime', value)}
-                />
-                <FormText
-                  columns={2}
-                  row={false}
-                  label="持续时间 (小时)"
-                  name="duration"
-                  value={form.duration}
-                  onChange={(event) => updateField('duration', event.target.value)}
-                />
-                <FormText
-                  columns={4}
-                  row={false}
-                  lastColumn
-                  label="结束时间"
-                  name="endAt"
-                  placeholder="YYYY-mm-dd HH:MM"
-                  value={endText}
-                  disabled
-                />
-              </div>
-              <FormAutocomplete
-                columns={12}
-                kind="problems"
-                label="题目"
-                name="pids"
-                value={form.pids}
-                placeholder="用逗号分隔"
-                onChange={(value) => updateField('pids', value)}
-              />
-              <FormTextarea
-                label="说明"
-                name="content"
-                value={form.content}
-                markdown
-                onValueChange={(value) => updateField('content', value)}
-              />
-            </div>
-            <div style={{ paddingTop: 0 }} className="section__header">
-              <h2 className="section__title">权限控制</h2>
-            </div>
-            <div className="section__body">
-              <FormAutocomplete
-                columns={12}
-                kind="users"
-                label="比赛管理员"
-                name="maintainer"
-                helpText="允许管理此比赛"
-                value={form.maintainer}
-                onChange={(value) => updateField('maintainer', value)}
-              />
-              <div className="row">
-                <FormSelect
-                  columns={3}
-                  row={false}
-                  label="权限控制"
-                  name="permission"
-                  value={form.permission}
-                  onChange={(event) => updateField('permission', event.target.value)}
-                >
-                  <option value="public">公开</option>
-                  <option value="invite">需要邀请码</option>
-                  <option value="assign">指定用户或分组</option>
-                </FormSelect>
-                <div style={{ display: form.permission === 'assign' ? undefined : 'none' }} data-perm="assign">
-                  <FormAutocomplete
-                    columns={9}
-                    row={false}
-                    kind="assign"
-                    label="分配给"
-                    name="assign"
-                    placeholder="分组 / 用户 ID"
-                    value={form.assign}
-                    onChange={(value) => updateField('assign', value)}
-                  />
-                </div>
-                <div style={{ display: form.permission === 'invite' ? undefined : 'none' }} data-perm="invite">
-                  <FormText
-                    columns={9}
-                    row={false}
-                    label="邀请码"
-                    name="code"
-                    placeholder="（留空表示无）"
-                    value={form.invitationCode}
-                    onChange={(event) => updateField('invitationCode', event.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-            <div style={{ paddingTop: 0 }} className="section__header">
-              <h2 className="section__title">比赛设置</h2>
-            </div>
-            <div className="section__body">
-              <FormAutocomplete
-                columns={12}
-                kind="langs"
-                label="提交语言限制"
-                name="langs"
-                value={form.langs}
-                placeholder="用逗号分隔"
-                onChange={(value) => updateField('langs', value)}
-              />
-              <div className="row">
-                <FormCheckbox
-                  columns={2}
-                  row={false}
-                  label="计入排名"
-                  name="rated"
-                  checked={form.rated}
-                  placeholder="是否计入排名"
-                  onChange={(event) => updateField('rated', event.target.checked)}
-                />
-                <FormCheckbox
-                  columns={3}
-                  row={false}
-                  label="自动隐藏和显示"
-                  name="autoHide"
-                  checked={form.autoHide}
-                  placeholder="在比赛过程中自动隐藏题目"
-                  onChange={(event) => updateField('autoHide', event.target.checked)}
-                />
-                <FormCheckbox
-                  columns={3}
-                  row={false}
-                  label="允许查看代码"
-                  name="allowViewCode"
-                  checked={form.allowViewCode}
-                  placeholder="允许用户赛后查看其他人的代码"
-                  onChange={(event) => updateField('allowViewCode', event.target.checked)}
-                />
-                <FormCheckbox
-                  columns={4}
-                  row={false}
-                  label="允许打印"
-                  name="allowPrint"
-                  checked={form.allowPrint}
-                  placeholder="允许用户在比赛期间打印"
-                  onChange={(event) => updateField('allowPrint', event.target.checked)}
-                />
-                <FormCheckbox
-                  columns={4}
-                  row={false}
-                  label="允许组队"
-                  name="allowTeam"
-                  checked={form.allowTeam}
-                  placeholder="允许组队参赛"
-                  helpText="一旦启用，本次比赛的组队功能将无法关闭。"
-                  disabled={form.allowTeam}
-                  onChange={(event) => updateField('allowTeam', event.target.checked)}
-                />
-                <div style={{ display: 'none' }} className="contest-rule-settings contest-rule--oi contest-rule--strictioi">
-                  <FormCheckbox
-                    columns={4}
-                    row={false}
-                    label="保持成绩表隐藏"
-                    name="keepScoreboardHidden"
-                    checked={form.keepScoreboardHidden}
-                    placeholder="即使比赛结束后也保持成绩表隐藏"
-                    onChange={(event) => updateField('keepScoreboardHidden', event.target.checked)}
-                  />
-                </div>
-                <div style={{ display: 'none' }} className="contest-rule-settings contest-rule--acm contest-rule--ioi">
-                  <FormText
-                    columns={4}
-                    row={false}
-                    label="封榜 (分钟)"
-                    name="lock"
-                    placeholder="（留空表示无）"
-                    helpText="在赛事剩余 N 分钟时封榜"
-                    value={form.lock}
-                    onChange={(event) => updateField('lock', event.target.value)}
-                  />
-                </div>
-                <div style={{ display: 'none' }} className="contest-rule-settings contest-rule--oi contest-rule--ioi contest-rule--ledo contest-rule--strictioi">
-                  <FormText
-                    columns={4}
-                    row={false}
-                    label="灵活时长"
-                    name="contestDuration"
-                    placeholder="（留空表示无）"
-                    helpText="限制用户在 N 小时内完成比赛"
-                    value=""
-                    disabled
-                  />
-                </div>
-              </div>
-              <div className="row">
-                <div className="columns">
-                  <button type="submit" className="rounded primary button" disabled={saving}>
-                    {saving ? '保存中...' : mode === 'create' ? '创建' : '更新'}
-                  </button>
-                  {mode === 'edit' ? (
-                    <button type="button" className="rounded button" onClick={cloneContest}>
-                      复制
-                    </button>
-                  ) : null}
-                  <button type="button" className="rounded button" onClick={() => window.history.go(-1)}>
-                    取消
-                  </button>
-                </div>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-      <div className="medium-3 columns">
-        <MarkdownHint />
-      </div>
-    </div>
+    <>
+      {error ? <div className="row"><div className="columns"><blockquote className="warn"><p>{error}</p></blockquote></div></div> : null}
+      {saving ? <div className="row"><div className="columns"><blockquote className="note"><p>保存中...</p></blockquote></div></div> : null}
+      <HydroTemplate
+        template="contest_edit.html"
+        context={context}
+        urlForFile={(name) => `/api/v1/contests/${encodeURIComponent(tid)}/files/${encodeURIComponent(name)}`}
+        onReady={handleReady}
+      />
+    </>
   )
 }

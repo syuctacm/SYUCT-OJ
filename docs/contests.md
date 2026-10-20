@@ -39,7 +39,7 @@
 - 管理员创建；管理员或比赛所有者编辑
 - 时间窗口、题目存在性和赛制校验
 
-编辑页对应 Hydro `contest_edit.html` 的 section/form 结构。
+编辑页由 `HydroTemplate` 直接渲染上游 `contest_edit.html`，包括原版 section/form 层级、文件侧栏和 Markdown 图片上传。React 只负责数据、提交和交互挂载。
 
 `lockAt` 到达且未设置 `unlocked` 时，封榜后的提交不会计入榜单。
 
