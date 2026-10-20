@@ -51,7 +51,8 @@ func main() {
 	hub := judge.NewHub(judge.DefaultLanguages())
 	sessions := auth.NewSessionManager(24 * time.Hour)
 	judgeHandler := judge.NewHandler(cfg.JudgeUsername, cfg.JudgePassword, sessions, judgeStore, hub)
-	authHandler := auth.NewHandler(user.NewRepository(db), sessions)
+	userRepo := user.NewRepository(db)
+	authHandler := auth.NewHandler(userRepo, sessions)
 	problemRepo := problem.NewRepository(db)
 	contestRepo := contest.NewRepository(db)
 	trainingRepo := training.NewRepository(db)
@@ -68,7 +69,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           api.NewRouter(cfg, db, judgeHandler, authHandler, problemRepo, submissionHandler, contestRepo, trainingRepo, discussionRepo),
+		Handler:           api.NewRouter(cfg, db, judgeHandler, authHandler, problemRepo, submissionHandler, contestRepo, trainingRepo, discussionRepo, userRepo),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
