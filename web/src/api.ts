@@ -254,3 +254,20 @@ export async function getPublicUser(uid: string): Promise<PublicUser> {
   const result = await request<Envelope<PublicUser>>(`/api/v1/users/${encodeURIComponent(uid)}`)
   return result.data
 }
+
+export type AdminStats = {
+  users: number
+  problems: number
+  contests: number
+  homeworks: number
+  trainings: number
+  discussions: number
+  records: number
+  submissions_today: number
+  queued_tasks: number
+}
+
+export async function getAdminStats(): Promise<AdminStats> {
+  const result = await request<Envelope<AdminStats>>('/api/v1/admin/stats')
+  return result.data
+}
