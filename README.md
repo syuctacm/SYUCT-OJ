@@ -225,6 +225,8 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 
 - `GET /api/v1/users/:uid`
 - `GET /api/v1/users/:uid/activity`
+- `GET /api/v1/users?search=...` 或 `?auto=1,2`：用户自动补全
+- `GET /api/v1/groups?search=...` 或 `?names=2026`：分组自动补全
 - `/user/:uid`
 
 公开资料不包含邮箱和密码字段，详见 [docs/user-profile.md](./docs/user-profile.md)。

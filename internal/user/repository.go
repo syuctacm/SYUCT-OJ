@@ -3,7 +3,9 @@ package user
 import (
 	"context"
 	"errors"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,13 +34,158 @@ type User struct {
 	Bio         string    `bson:"bio" json:"bio,omitempty"`
 }
 
+type Group struct {
+	ID       bson.ObjectID `bson:"_id" json:"id"`
+	DomainID string        `bson:"domainId" json:"-"`
+	Name     string        `bson:"name" json:"name"`
+	UIDs     []int64       `bson:"uids" json:"uids"`
+}
+
 type Repository struct {
 	collection *mongo.Collection
 	records    *mongo.Collection
+	groups     *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
-	return &Repository{collection: db.Collection("user"), records: db.Collection("record")}
+	return &Repository{
+		collection: db.Collection("user"),
+		records:    db.Collection("record"),
+		groups:     db.Collection("user.group"),
+	}
+}
+
+func (r *Repository) Search(ctx context.Context, query string, limit int) ([]User, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []User{}, nil
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	escaped := regexp.QuoteMeta(query)
+	or := []bson.M{
+		{"unameLower": bson.M{"$regex": "^" + escaped, "$options": "i"}},
+		{"displayName": bson.M{"$regex": escaped, "$options": "i"}},
+	}
+	if id, err := strconv.ParseInt(query, 10, 64); err == nil {
+		or = append(or, bson.M{"_id": id})
+	}
+	cursor, err := r.collection.Find(ctx, bson.M{"$or": or}, options.Find().
+		SetProjection(bson.M{"_id": 1, "uname": 1, "displayName": 1, "avatar": 1}).
+		SetSort(bson.D{{Key: "unameLower", Value: 1}}).
+		SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]User, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) FindByIDs(ctx context.Context, ids []int64) ([]User, error) {
+	if len(ids) == 0 {
+		return []User{}, nil
+	}
+	unique := make([]int64, 0, len(ids))
+	seen := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		if id <= 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return []User{}, nil
+	}
+	cursor, err := r.collection.Find(ctx, bson.M{"_id": bson.M{"$in": unique}}, options.Find().
+		SetProjection(bson.M{"_id": 1, "uname": 1, "displayName": 1, "avatar": 1}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]User, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]User, len(items))
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+	ordered := make([]User, 0, len(items))
+	for _, id := range unique {
+		if item, ok := byID[id]; ok {
+			ordered = append(ordered, item)
+		}
+	}
+	return ordered, nil
+}
+
+func (r *Repository) SearchGroups(ctx context.Context, query string, limit int) ([]Group, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []Group{}, nil
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	cursor, err := r.groups.Find(ctx, bson.M{
+		"domainId": "system",
+		"name":     bson.M{"$regex": regexp.QuoteMeta(query), "$options": "i"},
+	}, options.Find().
+		SetProjection(bson.M{"name": 1, "uids": 1}).
+		SetSort(bson.D{{Key: "name", Value: 1}}).
+		SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]Group, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) FindGroupsByNames(ctx context.Context, names []string) ([]Group, error) {
+	if len(names) == 0 {
+		return []Group{}, nil
+	}
+	unique := make([]string, 0, len(names))
+	seen := make(map[string]bool, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		unique = append(unique, name)
+	}
+	if len(unique) == 0 {
+		return []Group{}, nil
+	}
+	cursor, err := r.groups.Find(ctx, bson.M{
+		"domainId": "system",
+		"name":     bson.M{"$in": unique},
+	}, options.Find().SetProjection(bson.M{"name": 1, "uids": 1}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]Group, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	order := make(map[string]int, len(unique))
+	for index, name := range unique {
+		order[name] = index
+	}
+	sort.SliceStable(items, func(i, j int) bool { return order[items[i].Name] < order[items[j].Name] })
+	return items, nil
 }
 
 func (r *Repository) FindByLogin(ctx context.Context, identifier string) (*User, error) {

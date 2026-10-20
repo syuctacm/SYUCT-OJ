@@ -7,7 +7,7 @@ import {
   type ContestEditInput,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
-import { FormText, FormTextarea, MarkdownHint } from '../components/LegacyForm.tsx'
+import { FormAutocomplete, FormText, FormTextarea, MarkdownHint } from '../components/LegacyForm.tsx'
 import { addDays, dateParts, parseDateTime } from '../legacy-date.ts'
 
 const defaultPenaltyRules = `1: 0.9
@@ -220,6 +220,7 @@ export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
                   value={form.beginDate}
                   date
                   onChange={(event) => updateField('beginDate', event.target.value)}
+                  onValueChange={(value) => updateField('beginDate', value)}
                 />
                 <FormText
                   columns={2}
@@ -230,6 +231,7 @@ export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
                   value={form.beginTime}
                   time
                   onChange={(event) => updateField('beginTime', event.target.value)}
+                  onValueChange={(value) => updateField('beginTime', value)}
                 />
                 <FormText
                   columns={3}
@@ -240,6 +242,7 @@ export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
                   value={form.penaltyDate}
                   date
                   onChange={(event) => updateField('penaltyDate', event.target.value)}
+                  onValueChange={(value) => updateField('penaltyDate', value)}
                 />
                 <FormText
                   columns={2}
@@ -250,6 +253,7 @@ export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
                   value={form.penaltyTime}
                   time
                   onChange={(event) => updateField('penaltyTime', event.target.value)}
+                  onValueChange={(value) => updateField('penaltyTime', value)}
                 />
                 <FormText
                   columns={2}
@@ -262,24 +266,26 @@ export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
                 />
               </div>
               <div className="row">
-                <FormText
+                <FormAutocomplete
                   columns={6}
                   row={false}
+                  kind="assign"
                   label="分配给"
                   name="assign"
                   placeholder="分组 / 用户 ID"
                   value={form.assign}
-                  onChange={(event) => updateField('assign', event.target.value)}
+                  onChange={(value) => updateField('assign', value)}
                 />
-                <FormText
+                <FormAutocomplete
                   columns={6}
                   row={false}
                   lastColumn
+                  kind="users"
                   label="作业管理员"
                   name="maintainer"
                   helpText="允许管理此作业"
                   value={form.maintainer}
-                  onChange={(event) => updateField('maintainer', event.target.value)}
+                  onChange={(value) => updateField('maintainer', value)}
                 />
               </div>
               <div className="row">
@@ -296,27 +302,29 @@ export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
                   </label>
                 </div>
               </div>
-              <FormText
+              <FormAutocomplete
+                kind="problems"
                 label="题目"
                 name="pids"
                 value={form.pids}
                 placeholder="用逗号分隔"
-                onChange={(event) => updateField('pids', event.target.value)}
+                onChange={(value) => updateField('pids', value)}
               />
               <FormTextarea
                 label="内容"
                 name="content"
                 value={form.content}
                 markdown
-                onChange={(event) => updateField('content', event.target.value)}
+                onValueChange={(value) => updateField('content', value)}
               />
-              <FormText
+              <FormAutocomplete
                 columns={12}
+                kind="langs"
                 label="提交语言限制"
                 name="langs"
                 value={form.langs}
                 placeholder="用逗号分隔"
-                onChange={(event) => updateField('langs', event.target.value)}
+                onChange={(value) => updateField('langs', value)}
               />
               <div className="row">
                 <div className="columns">

@@ -36,4 +36,4 @@ Hydro 中作业是 `document` 集合里 `docType=30`、`rule=homework` 的文档
 - 作业题目依赖和进度
 - 作业提交和罚时规则
 - 作业文件上传
-- 原版日期/时间选择器和 Markdown 编辑器脚本
+- Markdown 编辑器图片上传接入作业文件接口
