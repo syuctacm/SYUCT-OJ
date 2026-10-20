@@ -201,6 +201,7 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 
 - `GET /api/v1/admin/stats`
 - `GET /api/v1/admin/users`
+- `PATCH /api/v1/admin/users/:uid/priv`
 - `/admin`
 
 需要 `PRIV_EDIT_SYSTEM` 权限，详见 [docs/admin.md](./docs/admin.md)。

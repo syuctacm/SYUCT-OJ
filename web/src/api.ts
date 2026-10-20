@@ -297,3 +297,10 @@ export async function getAdminUsers(query = ''): Promise<AdminUserPage> {
   const result = await request<Envelope<AdminUserPage>>(`/api/v1/admin/users${suffix}`)
   return result.data
 }
+
+export async function updateAdminUserPriv(uid: number, priv: number): Promise<void> {
+  await request<Envelope<{ id: number; priv: number }>>(`/api/v1/admin/users/${uid}/priv`, {
+    method: 'PATCH',
+    body: JSON.stringify({ priv }),
+  })
+}
