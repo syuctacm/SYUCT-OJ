@@ -11,26 +11,42 @@ import (
 )
 
 const (
+	DocumentTypeDiscussionNode  = 20
 	DocumentTypeDiscussion      = 21
 	DocumentTypeDiscussionReply = 22
 	DomainSystem                = "system"
+	MaxTitleLength              = 200
+	MaxContentLength            = 64 * 1024
 	MaxReplyLength              = 64 * 1024
 )
 
-var ErrNotFound = fmt.Errorf("discussion not found")
+var (
+	ErrNotFound     = fmt.Errorf("discussion not found")
+	ErrNodeNotFound = fmt.Errorf("discussion node not found")
+)
 
 type Discussion struct {
-	ID        bson.ObjectID `bson:"_id" json:"id"`
-	DocID     bson.ObjectID `bson:"docId" json:"docId"`
-	Title     string        `bson:"title" json:"title"`
-	Content   string        `bson:"content" json:"content,omitempty"`
-	Owner     int64         `bson:"owner" json:"owner"`
-	UpdateAt  time.Time     `bson:"updateAt" json:"updateAt"`
-	NReply    int64         `bson:"nReply" json:"nReply"`
-	Views     int64         `bson:"views" json:"views"`
-	Pin       bool          `bson:"pin" json:"pin"`
-	Highlight bool          `bson:"highlight" json:"highlight"`
-	Lock      bool          `bson:"lock" json:"lock"`
+	ID          bson.ObjectID `bson:"_id" json:"id"`
+	DocID       bson.ObjectID `bson:"docId" json:"docId"`
+	Title       string        `bson:"title" json:"title"`
+	Content     string        `bson:"content" json:"content,omitempty"`
+	Owner       int64         `bson:"owner" json:"owner"`
+	UpdateAt    time.Time     `bson:"updateAt" json:"updateAt"`
+	NReply      int64         `bson:"nReply" json:"nReply"`
+	Views       int64         `bson:"views" json:"views"`
+	Pin         bool          `bson:"pin" json:"pin"`
+	Highlight   bool          `bson:"highlight" json:"highlight"`
+	Lock        bool          `bson:"lock" json:"lock"`
+	ParentType  int64         `bson:"parentType" json:"parentType"`
+	ParentID    any           `bson:"parentId" json:"parentId,omitempty"`
+	ParentTitle string        `bson:"-" json:"parentTitle,omitempty"`
+}
+
+type Node struct {
+	DocID    string `bson:"docId" json:"docId"`
+	Title    string `bson:"title" json:"title"`
+	Category string `bson:"content" json:"category"`
+	Pic      string `bson:"pic" json:"pic,omitempty"`
 }
 
 type TailReply struct {
@@ -65,7 +81,7 @@ func (r *Repository) List(ctx context.Context) ([]Discussion, error) {
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeDiscussion,
 	}, options.Find().
-		SetProjection(bson.M{"docId": 1, "title": 1, "owner": 1, "updateAt": 1, "nReply": 1, "views": 1, "pin": 1, "highlight": 1, "lock": 1}).
+		SetProjection(bson.M{"docId": 1, "title": 1, "owner": 1, "updateAt": 1, "nReply": 1, "views": 1, "pin": 1, "highlight": 1, "lock": 1, "parentType": 1, "parentId": 1}).
 		SetSort(bson.D{{Key: "pin", Value: -1}, {Key: "updateAt", Value: -1}, {Key: "docId", Value: -1}}))
 	if err != nil {
 		return nil, err
@@ -75,7 +91,82 @@ func (r *Repository) List(ctx context.Context) ([]Discussion, error) {
 	if err := cursor.All(ctx, &items); err != nil {
 		return nil, err
 	}
+	nodes, err := r.ListNodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	titles := make(map[string]string, len(nodes))
+	for _, node := range nodes {
+		titles[node.DocID] = node.DisplayTitle()
+	}
+	for i := range items {
+		if items[i].ParentType == DocumentTypeDiscussionNode {
+			if nodeID, ok := items[i].ParentID.(string); ok {
+				items[i].ParentTitle = titles[nodeID]
+			}
+		}
+	}
 	return items, nil
+}
+
+func (r *Repository) ListNodes(ctx context.Context) ([]Node, error) {
+	cursor, err := r.coll.Find(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeDiscussionNode,
+	}, options.Find().
+		SetProjection(bson.M{"docId": 1, "title": 1, "content": 1, "pic": 1}).
+		SetSort(bson.D{{Key: "content", Value: 1}, {Key: "docId", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]Node, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *Repository) GetNode(ctx context.Context, nodeID string) (*Node, error) {
+	if nodeID == "" {
+		return nil, ErrNodeNotFound
+	}
+	var node Node
+	err := r.coll.FindOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeDiscussionNode,
+		"$or":      []bson.M{{"docId": nodeID}, {"_id": nodeID}},
+	}).Decode(&node)
+	if err == mongo.ErrNoDocuments {
+		return nil, ErrNodeNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &node, nil
+}
+
+func (r *Repository) Create(ctx context.Context, node *Node, owner int64, title, content string, pin, highlight bool) (*Discussion, error) {
+	now := time.Now()
+	did := bson.NewObjectID()
+	item := &Discussion{
+		ID: did, DocID: did, Title: title, Content: content, Owner: owner,
+		UpdateAt: now, Pin: pin, Highlight: highlight,
+		ParentType: DocumentTypeDiscussionNode, ParentID: node.DocID,
+		ParentTitle: node.DisplayTitle(),
+	}
+	_, err := r.coll.InsertOne(ctx, bson.M{
+		"_id": did, "domainId": DomainSystem, "docType": DocumentTypeDiscussion,
+		"docId": did, "title": title, "content": content, "owner": owner,
+		"editor": owner, "parentType": DocumentTypeDiscussionNode,
+		"parentId": node.DocID, "nReply": 0, "views": 0,
+		"pin": pin, "highlight": highlight, "hidden": false,
+		"updateAt": now, "sort": 100,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
 }
 
 func (r *Repository) Get(ctx context.Context, did string) (*Discussion, error) {
@@ -120,6 +211,13 @@ func (r *Repository) ListReplies(ctx context.Context, discussionID bson.ObjectID
 		}
 	}
 	return items, nil
+}
+
+func (node Node) DisplayTitle() string {
+	if node.Title != "" {
+		return node.Title
+	}
+	return node.DocID
 }
 
 func (r *Repository) AddReply(ctx context.Context, discussionID bson.ObjectID, owner int64, content string) (*Reply, error) {

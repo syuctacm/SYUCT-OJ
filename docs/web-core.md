@@ -17,6 +17,7 @@
 | `/training` | 训练列表 |
 | `/training/:tid` | 训练详情 |
 | `/discuss` | 讨论列表 |
+| `/discuss/new` | 创建讨论 |
 | `/discuss/:did` | 讨论详情与回复 |
 | `/user/:uid` | 用户主页 |
 | `/admin` | 管理员后台概览 |
@@ -29,6 +30,7 @@
 
 - `web/public/hydro-theme.css`：Hydro `ui-default` 4.58.5 主题 CSS
 - `web/public/nav_logo_dark.png`：旧站导航 Logo
+- `web/public/hydro-icons.*`：Hydro 图标字体
 - `web/src/index.css`：仅保留 React 页面与旧主题类名之间的兼容样式
 - 页面使用 `.section`、`.section__header`、`.section__body`、`.section__footer`、`.data-table`、`.button`、`.textbox` 等原版类名
 - 导航、移动端侧滑菜单、页脚使用 `ui-default` 对应的 DOM 结构和类名
