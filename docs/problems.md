@@ -78,6 +78,29 @@
 - 仅管理员或题目所有者可访问
 - 后端尚未实现的创建、重命名、批量下载和生成测试数据控件会从页面移除
 
+## 题解
+
+题解使用 Hydro 的 `document` 文档（`docType=11`），页面直接渲染上游模板：
+
+- `/p/:pid/solution`：对应 `problem_solution.html`，按票数倒序分页
+- `/p/:pid/solution/:sid`：单篇题解视图，与上游 `problem_solution_detail` 一致
+- `components/comments_solution.html`：题解正文、投票按钮、楼中楼回复和编辑/删除操作
+
+接口：
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/api/v1/problems/:pid/solutions` | 分页列表；`sid` 返回单篇 |
+| POST | `/api/v1/problems/:pid/solutions` | 发表题解 |
+| PATCH | `/api/v1/problems/:pid/solutions/:sid` | 编辑题解（作者或管理员） |
+| DELETE | `/api/v1/problems/:pid/solutions/:sid` | 删除题解（作者或管理员） |
+| POST | `/api/v1/problems/:pid/solutions/:sid/vote` | 投票，`value` 为 `1`、`-1` 或 `0` |
+| POST | `/api/v1/problems/:pid/solutions/:sid/replies` | 回复题解 |
+| PATCH | `/api/v1/problems/:pid/solutions/:sid/replies/:rid` | 编辑回复（回复作者或管理员） |
+| DELETE | `/api/v1/problems/:pid/solutions/:sid/replies/:rid` | 删除回复（回复作者或管理员） |
+
+投票沿用 Hydro 的增量语义：重复投同一票是空操作，改票只累计差值。未登录用户可浏览，登录用户可以发表、投票和回复。
+
 ## 判题配置页
 
 `/p/:pid/config` 由 `HydroTemplate` 渲染上游 `problem_config.html`：标题「评测设置(Beta)」、testdata 侧栏（`partials/problem_files.html`，支持上传）和题目侧栏都来自原模板。

@@ -36,6 +36,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		}
 		handler.NewProblemHandler(problemRepo, sessions, userRepo, problemStore).RegisterRoutes(router.Group("/"))
 		handler.NewLanguageHandler(problemRepo, contestRepo).RegisterRoutes(router.Group("/"))
+		handler.NewSolutionHandler(problemRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
 	}
 	if submissionHandler != nil {
 		submissionHandler.RegisterRoutes(router.Group("/"))
@@ -60,7 +61,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		handler.NewDiscussionHandler(discussionRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
 	}
 	if userRepo != nil {
-		handler.NewUserHandler(userRepo, sessions).RegisterRoutes(router.Group("/"))
+		handler.NewUserHandler(userRepo, sessions, problemRepo).RegisterRoutes(router.Group("/"))
 		handler.NewUserFileHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
 	}
 	if adminHandler != nil {

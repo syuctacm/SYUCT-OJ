@@ -16,11 +16,14 @@ function decode(value: string) {
 
 export function mountClipboard(root: HTMLElement) {
   const onClick = async (event: Event) => {
-    const target = (event.target as HTMLElement).closest<HTMLElement>('[data-copy]')
+    const link = (event.target as HTMLElement).closest<HTMLElement>('[data-copylink]')
+    const target = link ?? (event.target as HTMLElement).closest<HTMLElement>('[data-copy]')
     if (!target) return
-    const encoded = target.getAttribute('data-copy') ?? ''
-    const text = encoded ? decode(encoded) : ''
+    const text = link
+      ? new URL(link.getAttribute('data-copylink') ?? '', document.location.href).toString()
+      : decode(target.getAttribute('data-copy') ?? '')
     if (!text) return
+    if (link) event.preventDefault()
     try {
       await navigator.clipboard.writeText(text)
       notifySuccess(substitute(translate('"{data}" copied to clipboard!'), text), 2000)

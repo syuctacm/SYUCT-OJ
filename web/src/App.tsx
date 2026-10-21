@@ -30,6 +30,7 @@ import { ProblemConfigPage } from './pages/ProblemConfigPage.tsx'
 import { ProblemDetailPage } from './pages/ProblemDetailPage.tsx'
 import { ProblemEditPage } from './pages/ProblemEditPage.tsx'
 import { ProblemFilesPage } from './pages/ProblemFilesPage.tsx'
+import { ProblemSolutionPage } from './pages/ProblemSolutionPage.tsx'
 import { ProblemsPage } from './pages/ProblemsPage.tsx'
 import { RecordsPage } from './pages/RecordsPage.tsx'
 import { SubmissionPage } from './pages/SubmissionPage.tsx'
@@ -55,6 +56,8 @@ export default function App() {
         <Route path="/p/:pid/edit" element={<ProblemEditPage mode="edit" />} />
         <Route path="/p/:pid/config" element={<ProblemConfigPage />} />
         <Route path="/p/:pid/files" element={<ProblemFilesPage />} />
+        <Route path="/p/:pid/solution" element={<ProblemSolutionPage />} />
+        <Route path="/p/:pid/solution/:sid" element={<ProblemSolutionPage />} />
         <Route path="/p/:pid" element={<ProblemDetailPage />} />
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
         <Route path="/contest" element={<ContestsPage />} />

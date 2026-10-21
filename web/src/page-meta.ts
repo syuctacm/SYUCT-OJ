@@ -17,6 +17,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (/^\/p\/[^/]+\/config\/?$/.test(pathname)) return basic('problem_config', '判题配置')
   if (/^\/p\/[^/]+\/files\/?$/.test(pathname)) return basic('problem_files', '题目文件')
   if (/^\/p\/[^/]+\/submit\/?$/.test(pathname)) return basic('problem_submit', '提交题目')
+  if (/^\/p\/[^/]+\/solution(\/[^/]+)?\/?$/.test(pathname)) return basic('problem_solution', '题解')
   if (/^\/p\/[^/]+\/?$/.test(pathname)) return basic('problem_detail', '题目详情')
   if (pathname === '/record') return basic('record_main', '评测记录')
   if (/^\/record\/[^/]+\/?$/.test(pathname)) return basic('record_detail', '评测详情')

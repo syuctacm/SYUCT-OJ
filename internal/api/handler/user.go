@@ -10,16 +10,18 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
+	"github.com/syuctacm/syuct-oj/internal/problem"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
 type UserHandler struct {
 	users    *user.Repository
 	sessions *auth.SessionManager
+	problems *problem.Repository
 }
 
-func NewUserHandler(users *user.Repository, sessions *auth.SessionManager) *UserHandler {
-	return &UserHandler{users: users, sessions: sessions}
+func NewUserHandler(users *user.Repository, sessions *auth.SessionManager, problems *problem.Repository) *UserHandler {
+	return &UserHandler{users: users, sessions: sessions, problems: problems}
 }
 
 func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -147,20 +149,29 @@ func (h *UserHandler) get(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load user rank"})
 		return
 	}
+	var nSolution, nLiked int64
+	if h.problems != nil {
+		nSolution, nLiked, err = h.problems.SolutionStats(c.Request.Context(), uid)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load solution statistics"})
+			return
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
-		"data": profilePayload(u, canSeePrivate, submit, accepted, rp, level, rank, acceptedProblems),
+		"data": profilePayload(u, canSeePrivate, submit, accepted, rp, level, rank, acceptedProblems, nSolution, nLiked),
 	})
 }
 
 // profilePayload keeps upstream privacy flags: school and student id are only
 // exposed to the owner and to system administrators.
-func profilePayload(u *user.User, canSeePrivate bool, submit, accepted int64, rp float64, level, rank int, acceptedProblems []user.ProblemBrief) gin.H {
+func profilePayload(u *user.User, canSeePrivate bool, submit, accepted int64, rp float64, level, rank int, acceptedProblems []user.ProblemBrief, nSolution, nLiked int64) gin.H {
 	payload := gin.H{
 		"id": u.ID, "username": u.Uname, "displayName": u.DisplayName,
 		"avatar": u.Avatar, "regAt": u.RegAt, "loginAt": u.LoginAt,
 		"bio": u.Bio, "qq": u.QQ, "gender": u.Gender, "backgroundImage": u.BackgroundImage,
 		"nSubmit": submit, "nAccept": accepted, "rp": rp, "level": level, "rank": rank,
+		"nSolution": nSolution, "nLiked": nLiked,
 		"acceptedProblems": acceptedProblems,
 	}
 	if canSeePrivate {

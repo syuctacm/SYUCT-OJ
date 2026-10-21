@@ -64,12 +64,16 @@ gravatar 需要 MD5，浏览器没有同步实现，因此在 `web/src/upstream/
 - 上传、全选、批量删除、拖拽上传都挂在上游 DOM 上，React 只做事件适配
 - 账户侧栏「我的文件」入口随 `PRIV_CREATE_FILE` 显示并高亮
 
+## 题解统计
+
+用户主页的“Solutions Liked”读取题解投票总数：`GET /api/v1/users/:uid` 返回 `nSolution`（发表题解数）和 `nLiked`（收到的票数合计），由 `problem.Repository.SolutionStats` 统计。
+
 ## 尚未完成
 
 - 微信图标
 - 头像上传（`#upload_avatar`）
 - 站内消息和安全设置两个账户页
-- 获赞题解（当前显示 0）
+- 消息中心和账号安全页（`/home/messages`、`/home/security`）尚未迁移
 - 个人主页的账号自助侧栏（消息、设置、文件）暂不显示
 - 在线状态（当前统一显示离线）
 - 用户主页的题目/比赛历史
