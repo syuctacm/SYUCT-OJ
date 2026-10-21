@@ -35,7 +35,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		if judgeHandler != nil {
 			problemStore = judgeHandler.Store()
 		}
-		handler.NewProblemHandler(problemRepo, sessions, userRepo, problemStore).RegisterRoutes(router.Group("/"))
+		handler.NewProblemHandler(problemRepo, sessions, userRepo, problemStore, submissionHandler.Repository()).RegisterRoutes(router.Group("/"))
 		handler.NewLanguageHandler(problemRepo, contestRepo).RegisterRoutes(router.Group("/"))
 		handler.NewSolutionHandler(problemRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
 	}

@@ -16,6 +16,7 @@
     "@mantine/notifications": "9.5.2",
     "@vavt/cm-extension": "2.0.0",
     "cssfilter": "^0.0.11",
+    "echarts": "^6.1.0",
     "flatpickr": "^4.6.13",
     "js-yaml": "4.1.0",
     "katex": "^0.19.0",

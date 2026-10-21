@@ -21,6 +21,7 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/judge"
 	"github.com/syuctacm/syuct-oj/internal/problem"
+	"github.com/syuctacm/syuct-oj/internal/submission"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
@@ -33,14 +34,15 @@ const (
 )
 
 type ProblemHandler struct {
-	repo     *problem.Repository
-	sessions *auth.SessionManager
-	users    *user.Repository
-	store    *judge.FileStore
+	repo        *problem.Repository
+	sessions    *auth.SessionManager
+	users       *user.Repository
+	store       *judge.FileStore
+	submissions *submission.Repository
 }
 
-func NewProblemHandler(repo *problem.Repository, sessions *auth.SessionManager, users *user.Repository, store *judge.FileStore) *ProblemHandler {
-	return &ProblemHandler{repo: repo, sessions: sessions, users: users, store: store}
+func NewProblemHandler(repo *problem.Repository, sessions *auth.SessionManager, users *user.Repository, store *judge.FileStore, submissions *submission.Repository) *ProblemHandler {
+	return &ProblemHandler{repo: repo, sessions: sessions, users: users, store: store, submissions: submissions}
 }
 
 func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -51,6 +53,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/problems/import/fps", h.importFPS)
 	router.GET("/api/v1/problems/:pid/edit", h.editData)
 	router.PATCH("/api/v1/problems/:pid", h.update)
+	router.GET("/api/v1/problems/:pid/statistics", h.statistics)
 	router.GET("/api/v1/problems/:pid/assets", h.listAssets)
 	router.POST("/api/v1/problems/:pid/assets", h.uploadAssets)
 	router.DELETE("/api/v1/problems/:pid/assets", h.deleteAssets)

@@ -260,7 +260,7 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
             problem_solution: `/p/${id}/solution`,
             problem_config: `/p/${id}/config`,
             problem_edit: `/p/${id}/edit`,
-            problem_statistics: `/p/${id}`,
+            problem_statistics: `/p/${id}/statistics`,
             record_main: `/record${query.pid ? `?pid=${encodeURIComponent(String(query.pid))}` : ''}`,
             user_detail: `/user/${encodeURIComponent(String(args.uid ?? ''))}`,
             discussion_node: '/discuss',

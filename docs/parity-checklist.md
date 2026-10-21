@@ -110,7 +110,7 @@
 路由清单：
 
 ```text
-/  /p  /p/tag/:tag  /p/:pid  /p/:pid/submit  /p/:pid/solution  /p/:pid/edit  /p/:pid/config  /p/:pid/files  /problem/import/fps
+/  /p  /p/tag/:tag  /p/:pid  /p/:pid/submit  /p/:pid/solution  /p/:pid/statistics  /p/:pid/edit  /p/:pid/config  /p/:pid/files  /problem/import/fps
 /contest  /contest/:tid  /contest/:tid/problems  /contest/:tid/scoreboard
 /contest/:tid/management  /contest/:tid/clarification  /contest/:tid/user
 /contest/new  /contest/:tid/edit
@@ -138,7 +138,6 @@
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | `/home/security` | 未迁移 | 会话管理、修改密码、修改邮箱、2FA、OAuth 绑定；改邮箱依赖邮件服务 |
-| 题目统计页 | 未迁移 | 上游 `problem_statistics.html` 含两张图表和提交表格；题目侧栏入口暂时隐藏 |
 | 签到 / 倒计时 | 未迁移 | 生产站自定义 addon，上游仓库没有源码，需要先拿到实现或重新设计 |
 | onsite-toolkit | 部分迁移 | 打印站和气球页已实现，其余线下赛工具未迁移 |
 | a11y | 未迁移 | 上游 `a11y` 插件（无障碍增强） |
@@ -149,4 +148,5 @@
 - 用户主页“题解被赞”：见 `docs/user-profile.md`
 - 站内消息：见 `docs/messages.md`
 - FPS 导入：见 `docs/problems.md` 的“FPS 导入”一节
+- 题目统计页：见 `docs/problems.md` 的“题目统计”一节
 - 标签统计、活跃日历：见 `docs/tag-stat.md`、`docs/activity-calendar.md`
