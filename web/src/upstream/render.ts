@@ -66,6 +66,7 @@ env.addFilter('parseYaml', (value: string) => yaml.load(String(value)))
 env.addFilter('toString', (value: unknown) => String(value ?? ''))
 env.addFilter('contentLang', () => ['zh'])
 env.addFilter('content', (value: unknown) => value)
+env.addFilter('bitand', (left: unknown, right: unknown) => Number(left) & Number(right))
 env.addFilter('ansi', (value: unknown) => String(value ?? '')
   .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
   .replace(/&/g, '&amp;')
@@ -165,6 +166,13 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
       if (typeof keyOrValues === 'string') target[keyOrValues] = value
       else Object.assign(target, keyOrValues)
       return ''
+    },
+    // Only the control panel nodes that this rewrite implements are advertised;
+    // manage_base.html renders whatever getNodes('ControlPanel') returns.
+    ui: {
+      getNodes: (family: string) => (family === 'ControlPanel'
+        ? [{ name: 'manage_dashboard' }, { name: 'manage_user_priv' }]
+        : []),
     },
     STATUS,
     datetimeSpan,

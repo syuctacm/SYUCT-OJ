@@ -32,9 +32,16 @@
 
 ## 前端
 
-- `/admin`：后台概览
-- `/admin/users`：用户列表、搜索和管理员权限切换，结构对应 `manage_user_priv.html`
+- `/admin` 渲染上游 `manage_dashboard.html`：Messages、Information（域头像/名称）和 `manage_base.html` 控制面板侧栏
+- `/admin/users` 渲染上游 `manage_user_priv.html`：默认权限行 + 按 `priv` 分组的用户表，`show_priv` 宏显示相对默认权限的 `+/-` 位
+- 两个页面共用 `manage_base.html` 侧栏，`ui.getNodes('ControlPanel')` 只声明重写版已实现的控制面板节点
+- 权限编辑复用模板自带的 `.dialog__body--set-priv` 表单：点击「Edit」把这段上游 DOM 克隆进对话框，勾选后 `PATCH /api/v1/admin/users/:uid/priv`
+- 「Select User」打开用户搜索对话框（`UserSelectAutoComplete`），选中后直接进入该用户的权限对话框
 - 只有管理员在导航栏看到“后台”入口
+
+### 模板层依赖
+
+`manage_user_priv.html` 的 `show_priv` 宏需要 `bitand` 过滤器（`web/src/upstream/render.ts`），PRIV 位值来自 `web/src/upstream/priv.ts`，与 Hydro `packages/common/permission.ts` 保持一致。
 
 ## 尚未完成
 
@@ -42,3 +49,6 @@
 - 题目/比赛/训练编辑
 - 系统设置
 - 操作日志和审计
+- 控制面板其余节点（脚本管理、用户导入、系统设置、配置管理）
+- `manage_dashboard` 的 WebSocket 连接检查（`#messages` 目前为空）和「Restart」按钮（未实现，已从 DOM 移除）
+- 修改系统默认权限（默认权限行的 Edit 链接已移除）

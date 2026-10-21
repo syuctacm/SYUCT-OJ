@@ -946,6 +946,7 @@ export type AdminUser = {
   email: string
   studentId?: string
   priv: number
+  avatar?: string
   regAt: string
   loginAt: string
 }
@@ -957,8 +958,8 @@ export type AdminUserPage = {
   limit: number
 }
 
-export async function getAdminUsers(query = ''): Promise<AdminUserPage> {
-  const params = new URLSearchParams()
+export async function getAdminUsers(query = '', limit = 20): Promise<AdminUserPage> {
+  const params = new URLSearchParams({ limit: String(limit), sort: 'id' })
   if (query.trim()) params.set('q', query.trim())
   const suffix = params.toString() ? `?${params.toString()}` : ''
   const result = await request<Envelope<AdminUserPage>>(`/api/v1/admin/users${suffix}`)

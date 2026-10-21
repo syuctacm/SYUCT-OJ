@@ -48,7 +48,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (/^\/user\/[^/]+\/?$/.test(pathname)) return basic('user_detail', '用户主页')
   if (pathname === '/ranking') return basic('ranking', '排行榜')
   if (pathname === '/admin/users') return basic('manage_user_priv', '用户权限')
-  if (pathname === '/admin') return basic('manage_dashboard', '后台')
+  if (pathname === '/admin') return basic('manage_dashboard', '控制面板')
   return basic('error', '页面不存在')
 }
 
