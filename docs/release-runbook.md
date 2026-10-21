@@ -10,6 +10,7 @@
 - 迁移演练通过：`./scripts/migration-drill.sh`
 - 维护窗口、回滚负责人、判题机切换方式已确认
 - `hydrojudge` 的 `server_url` 已准备指向新 API（生产建议 `http://api:8080/`）
+- 判题机版本已按 [判题沙箱安全评审](./judge-security.md) 确认（`sandbox --version` 不低于 `v1.11.0`，建议 `v1.13.3`）
 
 ## 1. 生产备份
 
@@ -88,6 +89,8 @@ docker compose -f deploy/compose.prod.yaml up -d --build
 - [ ] 首页、题库、题目详情
 - [ ] 登录/登出、Session 持久化
 - [ ] 提交 → 判题 → 记录闭环（hydrojudge）
+- [ ] 判题机 `sandbox --version` 不低于 `v1.11.0`，`/version` 返回 `fixSymlinkEscape=true`
+- [ ] 生产启用的每种语言各跑一次测试提交
 - [ ] 比赛/作业/训练列表与详情、榜单
 - [ ] 讨论列表/详情/回复
 - [ ] 用户主页、活跃日历

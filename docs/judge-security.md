@@ -43,6 +43,16 @@ docker exec syuct-oj-dev-judge wget -qO- http://127.0.0.1:5050/config
 - Python 提交闭环：`waiting -> compiling -> judging -> accepted`
 - 判题过程中重启 judge 容器后任务重新领取，最终 Accepted
 
+## 复验记录（2026-10-21）
+
+在本地 Docker 重新创建判题容器（`deploy/compose.dev.yaml --profile judge`）后复验：
+
+- `sandbox --version` → `v1.13.3`
+- `GET /version` → `buildVersion: v1.13.3`、`fixSymlinkEscape: true`
+- `hydrojudge 4.0.6` 启动日志不再输出 symlink escape 告警
+- C++ 提交闭环：`waiting -> compiling -> judging -> accepted`（`scripts/real-judge-smoke.sh`）
+- Python 3 提交闭环：`waiting -> compiling -> judging -> accepted`（`scripts/real-judge-python-smoke.sh`）
+
 ## 升级风险
 
 `v1.13.x` 相比 `v1.9.4` 启用了默认 seccomp 策略，并调整了部分文件复制/缺失文件行为。当前本地只验证了 C++ 和 Python；Java、Pascal、PHP、Rust、GHC、Go、Ruby、Mono 等镜像内语言仍需在发布前回归。
