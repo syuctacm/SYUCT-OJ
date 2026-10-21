@@ -38,6 +38,7 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/contests/:tid/attendees", h.addAttendees)
 	router.PATCH("/api/v1/contests/:tid/attendees/:uid", h.setAttendeeRank)
 	router.DELETE("/api/v1/contests/:tid/attendees/:uid", h.cancelAttendee)
+	router.POST("/api/v1/contests/:tid/attendees/:uid/resume", h.resumeAttendee)
 	router.GET("/api/v1/contests/:tid/clarifications", h.clarifications)
 	router.POST("/api/v1/contests/:tid/clarifications", h.addClarification)
 	router.POST("/api/v1/contests/:tid/clarifications/broadcast", h.broadcastClarification)
@@ -312,6 +313,31 @@ func (h *ContestHandler) setAttendeeRank(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update attendee"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *ContestHandler) resumeAttendee(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	if !item.EndAt.After(time.Now()) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "contest already ended"})
+		return
+	}
+	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
+	if err != nil || uid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+	if err := h.repo.Resume(c.Request.Context(), item.DocID.Hex(), uid); err != nil {
+		if errors.Is(err, contest.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "attendee not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to resume attendee"})
 		return
 	}
 	c.Status(http.StatusNoContent)

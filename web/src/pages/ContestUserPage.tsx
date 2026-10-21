@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   addContestAttendees, cancelContestAttendee, getContest, getContestAttendees,
-  setContestAttendeeRank,
+  resumeContestAttendee, setContestAttendeeRank,
   type Contest, type ContestAttendee, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
@@ -67,7 +67,7 @@ export function ContestUserPage() {
   }, [])
 
   function handleClick(event: Event) {
-    const target = (event.target as HTMLElement).closest<HTMLElement>('[name="add_user"], [name="edit_rank"], [name="cancel_registration"]')
+    const target = (event.target as HTMLElement).closest<HTMLElement>('[name="add_user"], [name="edit_rank"], [name="cancel_registration"], [name="resume_contest"]')
     if (!target) return
     event.preventDefault()
     const action = target.getAttribute('name')
@@ -78,6 +78,10 @@ export function ContestUserPage() {
     }
     const uid = Number(target.dataset.uid ?? 0)
     if (!uid) return
+    if (action === 'resume_contest') {
+      void run(() => resumeContestAttendee(tid, uid))
+      return
+    }
     if (action === 'edit_rank') {
       const current = statuses.find((item) => item.uid === uid)
       void run(() => setContestAttendeeRank(tid, uid, !current?.unrank))

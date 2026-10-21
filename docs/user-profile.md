@@ -37,6 +37,10 @@ gravatar 需要 MD5，浏览器没有同步实现，因此在 `web/src/upstream/
 
 所有页面和两个用户自动补全组件都使用同一个 `avatarUrl()`，不再各自内联 `value || '/logo.png'`。
 
+## 复制联系方式
+
+联系方式栏的 `[data-copy]` 按钮由 `web/src/upstream/clipboard.ts` 接管（移植自 `components/clipboard.page.ts`）：base64 解码后写入剪贴板，成功/失败都通过 Mantine 通知提示（`web/src/components/Notification.tsx`，移植自 `components/notification/index.ts`，`NotificationsHost` 挂在 `Layout` 上）。
+
 ## 账户设置
 
 `/home/settings?category=account` 由 `HydroTemplate` 直接渲染上游 `home_settings.html` + `partials/setting.html`，字段来自 `packages/hydrooj/src/model/setting.ts` 的 `AccountSetting(...)`：
@@ -62,7 +66,7 @@ gravatar 需要 MD5，浏览器没有同步实现，因此在 `web/src/upstream/
 
 ## 尚未完成
 
-- 微信图标和 `data-copy` 复制反馈（复制按钮当前无提示）
+- 微信图标
 - 头像上传（`#upload_avatar`）
 - 站内消息和安全设置两个账户页
 - 获赞题解（当前显示 0）

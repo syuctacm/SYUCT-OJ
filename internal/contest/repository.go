@@ -903,6 +903,29 @@ func (r *Repository) SetUnrank(ctx context.Context, tid string, uid int64, unran
 	return nil
 }
 
+// Resume clears the attendee's personal end time so they can continue a
+// flexible-duration contest, mirroring the upstream resume operation.
+func (r *Repository) Resume(ctx context.Context, tid string, uid int64) error {
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return ErrNotFound
+	}
+	result, err := r.statuses.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    oid,
+		"uid":      uid,
+		"attend":   1,
+	}, bson.M{"$unset": bson.M{"endAt": ""}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // CancelAttend removes the attendee status and keeps the counter in sync.
 func (r *Repository) CancelAttend(ctx context.Context, tid string, uid int64) error {
 	item, err := r.Get(ctx, tid)

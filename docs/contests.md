@@ -87,13 +87,13 @@
 - 「添加用户」按钮打开用户搜索对话框（`UserSelectAutoComplete`），可批量调用 `POST /api/v1/contests/:tid/attendees`
 - `edit_rank` 切换 `unrank`（`PATCH /api/v1/contests/:tid/attendees/:uid`）；`unrank` 的参赛者及其提交不计入榜单
 - 开赛前可 `cancel_registration`（`DELETE`），开赛后接口返回 400
+- 弹性时长比赛里参赛者个人 `endAt` 提前结束时，可点 `resume_contest`（`POST .../attendees/:uid/resume`）清空个人结束时间，比赛结束后接口返回 400
 - 榜单查询已经过滤 `unrank` 的参赛者
 
 ## 尚未完成
 
 - 比赛题目分值编辑（`name="set_score"` 目前是占位）
 - 导出所有代码和气球状态页
-- 弹性时长比赛的 `resume_contest`
 - 比赛题目的时间/权限访问控制
 - 组队和参赛状态（个人报名已实现，提交暂未强制要求报名）
 - 比赛管理中的气球、参赛者管理和导出代码入口（当前为占位）
