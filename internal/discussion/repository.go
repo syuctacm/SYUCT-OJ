@@ -2,6 +2,7 @@ package discussion
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -27,22 +28,24 @@ var (
 )
 
 type Discussion struct {
-	ID          bson.ObjectID `bson:"_id" json:"id"`
-	DocID       bson.ObjectID `bson:"docId" json:"docId"`
-	Title       string        `bson:"title" json:"title"`
-	Content     string        `bson:"content" json:"content,omitempty"`
-	Owner       int64         `bson:"owner" json:"owner"`
-	UpdateAt    time.Time     `bson:"updateAt" json:"updateAt"`
-	NReply      int64         `bson:"nReply" json:"nReply"`
-	Views       int64         `bson:"views" json:"views"`
-	Pin         bool          `bson:"pin" json:"pin"`
-	Highlight   bool          `bson:"highlight" json:"highlight"`
-	Lock        bool          `bson:"lock" json:"lock"`
-	Edited      bool          `bson:"edited" json:"edited"`
-	ParentType  int64         `bson:"parentType" json:"parentType"`
-	ParentID    any           `bson:"parentId" json:"parentId,omitempty"`
-	ParentTitle string        `bson:"-" json:"parentTitle,omitempty"`
-	Starred     bool          `bson:"-" json:"starred"`
+	ID          bson.ObjectID               `bson:"_id" json:"id"`
+	DocID       bson.ObjectID               `bson:"docId" json:"docId"`
+	Title       string                      `bson:"title" json:"title"`
+	Content     string                      `bson:"content" json:"content,omitempty"`
+	Owner       int64                       `bson:"owner" json:"owner"`
+	UpdateAt    time.Time                   `bson:"updateAt" json:"updateAt"`
+	NReply      int64                       `bson:"nReply" json:"nReply"`
+	Views       int64                       `bson:"views" json:"views"`
+	Pin         bool                        `bson:"pin" json:"pin"`
+	Highlight   bool                        `bson:"highlight" json:"highlight"`
+	Lock        bool                        `bson:"lock" json:"lock"`
+	Edited      bool                        `bson:"edited" json:"edited"`
+	ParentType  int64                       `bson:"parentType" json:"parentType"`
+	ParentID    any                         `bson:"parentId" json:"parentId,omitempty"`
+	ParentTitle string                      `bson:"-" json:"parentTitle,omitempty"`
+	Starred     bool                        `bson:"-" json:"starred"`
+	React       map[string]int64            `bson:"react,omitempty" json:"react,omitempty"`
+	Reactions   map[string]map[string]int64 `bson:"-" json:"reactions,omitempty"`
 }
 
 type Node struct {
@@ -61,14 +64,15 @@ type TailReply struct {
 }
 
 type Reply struct {
-	ID        bson.ObjectID `bson:"_id" json:"id"`
-	DocID     bson.ObjectID `bson:"docId" json:"docId"`
-	ParentID  bson.ObjectID `bson:"parentId" json:"parentId"`
-	Owner     int64         `bson:"owner" json:"owner"`
-	Content   string        `bson:"content" json:"content"`
-	Edited    bool          `bson:"edited" json:"edited"`
-	Replies   []TailReply   `bson:"reply" json:"replies,omitempty"`
-	CreatedAt time.Time     `bson:"-" json:"createdAt"`
+	ID        bson.ObjectID    `bson:"_id" json:"id"`
+	DocID     bson.ObjectID    `bson:"docId" json:"docId"`
+	ParentID  bson.ObjectID    `bson:"parentId" json:"parentId"`
+	Owner     int64            `bson:"owner" json:"owner"`
+	Content   string           `bson:"content" json:"content"`
+	Edited    bool             `bson:"edited" json:"edited"`
+	Replies   []TailReply      `bson:"reply" json:"replies,omitempty"`
+	React     map[string]int64 `bson:"react,omitempty" json:"react,omitempty"`
+	CreatedAt time.Time        `bson:"-" json:"createdAt"`
 }
 
 type Repository struct {
@@ -113,6 +117,117 @@ func (r *Repository) SetStar(ctx context.Context, did bson.ObjectID, uid int64, 
 		"uid":      uid,
 	}, bson.M{"$set": bson.M{"star": star}}, options.UpdateOne().SetUpsert(true))
 	return err
+}
+
+// React toggles one emoji reaction on a discussion or reply document and
+// returns the document counters plus the caller's own reactions. The semantics
+// mirror Hydro's discussion.react: the user status document keeps the flag and
+// the document keeps the aggregate count.
+func (r *Repository) React(ctx context.Context, docType int64, id bson.ObjectID, uid int64, emoji string, reverse bool) (map[string]int64, map[string]int64, error) {
+	if uid <= 0 {
+		return nil, nil, ErrNotFound
+	}
+	filter := bson.M{
+		"domainId": DomainSystem,
+		"docType":  docType,
+		"docId":    id,
+		"uid":      uid,
+	}
+	var sdoc struct {
+		React map[string]int64 `bson:"react"`
+	}
+	if err := r.statuses.FindOne(ctx, filter).Decode(&sdoc); err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, nil, err
+	}
+	self := sdoc.React
+	if self == nil {
+		self = map[string]int64{}
+	}
+	field := "react." + emoji
+	current := self[emoji] > 0
+	if current != !reverse {
+		if reverse {
+			if _, err := r.statuses.UpdateOne(ctx, filter, bson.M{"$unset": bson.M{field: ""}}); err != nil {
+				return nil, nil, err
+			}
+			delete(self, emoji)
+		} else {
+			if _, err := r.statuses.UpdateOne(ctx, filter, bson.M{"$set": bson.M{field: int64(1)}}, options.UpdateOne().SetUpsert(true)); err != nil {
+				return nil, nil, err
+			}
+			self[emoji] = 1
+		}
+		delta := int64(1)
+		if reverse {
+			delta = -1
+		}
+		if _, err := r.coll.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$inc": bson.M{field: delta}}); err != nil {
+			return nil, nil, err
+		}
+		if reverse {
+			_, _ = r.coll.UpdateOne(ctx, bson.M{"_id": id, field: bson.M{"$lte": 0}}, bson.M{"$unset": bson.M{field: ""}})
+		}
+	}
+	var doc struct {
+		React map[string]int64 `bson:"react"`
+	}
+	if err := r.coll.FindOne(ctx, bson.M{"_id": id}).Decode(&doc); err != nil {
+		return nil, nil, err
+	}
+	if doc.React == nil {
+		doc.React = map[string]int64{}
+	}
+	if len(doc.React) == 0 {
+		// Keep the document clean once the last reaction is removed.
+		_, _ = r.coll.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$unset": bson.M{"react": ""}})
+	}
+	return doc.React, self, nil
+}
+
+// ReplyBelongsTo reports whether the reply document belongs to the discussion.
+func (r *Repository) ReplyBelongsTo(ctx context.Context, discussionID, replyID bson.ObjectID) (bool, error) {
+	count, err := r.coll.CountDocuments(ctx, bson.M{
+		"domainId":   DomainSystem,
+		"docType":    DocumentTypeDiscussionReply,
+		"_id":        replyID,
+		"parentType": DocumentTypeDiscussion,
+		"parentId":   discussionID,
+	})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// Reactions loads the caller's own reaction maps for the given documents,
+// keyed by document id, so templates can mark reactions as active.
+func (r *Repository) Reactions(ctx context.Context, uid int64, ids []bson.ObjectID) (map[string]map[string]int64, error) {
+	result := map[string]map[string]int64{}
+	if uid <= 0 || len(ids) == 0 {
+		return result, nil
+	}
+	cursor, err := r.statuses.Find(ctx, bson.M{
+		"domainId": DomainSystem,
+		"uid":      uid,
+		"docId":    bson.M{"$in": ids},
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var sdoc struct {
+			DocID bson.ObjectID    `bson:"docId"`
+			React map[string]int64 `bson:"react"`
+		}
+		if err := cursor.Decode(&sdoc); err != nil {
+			return nil, err
+		}
+		if len(sdoc.React) > 0 {
+			result[sdoc.DocID.Hex()] = sdoc.React
+		}
+	}
+	return result, cursor.Err()
 }
 
 func (r *Repository) List(ctx context.Context) ([]Discussion, error) {

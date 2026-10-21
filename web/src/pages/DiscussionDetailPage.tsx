@@ -1,7 +1,7 @@
 // Page markup is rendered from the pinned Hydro ui-default template. Keep this
 // file limited to data mapping and the reply/lock interactions.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   createDiscussionReply, deleteDiscussionReply, getDiscussion, getDiscussionNodes, getDiscussionReplies,
   getUsersByIDs, setDiscussionLock, setDiscussionStar, updateDiscussionReply,
@@ -9,6 +9,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { mountDiscussionReactions } from '../components/DiscussionReaction.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 
 const DIS_PERMS = {
@@ -26,6 +27,7 @@ const DIS_PERMS = {
 export function DiscussionDetailPage() {
   const { did = '' } = useParams()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [discussion, setDiscussion] = useState<Discussion | null>(null)
   const [replies, setReplies] = useState<DiscussionReply[]>([])
   const [nodes, setNodes] = useState<DiscussionNode[]>([])
@@ -73,14 +75,14 @@ export function DiscussionDetailPage() {
       ...discussion,
       _id: discussion.docId,
       docId: discussion.docId,
-      react: {},
+      react: discussion.react ?? {},
     }
     const drdocs = replies.map((reply) => ({
       ...reply,
       _id: reply.id,
       docId: reply.docId || reply.id,
       parentId: reply.parentId || did,
-      react: {},
+      react: reply.react ?? {},
       reply: (reply.replies ?? []).map((tail) => ({ ...tail, _id: tail.id, react: {} })),
     }))
     const udict = Object.fromEntries(users.map((item) => [String(item.id), {
@@ -107,6 +109,7 @@ export function DiscussionDetailPage() {
           if (permission === DIS_PERMS.PERM_DELETE_DISCUSSION_REPLY) return isAdmin
           if (permission === DIS_PERMS.PERM_EDIT_DISCUSSION_REPLY_SELF) return Boolean(user)
           if (permission === DIS_PERMS.PERM_DELETE_DISCUSSION_REPLY_SELF) return Boolean(user)
+          if (permission === DIS_PERMS.PERM_ADD_REACTION) return Boolean(user)
           return false
         },
         hasPriv: (privilege: number) => privilege === 1 && Boolean(user),
@@ -135,7 +138,7 @@ export function DiscussionDetailPage() {
         type: 20,
         title: node.title || node.docId,
       } : { type: discussion.parentType, id: discussion.parentId },
-      reactions: {},
+      reactions: discussion.reactions ?? {},
       handler,
       perm: DIS_PERMS,
       PRIV: { PRIV_USER_PROFILE: 1 },
@@ -190,6 +193,12 @@ export function DiscussionDetailPage() {
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = [hydrateHydroEditForm(root)]
+    cleanups.push(mountDiscussionReactions(root, {
+      did,
+      canReact: Boolean(user),
+      onError: setActionError,
+      onRequireLogin: () => navigate('/login'),
+    }))
     for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
       const onSubmit = (event: SubmitEvent) => submitRef.current(event)
       form.addEventListener('submit', onSubmit)
@@ -199,7 +208,7 @@ export function DiscussionDetailPage() {
     root.addEventListener('click', onClick)
     cleanups.push(() => root.removeEventListener('click', onClick))
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [])
+  }, [did, navigate, user])
 
   // Inline boxes created for reply/edit follow the same markup the upstream JS
   // builds at runtime.
