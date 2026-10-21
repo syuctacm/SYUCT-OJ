@@ -791,6 +791,19 @@ func (r *Repository) DeleteFiles(ctx context.Context, tid string, names []string
 	return nil
 }
 
+// Unlock marks a locked scoreboard as unlocked so later submissions count.
+func (r *Repository) Unlock(ctx context.Context, tid string) (*Contest, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := r.coll.UpdateOne(ctx, bson.M{"_id": item.ID}, bson.M{"$set": bson.M{"unlocked": true}}); err != nil {
+		return nil, err
+	}
+	item.Unlocked = true
+	return item, nil
+}
+
 func (r *Repository) Get(ctx context.Context, tid string) (*Contest, error) {
 	oid, err := bson.ObjectIDFromHex(tid)
 	if err != nil {

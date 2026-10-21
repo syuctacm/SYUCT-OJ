@@ -31,6 +31,7 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/contests/:tid/attend", h.attend)
 	router.GET("/api/v1/contests/:tid/problems", h.problems)
 	router.GET("/api/v1/contests/:tid/scoreboard", h.scoreboard)
+	router.POST("/api/v1/contests/:tid/unlock", h.unlock)
 	router.GET("/api/v1/contests/:tid/clarifications", h.clarifications)
 	router.POST("/api/v1/contests/:tid/clarifications", h.addClarification)
 	router.POST("/api/v1/contests/:tid/clarifications/broadcast", h.broadcastClarification)
@@ -143,6 +144,33 @@ func (h *ContestHandler) scoreboard(c *gin.Context) {
 type contestDetailResponse struct {
 	*contest.Contest
 	Attended bool `json:"attended"`
+}
+
+func (h *ContestHandler) unlock(c *gin.Context) {
+	u, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	item, err := h.repo.Get(c.Request.Context(), c.Param("tid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+		return
+	}
+	if u.ID != item.Owner && u.Priv&1 == 0 && !containsInt64(item.Maintainer, u.ID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	if time.Now().Before(item.EndAt) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "contest is not ended"})
+		return
+	}
+	updated, err := h.repo.Unlock(c.Request.Context(), c.Param("tid"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to unlock scoreboard"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": updated})
 }
 
 func (h *ContestHandler) get(c *gin.Context) {

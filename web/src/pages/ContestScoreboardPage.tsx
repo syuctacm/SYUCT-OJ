@@ -10,6 +10,7 @@ import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
 import { translate } from '../upstream/render.ts'
+import { unlockContest } from '../api.ts'
 
 type ScoreboardColumn = {
   type: string
@@ -40,6 +41,7 @@ export function ContestScoreboardPage() {
   const [problems, setProblems] = useState<ProblemSummary[]>([])
   const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     setContest(null)
@@ -48,7 +50,7 @@ export function ContestScoreboardPage() {
       .then((data) => { setContest(data.contest); setRows(data.rows) })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '榜单加载失败'))
     getContestProblems(tid).then((data) => setProblems(data.problems)).catch(() => setProblems([]))
-  }, [tid])
+  }, [tid, reloadKey])
 
   useEffect(() => {
     if (!contest) return
@@ -219,23 +221,71 @@ export function ContestScoreboardPage() {
         const problem = problems.find((item) => String(item.docId) === raw || item.pid === raw)
         return `/p/${encodeURIComponent(problem?.pid || raw)}`
       }
-      // Scoreboard export views are not ported yet.
       case 'contest_scoreboard_view':
-      case 'homework_scoreboard_view':
-        return '#'
+      case 'homework_scoreboard_view': {
+        if (args.view === 'html') return `/contest/${encodeURIComponent(id)}/scoreboard`
+        if (args.view === 'csv') return '#export-csv'
+        return '#export-ghost'
+      }
       default: return '/'
     }
   }, [contest?.docId, problems, tid])
 
+  const downloadCSV = useCallback(() => {
+    if (!contest) return
+    const pids = contest.pids ?? []
+    const header = ['Rank', 'User', 'Solved', 'Penalty', ...pids.map((_, index) => String.fromCharCode(65 + index))]
+    const lines = [header.join(',')]
+    for (const row of rows) {
+      const cells = [
+        String(row.rank),
+        udict[String(row.uid)]?.uname ?? String(row.uid),
+        String(row.solved),
+        String(row.penalty),
+      ]
+      for (const pid of pids) {
+        const cell = row.problems[String(pid)]
+        let value = ''
+        if (cell?.solved) value = `AC(${cell.attempts})/${cell.time}`
+        else if (cell?.attempts) value = `-${cell.attempts}`
+        cells.push(value)
+      }
+      lines.push(cells.join(','))
+    }
+    const blob = new Blob([`\ufeff${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `scoreboard-${contest.docId}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }, [contest, rows, udict])
+
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = []
     for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
-      const onSubmit = (event: SubmitEvent) => event.preventDefault()
+      const onSubmit = (event: SubmitEvent) => {
+        const data = new FormData(form)
+        if (data.get('operation') !== 'unlock') {
+          event.preventDefault()
+          return
+        }
+        event.preventDefault()
+        void unlockContest(tid).then(() => setReloadKey((key) => key + 1))
+      }
       form.addEventListener('submit', onSubmit)
       cleanups.push(() => form.removeEventListener('submit', onSubmit))
     }
+    const onClick = (event: Event) => {
+      const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href="#export-csv"]')
+      if (!anchor) return
+      event.preventDefault()
+      downloadCSV()
+    }
+    root.addEventListener('click', onClick)
+    cleanups.push(() => root.removeEventListener('click', onClick))
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [])
+  }, [downloadCSV, tid])
 
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   if (!contest) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
