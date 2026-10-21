@@ -574,6 +574,47 @@ export async function markContestBalloonSent(tid: string, bid: string): Promise<
   await request(`/api/v1/contests/${encodeURIComponent(tid)}/balloons/${encodeURIComponent(bid)}/sent`, { method: 'POST' })
 }
 
+export type PrintTask = {
+  id: string
+  owner: number
+  title: string
+  content: string
+  status: 'pending' | 'printing' | 'printed' | 'failed' | string
+  createdAt?: string
+}
+
+export async function getPrintTasks(tid: string): Promise<{ items: PrintTask[]; users: UserChoice[]; isEditor: boolean }> {
+  const result = await request<Envelope<{ items: PrintTask[]; users: UserChoice[]; isEditor: boolean }>>(`/api/v1/contests/${encodeURIComponent(tid)}/print/tasks`)
+  return result.data
+}
+
+export async function addPrintTask(tid: string, title: string, content: string): Promise<PrintTask> {
+  const result = await request<Envelope<PrintTask>>(`/api/v1/contests/${encodeURIComponent(tid)}/print/tasks`, {
+    method: 'POST',
+    body: JSON.stringify({ title, content }),
+  })
+  return result.data
+}
+
+export async function allocatePrintTask(tid: string): Promise<{ task: PrintTask; user?: UserChoice } | null> {
+  const response = await fetch(`/api/v1/contests/${encodeURIComponent(tid)}/print/allocate`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (response.status === 204) return null
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const payload = await response.json() as Envelope<{ task: PrintTask; user?: UserChoice }>
+  return payload.data
+}
+
+export async function updatePrintTask(tid: string, taskId: string, status: 'printed' | 'pending'): Promise<void> {
+  await request(`/api/v1/contests/${encodeURIComponent(tid)}/print/tasks/${encodeURIComponent(taskId)}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status }),
+  })
+}
+
 export async function setContestProblemScore(tid: string, pid: number, score: number): Promise<void> {
   await request(`/api/v1/contests/${encodeURIComponent(tid)}/score`, {
     method: 'POST',

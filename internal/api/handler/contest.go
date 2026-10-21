@@ -46,6 +46,10 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/contests/:tid/balloons", h.balloons)
 	router.PUT("/api/v1/contests/:tid/balloons/colors", h.setBalloonColors)
 	router.POST("/api/v1/contests/:tid/balloons/:bid/sent", h.markBalloonSent)
+	router.GET("/api/v1/contests/:tid/print/tasks", h.printTasks)
+	router.POST("/api/v1/contests/:tid/print/tasks", h.addPrintTask)
+	router.POST("/api/v1/contests/:tid/print/allocate", h.allocatePrintTask)
+	router.POST("/api/v1/contests/:tid/print/tasks/:pid/status", h.updatePrintTask)
 	router.GET("/api/v1/contests/:tid/clarifications", h.clarifications)
 	router.POST("/api/v1/contests/:tid/clarifications", h.addClarification)
 	router.POST("/api/v1/contests/:tid/clarifications/broadcast", h.broadcastClarification)
@@ -276,6 +280,176 @@ func (h *ContestHandler) exportCode(c *gin.Context) {
 		return
 	}
 	exportCodeArchive(c, h.repo, item, u.ID, u.Priv&1 != 0)
+}
+
+// printAccess loads the contest and reports whether the caller may use the
+// print station, mirroring the upstream ContestPrintHandler gate.
+func (h *ContestHandler) printAccess(c *gin.Context) (*contest.Contest, *user.User, bool, bool) {
+	u, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, nil, false, false
+	}
+	item, err := h.repo.Get(c.Request.Context(), c.Param("tid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+		return nil, nil, false, false
+	}
+	if !item.AllowPrint {
+		c.JSON(http.StatusNotFound, gin.H{"error": "printing is disabled for this contest"})
+		return nil, nil, false, false
+	}
+	isEditor := item.Owner == u.ID || u.Priv&1 != 0
+	if !isEditor {
+		attended, err := h.repo.Attended(c.Request.Context(), item.DocID.Hex(), u.ID)
+		if err != nil || !attended {
+			c.JSON(http.StatusForbidden, gin.H{"error": "attend the contest first"})
+			return nil, nil, false, false
+		}
+	}
+	return item, u, isEditor, true
+}
+
+func (h *ContestHandler) printTasks(c *gin.Context) {
+	item, u, isEditor, ok := h.printAccess(c)
+	if !ok {
+		return
+	}
+	owner := u.ID
+	if isEditor {
+		owner = 0
+	}
+	tasks, err := h.repo.PrintTasks(c.Request.Context(), item.DocID.Hex(), owner)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load print tasks"})
+		return
+	}
+	ids := make([]int64, 0, len(tasks))
+	seen := map[int64]bool{}
+	for _, task := range tasks {
+		if task.Owner > 0 && !seen[task.Owner] {
+			seen[task.Owner] = true
+			ids = append(ids, task.Owner)
+		}
+	}
+	users := []gin.H{}
+	if len(ids) > 0 {
+		items, err := h.users.FindByIDs(c.Request.Context(), ids)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load print tasks"})
+			return
+		}
+		for _, account := range items {
+			users = append(users, gin.H{
+				"id": account.ID, "username": account.Uname,
+				"displayName": account.DisplayName, "avatar": account.Avatar,
+			})
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+		"items": tasks, "users": users, "isEditor": isEditor,
+	}})
+}
+
+func (h *ContestHandler) addPrintTask(c *gin.Context) {
+	item, u, _, ok := h.printAccess(c)
+	if !ok {
+		return
+	}
+	var request struct {
+		Title   string `json:"title"`
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if strings.TrimSpace(request.Content) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "content is required"})
+		return
+	}
+	if len(request.Content) > 1024*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "content is too large"})
+		return
+	}
+	if item.EndAt.Before(time.Now()) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "contest has ended"})
+		return
+	}
+	task, err := h.repo.AddPrintTask(c.Request.Context(), item.DocID.Hex(), u.ID, request.Title, request.Content)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to queue print task"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": task})
+}
+
+func (h *ContestHandler) allocatePrintTask(c *gin.Context) {
+	item, _, isEditor, ok := h.printAccess(c)
+	if !ok {
+		return
+	}
+	if !isEditor {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	task, err := h.repo.AllocatePrintTask(c.Request.Context(), item.DocID.Hex())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to allocate print task"})
+		return
+	}
+	if task == nil {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	var owner *user.User
+	if u, err := h.users.FindByID(c.Request.Context(), task.Owner); err == nil {
+		owner = u
+	}
+	payload := gin.H{"task": task}
+	if owner != nil {
+		payload["user"] = gin.H{
+			"id": owner.ID, "username": owner.Uname,
+			"displayName": owner.DisplayName, "avatar": owner.Avatar,
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": payload})
+}
+
+func (h *ContestHandler) updatePrintTask(c *gin.Context) {
+	item, _, isEditor, ok := h.printAccess(c)
+	if !ok {
+		return
+	}
+	if !isEditor {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	var request struct {
+		Status string `json:"status"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if request.Status != contest.PrintPrinted && request.Status != contest.PrintPending {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status"})
+		return
+	}
+	id, err := bson.ObjectIDFromHex(c.Param("pid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+	if err := h.repo.UpdatePrintTask(c.Request.Context(), item.DocID.Hex(), id, request.Status); err != nil {
+		if errors.Is(err, contest.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "print task not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update print task"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *ContestHandler) balloons(c *gin.Context) {

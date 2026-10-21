@@ -126,8 +126,7 @@ export function ContestDetailPage() {
       case 'contest_manage': return `/contest/${encodeURIComponent(id)}/management`
       case 'contest_code': return `/api/v1/contests/${encodeURIComponent(id)}/code`
       // Contest printing is not ported yet; keep the upstream entry inert.
-      case 'contest_print':
-        return '#'
+      case 'contest_print': return `/contest/${encodeURIComponent(id)}/print`
       default: return '/'
     }
   }, [contest?.docId, tid])
