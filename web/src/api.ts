@@ -172,6 +172,28 @@ export async function deleteActivityFiles(resource: ActivityFileResource, tid: s
   })
 }
 
+export async function getUserFiles(): Promise<ActivityFile[]> {
+  const result = await request<Envelope<{ items: ActivityFile[]; total: number }>>('/api/v1/user/files')
+  return result.data.items
+}
+
+export async function uploadUserFiles(files: File[]): Promise<ActivityFile[]> {
+  const body = new FormData()
+  for (const file of files) body.append('files', file)
+  const result = await request<Envelope<{ items: ActivityFile[]; total: number }>>('/api/v1/user/files', {
+    method: 'POST',
+    body,
+  })
+  return result.data.items
+}
+
+export async function deleteUserFiles(names: string[]): Promise<void> {
+  await request('/api/v1/user/files', {
+    method: 'DELETE',
+    body: JSON.stringify({ names }),
+  })
+}
+
 export type ProblemAssetList = {
   problem: ProblemDetail
   testdata: ProblemAsset[]

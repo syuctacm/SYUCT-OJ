@@ -106,9 +106,9 @@ export function HomeSettingsPage() {
         }
         return `/home/messages${params.toString() ? `?${params.toString()}` : ''}`
       }
-      // Domain, file and security pages are not ported yet.
+      case 'home_files': return '/file'
+      // Domain and security pages are not ported yet.
       case 'home_domain':
-      case 'home_files':
       case 'home_security':
         return '#'
       default: return '#'
@@ -128,7 +128,7 @@ export function HomeSettingsPage() {
         displayName: user?.displayName ?? '',
         viewLang: 'zh',
         _dudoc: { join: true },
-        hasPriv: (privilege: number) => privilege === 1 && Boolean(user),
+        hasPriv: (privilege: number) => Boolean(user) && (privilege === 1 || privilege === 2),
         hasPerm: () => false,
         own: () => true,
       },
@@ -142,7 +142,7 @@ export function HomeSettingsPage() {
       ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
     },
     perm: {},
-    PRIV: { PRIV_USER_PROFILE: 1, PRIV_CREATE_FILE: 16, PRIV_EDIT_SYSTEM: 1 },
+    PRIV: { PRIV_USER_PROFILE: 1, PRIV_CREATE_FILE: 2, PRIV_EDIT_SYSTEM: 3 },
     avatarUrl,
     UiContext: {},
     UserContext: user,

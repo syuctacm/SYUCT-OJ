@@ -59,6 +59,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	}
 	if userRepo != nil {
 		handler.NewUserHandler(userRepo, sessions).RegisterRoutes(router.Group("/"))
+		handler.NewUserFileHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
 	}
 	if adminHandler != nil {
 		adminHandler.RegisterRoutes(router.Group("/"))

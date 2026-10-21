@@ -70,7 +70,7 @@ export function UserProfilePage() {
           viewLang: 'zh',
           _dudoc: { join: true },
           hasPerm: (permission: number) => permission === USER_PERMS.PERM_VIEW_USER_PRIVATE_INFO && Boolean(viewer),
-          hasPriv: (privilege: number) => privilege === 1 && Boolean(viewer),
+          hasPriv: (privilege: number) => Boolean(viewer) && (privilege === 1 || privilege === 2),
           own: (doc?: unknown) => Boolean(viewer && doc && (doc as { owner?: number }).owner === viewer.id),
         },
         args: { domainId: 'system' },
@@ -83,10 +83,7 @@ export function UserProfilePage() {
         ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
       },
       perm: USER_PERMS,
-      PRIV: { PRIV_USER_PROFILE: 1, PRIV_MOD_BADGE: 2 },
-      model: {
-        builtin: { USER_GENDER_OTHER: 0, USER_GENDER_RANGE: {}, USER_GENDER_ICONS: {} },
-      },
+      PRIV: { PRIV_USER_PROFILE: 1, PRIV_CREATE_FILE: 2, PRIV_MOD_BADGE: 3 },
       avatarUrl,
       UiContext: {},
       UserContext: viewer,
@@ -97,9 +94,9 @@ export function UserProfilePage() {
     switch (name) {
       case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? uid))}`
       case 'home_settings': return `/home/settings?category=${encodeURIComponent(String(args.category ?? 'account'))}`
-      // Messages, files and security pages are not ported yet.
+      case 'home_files': return '/file'
+      // Messages, security and domain pages are not ported yet.
       case 'home_messages':
-      case 'home_files':
       case 'home_security':
       case 'home_domain':
       case 'homepage':
