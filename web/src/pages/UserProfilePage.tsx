@@ -97,11 +97,11 @@ export function UserProfilePage() {
       case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? uid))}`
       case 'home_settings': return `/home/settings?category=${encodeURIComponent(String(args.category ?? 'account'))}`
       case 'home_files': return '/file'
-      // Messages, security and domain pages are not ported yet.
-      case 'home_messages':
+      case 'home_messages': return '/home/messages'
+      case 'homepage': return '/'
+      // Security and domain pages are not ported yet.
       case 'home_security':
       case 'home_domain':
-      case 'homepage':
         return '#'
       case 'problem_detail': return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
       case 'contest_detail': return `/contest/${encodeURIComponent(String(args.tid ?? ''))}`
