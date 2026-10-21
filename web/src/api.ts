@@ -1312,3 +1312,42 @@ export async function deleteSolutionReply(pid: string, sid: string, rid: string)
     { method: 'DELETE' },
   )
 }
+
+export type MessageDoc = {
+  id: string
+  from: number
+  to: number[]
+  content: string
+  flag: number
+  createdAt: string
+}
+
+export type MessageDialogue = {
+  id: number
+  user: UserChoice
+  messages: MessageDoc[]
+}
+
+export type MessagePadData = {
+  items: MessageDialogue[]
+  unread: number
+}
+
+export async function getMessages(): Promise<MessagePadData> {
+  const result = await request<Envelope<MessagePadData>>('/api/v1/messages')
+  return result.data
+}
+
+export async function sendMessage(uid: number, content: string): Promise<MessageDoc> {
+  const result = await request<Envelope<MessageDoc>>('/api/v1/messages', {
+    method: 'POST',
+    body: JSON.stringify({ uid, content }),
+  })
+  return result.data
+}
+
+export async function deleteMessage(id: string): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>(`/api/v1/messages/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}

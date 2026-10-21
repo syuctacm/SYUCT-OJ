@@ -137,7 +137,6 @@
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
-| `/home/messages` | 未迁移 | 上游是 Redux + WebSocket 的 messagepad；账号侧栏和 `/home/settings` 仍有入口 |
 | `/home/security` | 未迁移 | 会话管理、修改密码、修改邮箱、2FA、OAuth 绑定；改邮箱依赖邮件服务 |
 | 题目统计页 | 未迁移 | 上游 `problem_statistics.html` 含两张图表和提交表格；题目侧栏入口暂时隐藏 |
 | FPS 导入 | 未迁移 | 上游 `fps-importer` 插件：XML/zip → 题目 + 测试数据；计划里保留该功能 |
@@ -149,4 +148,5 @@
 
 - 题解：见 `docs/problems.md` 的“题解”一节
 - 用户主页“题解被赞”：见 `docs/user-profile.md`
+- 站内消息：见 `docs/messages.md`
 - 标签统计、活跃日历：见 `docs/tag-stat.md`、`docs/activity-calendar.md`

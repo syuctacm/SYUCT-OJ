@@ -11,6 +11,7 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/contest"
 	"github.com/syuctacm/syuct-oj/internal/discussion"
 	"github.com/syuctacm/syuct-oj/internal/judge"
+	"github.com/syuctacm/syuct-oj/internal/message"
 	"github.com/syuctacm/syuct-oj/internal/problem"
 	"github.com/syuctacm/syuct-oj/internal/training"
 	"github.com/syuctacm/syuct-oj/internal/user"
@@ -62,6 +63,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	}
 	if userRepo != nil {
 		handler.NewUserHandler(userRepo, sessions, problemRepo).RegisterRoutes(router.Group("/"))
+		handler.NewMessageHandler(message.NewRepository(db), sessions, userRepo).RegisterRoutes(router.Group("/"))
 		handler.NewUserFileHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
 	}
 	if adminHandler != nil {
