@@ -404,6 +404,47 @@ func (r *Repository) GetHomework(ctx context.Context, tid string) (*Contest, err
 	return item, nil
 }
 
+// ProblemStatus is the latest submission of a user for one problem.
+type ProblemStatus struct {
+	RID    string `json:"rid"`
+	Status int    `json:"status"`
+	Score  int    `json:"score"`
+}
+
+// UserProblemStatus returns the latest submission of the user for each problem.
+func (r *Repository) UserProblemStatus(ctx context.Context, uid int64, pids []int64) (map[int64]ProblemStatus, error) {
+	result := map[int64]ProblemStatus{}
+	if uid <= 0 || len(pids) == 0 {
+		return result, nil
+	}
+	cursor, err := r.records.Find(ctx, bson.M{
+		"uid": uid,
+		"pid": bson.M{"$in": pids},
+	}, options.Find().
+		SetProjection(bson.M{"pid": 1, "status": 1, "score": 1}).
+		SetSort(bson.D{{Key: "_id", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var items []struct {
+		ID     bson.ObjectID `bson:"_id"`
+		PID    int64         `bson:"pid"`
+		Status int           `bson:"status"`
+		Score  int           `bson:"score"`
+	}
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		if _, ok := result[item.PID]; ok {
+			continue
+		}
+		result[item.PID] = ProblemStatus{RID: item.ID.Hex(), Status: item.Status, Score: item.Score}
+	}
+	return result, nil
+}
+
 func (r *Repository) Problems(ctx context.Context, tid string) (*Contest, []problem.Problem, error) {
 	item, err := r.Get(ctx, tid)
 	if err != nil {

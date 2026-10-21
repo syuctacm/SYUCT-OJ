@@ -46,6 +46,9 @@ export const CONTEST_PERMS = {
   PERM_CREATE_DISCUSSION: 8,
   PERM_VIEW_DISCUSSION: 9,
   PERM_MOD_BADGE: 10,
+  PERM_ATTEND_HOMEWORK: 11,
+  PERM_EDIT_HOMEWORK: 12,
+  PERM_VIEW_HOMEWORK_SCOREBOARD: 13,
 } as const
 
 export function isNew(tdoc: ContestDocLike, days = 1) {
@@ -137,27 +140,54 @@ function canViewHiddenScoreboard(handler: HandlerLike, tdoc: ContestDocLike) {
   return handler.user.hasPerm(CONTEST_PERMS.PERM_VIEW_CONTEST_HIDDEN_SCOREBOARD)
 }
 
-// Upstream templates call these as `model.contest.canShowRecord.call(handler, tdoc)`,
-// but nunjucks invokes them as methods of `model.contest` and drops the `this`
-// binding, so the handler is captured here instead.
+// Upstream templates call these either as `model.contest.canShowRecord.call(handler, tdoc)`
+// or as `model.contest.canViewHiddenScoreboard(handler, tdoc)`. Nunjucks invokes
+// them as methods of `model.contest` and drops the `this` binding, so the handler
+// is captured here and the arguments are normalized for both call styles.
 export function createContestModel(handler: HandlerLike) {
-  function canShowRecord(tdoc: ContestDocLike, allowPermOverride = true) {
+  function normalize(args: unknown[]) {
+    const first = args[0]
+    if (first && typeof first === 'object' && 'user' in (first as Record<string, unknown>)) {
+      return {
+        handler: first as HandlerLike,
+        tdoc: args[1] as ContestDocLike,
+        allow: args.length > 2 ? Boolean(args[2]) : true,
+      }
+    }
+    return {
+      handler,
+      tdoc: first as ContestDocLike,
+      allow: args.length > 1 ? Boolean(args[1]) : true,
+    }
+  }
+  function canShowRecord(...args: unknown[]) {
+    const { handler: current, tdoc, allow } = normalize(args)
+    if (!tdoc) return false
     const rule = RULES[tdoc.rule]
     if (rule?.showRecord(tdoc, new Date())) return true
-    if (allowPermOverride && canViewHiddenScoreboard(handler, tdoc)) return true
+    if (allow && canViewHiddenScoreboard(current, tdoc)) return true
     return false
   }
-  function canShowSelfRecord(tdoc: ContestDocLike, allowPermOverride = true) {
+  function canShowSelfRecord(...args: unknown[]) {
+    const { handler: current, tdoc, allow } = normalize(args)
+    if (!tdoc) return false
     const rule = RULES[tdoc.rule]
     if (rule?.showSelfRecord(tdoc, new Date())) return true
-    if (allowPermOverride && canViewHiddenScoreboard(handler, tdoc)) return true
+    if (allow && canViewHiddenScoreboard(current, tdoc)) return true
     return false
   }
-  function canShowScoreboard(tdoc: ContestDocLike, allowPermOverride = true) {
+  function canShowScoreboard(...args: unknown[]) {
+    const { handler: current, tdoc, allow } = normalize(args)
+    if (!tdoc) return false
     const rule = RULES[tdoc.rule]
     if (rule?.showScoreboard(tdoc, new Date())) return true
-    if (allowPermOverride && canViewHiddenScoreboard(handler, tdoc)) return true
+    if (allow && canViewHiddenScoreboard(current, tdoc)) return true
     return false
+  }
+  function canViewHiddenScoreboardFor(...args: unknown[]) {
+    const { handler: current, tdoc } = normalize(args)
+    if (!tdoc) return false
+    return canViewHiddenScoreboard(current, tdoc)
   }
   return {
     RULES,
@@ -169,6 +199,6 @@ export function createContestModel(handler: HandlerLike) {
     canShowRecord,
     canShowSelfRecord,
     canShowScoreboard,
-    canViewHiddenScoreboard: (tdoc: ContestDocLike) => canViewHiddenScoreboard(handler, tdoc),
+    canViewHiddenScoreboard: canViewHiddenScoreboardFor,
   }
 }
