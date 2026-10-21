@@ -8,6 +8,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { readScoreboardStars, writeScoreboardStars } from '../upstream/scoreboard-star.ts'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
 import { translate } from '../upstream/render.ts'
 import { unlockContest } from '../api.ts'
@@ -278,6 +279,91 @@ export function ContestScoreboardPage() {
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = []
+    const contestKey = `system/${contest?.docId ?? tid}`
+    const starButtons = [...root.querySelectorAll<HTMLElement>('.star[data-uid]')]
+    const filterSelect = root.querySelector<HTMLSelectElement>('select.select.filter')
+    let stars: number[] = []
+    let cancelled = false
+
+    const uidOfRow = (row: Element) => Number(row.querySelector('.star[data-uid]')?.getAttribute('data-uid') ?? 0)
+    const rowOf = (element: Element | null) => element?.closest('tr') ?? null
+
+    const applyStars = () => {
+      for (const star of starButtons) {
+        const uid = Number(star.getAttribute('data-uid') ?? 0)
+        const active = stars.includes(uid)
+        star.classList.toggle('activated', active)
+        rowOf(star)?.classList.toggle('star-highlight', active)
+      }
+      if (user?.id) rowOf(root.querySelector(`.star.user--${user.id}`))?.classList.add('star-highlight')
+    }
+
+    const applyFilter = () => {
+      if (!filterSelect) return
+      const value = filterSelect.value
+      const rows = [...root.querySelectorAll<HTMLElement>('.data-table tbody tr')]
+      if (value === 'star') {
+        for (const row of rows) row.style.display = stars.includes(uidOfRow(row)) ? '' : 'none'
+        return
+      }
+      if (value === 'rank') {
+        for (const row of rows) row.style.display = row.querySelector('.rank--unrank') ? 'none' : ''
+        return
+      }
+      if (value === 'all' || !value) {
+        for (const row of rows) row.style.display = ''
+        return
+      }
+      const uids = value.split(',').map((item) => Number(item.trim())).filter(Boolean)
+      for (const row of rows) row.style.display = uids.includes(uidOfRow(row)) ? '' : 'none'
+    }
+
+    const applyHashFilter = () => {
+      if (!filterSelect) return
+      const hash = location.hash.slice(1)
+      if (!hash.startsWith('filter=')) return
+      filterSelect.value = hash.slice(7)
+      applyFilter()
+    }
+
+    void readScoreboardStars(contestKey).then((stored) => {
+      if (cancelled) return
+      stars = stored
+      applyStars()
+      applyFilter()
+    })
+
+    if (filterSelect) {
+      const hash = location.hash.slice(1)
+      if (hash.startsWith('filter=')) filterSelect.value = hash.slice(7)
+      const onChange = () => {
+        applyFilter()
+        history.replaceState(null, '', `#filter=${filterSelect.value}`)
+      }
+      filterSelect.addEventListener('change', onChange)
+      cleanups.push(() => filterSelect.removeEventListener('change', onChange))
+    }
+    const onHashChange = () => applyHashFilter()
+    window.addEventListener('hashchange', onHashChange)
+    cleanups.push(() => window.removeEventListener('hashchange', onHashChange))
+
+    const onStarClick = (event: Event) => {
+      const star = (event.target as HTMLElement).closest<HTMLElement>('.star[data-uid]')
+      if (!star) return
+      event.preventDefault()
+      const uid = Number(star.getAttribute('data-uid') ?? 0)
+      if (!uid) return
+      stars = stars.includes(uid) ? stars.filter((item) => item !== uid) : [...stars, uid]
+      applyStars()
+      applyFilter()
+      void writeScoreboardStars(contestKey, stars)
+    }
+    root.addEventListener('click', onStarClick)
+    cleanups.push(() => root.removeEventListener('click', onStarClick))
+
+    // The Ghost export comes from an addon this rewrite does not keep.
+    root.querySelectorAll('a[href="#export-ghost"]').forEach((link) => link.remove())
+
     for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
       const onSubmit = (event: SubmitEvent) => {
         const data = new FormData(form)
@@ -299,8 +385,11 @@ export function ContestScoreboardPage() {
     }
     root.addEventListener('click', onClick)
     cleanups.push(() => root.removeEventListener('click', onClick))
-    return () => cleanups.forEach((cleanup) => cleanup())
-  }, [downloadCSV, tid])
+    return () => {
+      cancelled = true
+      cleanups.forEach((cleanup) => cleanup())
+    }
+  }, [contest?.docId, downloadCSV, tid, user?.id])
 
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   if (!contest) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>

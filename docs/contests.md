@@ -90,6 +90,12 @@
 - 弹性时长比赛里参赛者个人 `endAt` 提前结束时，可点 `resume_contest`（`POST .../attendees/:uid/resume`）清空个人结束时间，比赛结束后接口返回 400
 - 榜单查询已经过滤 `unrank` 的参赛者
 
+## 榜单筛选
+
+榜单页顶部的下拉（所有用户 / 关注用户 / 排名用户）与每行的星标由 `web/src/upstream/scoreboard-star.ts` + 榜单页接管，移植自 `pages/contest_scoreboard.page.ts`：星标存在 IndexedDB 的 `scoreboard-star`（按 `domainId/docId` 区分），支持 `#filter=` 同步与刷新后恢复。
+
+模板里的 `Export as Ghost` 按钮属于 `scoreboard-xcipcio` 插件，重写版不保留插件生态，页面加载时会移除该按钮（HTML/CSV 导出保留）。
+
 ## 题目分值
 
 - 比赛文档新增 `score` 映射（`{pid: 分值}`），管理页的分值单元格可点击编辑
