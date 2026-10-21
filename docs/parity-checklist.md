@@ -84,7 +84,7 @@
 冒烟回归覆盖全部路由（匿名 + 管理员），页面均无模板渲染错误：
 
 - 前台：`/`、`/p`、`/p/:pid`、`/p/:pid/submit`（未登录提示）、`/p/tag/:tag`、`/contest`、`/contest/:tid`、`/contest/:tid/scoreboard`、`/contest/:tid/problems`（未报名提示）、`/homework`、`/homework/:tid`、`/homework/:tid/scoreboard`、`/training`、`/training/:tid`、`/discuss`、`/discuss/node/:name`、`/discuss/:did`、`/user/:uid`、`/login`
-- 登录后：`/record`、`/record/:rid`、`/admin`、`/admin/users`、`/p/new`、`/p/:pid/edit`、`/p/:pid/config`、`/p/:pid/files`、`/contest/new`、`/contest/:tid/edit`、`/contest/:tid/files`、`/homework/new`、`/homework/:tid/edit`、`/homework/:tid/file`、`/training/new`、`/training/:tid/edit`、`/training/:tid/file`、`/discuss/node/:name/create`、`/discuss/:did/edit`
+- 登录后：`/record`、`/record/:rid`、`/admin`、`/admin/users`、`/p/new`、`/p/:pid/edit`、`/p/:pid/config`、`/p/:pid/files`、`/contest/new`、`/contest/:tid/edit`、`/contest/:tid/management`、`/homework/new`、`/homework/:tid/edit`、`/homework/:tid/file`、`/training/new`、`/training/:tid/edit`、`/training/:tid/file`、`/discuss/node/:name/create`、`/discuss/:did/edit`
 - `/discuss/new` 无节点参数时按上游行为回到讨论首页
 
 关键交互已在对应 PR 中逐项验证：
@@ -106,11 +106,11 @@
 ## 7. 当前已知差异
 
 ```text
-页面：首页 / 作业文件 / 训练文件 / 登录 / 比赛 / 比赛答疑管理 / 作业 / 训练 / 讨论列表 / 讨论详情 / 讨论创建与编辑 / 用户主页 / 排行榜 / 题目列表 / 题目详情 / 题目编辑 / 比赛列表 / 比赛详情 / 比赛榜单 / 作业列表 / 作业详情 / 训练列表 / 训练详情 / 题目文件 / 题目提交 / 记录列表 / 记录详情
+页面：首页 / 作业文件 / 训练文件 / 比赛管理页 / 登录 / 比赛 / 比赛答疑管理 / 作业 / 训练 / 讨论列表 / 讨论详情 / 讨论创建与编辑 / 用户主页 / 排行榜 / 题目列表 / 题目详情 / 题目编辑 / 比赛列表 / 比赛详情 / 比赛榜单 / 作业列表 / 作业详情 / 训练列表 / 训练详情 / 题目文件 / 题目提交 / 记录列表 / 记录详情
 旧站行为：Nunjucks 模板、Markdown 编辑器、日期控件、自动补全和 Ctrl+Enter
 新站行为：直接渲染 @hydrooj/ui-default 4.58.5 原模板；比赛/作业/训练上传接入活动文件 API，题目上传接入题目附加文件 API；日期控件、自动补全和编辑器作为交互岛挂载
 差异级别：中
 是否接受：部分接受
 负责人：待定
-后续处理：语言列表改为服务端配置；训练计划的 data-json 编辑器仍待接入；题库批量编辑/删除/复制尚未接入；比赛 / 作业 / 训练列表的团队入口隐藏；训练详情的他人进度对比和标题导航尚未接入；Ghost 榜单导出和关注/筛选下拉尚未接入；比赛/作业管理、打印、导出代码入口为占位；讨论反应/历史版本尚未接入；用户主页的获赞题解和账号侧栏尚未接入；首页的公告/一言/收藏区块未接入；其余页面继续从手写 TSX 迁移到 HydroTemplate
+后续处理：语言列表改为服务端配置；训练计划的 data-json 编辑器仍待接入；题库批量编辑/删除/复制尚未接入；比赛 / 作业 / 训练列表的团队入口隐藏；训练详情的他人进度对比和标题导航尚未接入；Ghost 榜单导出和关注/筛选下拉尚未接入；比赛分值编辑、参赛者管理、打印、导出代码入口为占位；讨论反应/历史版本尚未接入；用户主页的获赞题解和账号侧栏尚未接入；首页的公告/一言/收藏区块未接入；其余页面继续从手写 TSX 迁移到 HydroTemplate
 ```

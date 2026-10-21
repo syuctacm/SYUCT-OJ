@@ -43,15 +43,15 @@ training/system/<tid>/<name>
 
 ## 前端
 
-- `/contest/:tid/files`（仍是手写页，后续迁移到 `contest_manage.html`）
+- `/contest/:tid/management`（旧路径 `/contest/:tid/files` 保留为别名）
 - `/homework/:tid/file`（旧路径 `/homework/:tid/files` 保留为别名）
 - `/training/:tid/file`（旧路径 `/training/:tid/files` 保留为别名）
 
-作业文件页直接渲染上游 `homework_files.html`，训练文件页直接渲染 `training_files.html`，两页都包含 `partials/files.html`，因此上传、下载、批量选择和删除的 DOM 与旧站一致；React 只负责事件适配。比赛文件页仍是手写实现，等私有资料接口就绪后与 `contest_manage.html` 一起迁移。
+作业文件页直接渲染上游 `homework_files.html`，训练文件页直接渲染 `training_files.html`，比赛管理页直接渲染上游 `contest_manage.html`；三页都包含 `partials/files.html`，因此上传、下载、批量选择和删除的 DOM 与旧站一致，React 只负责事件适配。比赛管理页额外渲染参赛者资料区和题目分值表。
 
 比赛、作业、训练的编辑页已把 Markdown 编辑器上传按钮接到对应文件接口：上传成功后插入文件下载 URL，并刷新比赛编辑页的原版文件侧栏。
 
 ## 尚未完成
 
-- 比赛私有文件 `privateFiles`
-- 文件拖拽上传和旧站批量选择脚本
+- 比赛私有资料的参赛者可见性开关（当前与上游一致：报名且开赛后可见）
+- 文件重命名和「创建测试数据」等上游文件工具

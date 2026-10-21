@@ -80,6 +80,7 @@ type Contest struct {
 	AllowTeam            bool               `bson:"allowTeam,omitempty" json:"allowTeam"`
 	KeepScoreboardHidden bool               `bson:"keepScoreboardHidden,omitempty" json:"keepScoreboardHidden"`
 	Files                []filemeta.File    `bson:"files,omitempty" json:"files,omitempty"`
+	PrivateFiles         []filemeta.File    `bson:"privateFiles,omitempty" json:"-"`
 	InvitationCode       string             `bson:"_code,omitempty" json:"invitationCode,omitempty"`
 }
 
@@ -748,16 +749,38 @@ func (r *Repository) FileOwner(ctx context.Context, tid string) (int64, error) {
 }
 
 func (r *Repository) Files(ctx context.Context, tid string) ([]filemeta.File, error) {
+	return r.files(ctx, tid, "files")
+}
+
+func (r *Repository) PrivateFiles(ctx context.Context, tid string) ([]filemeta.File, error) {
+	return r.files(ctx, tid, "privateFiles")
+}
+
+func (r *Repository) files(ctx context.Context, tid, field string) ([]filemeta.File, error) {
 	item, err := r.Get(ctx, tid)
 	if err != nil {
 		return nil, err
 	}
-	files := append([]filemeta.File(nil), item.Files...)
+	var stored []filemeta.File
+	if field == "privateFiles" {
+		stored = item.PrivateFiles
+	} else {
+		stored = item.Files
+	}
+	files := append([]filemeta.File(nil), stored...)
 	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
 	return files, nil
 }
 
 func (r *Repository) UpsertFile(ctx context.Context, tid string, file filemeta.File) error {
+	return r.upsertFile(ctx, tid, "files", file)
+}
+
+func (r *Repository) UpsertPrivateFile(ctx context.Context, tid string, file filemeta.File) error {
+	return r.upsertFile(ctx, tid, "privateFiles", file)
+}
+
+func (r *Repository) upsertFile(ctx context.Context, tid, field string, file filemeta.File) error {
 	oid, err := bson.ObjectIDFromHex(tid)
 	if err != nil {
 		return ErrNotFound
@@ -765,7 +788,7 @@ func (r *Repository) UpsertFile(ctx context.Context, tid string, file filemeta.F
 	if err := filemeta.Upsert(ctx, r.coll, bson.M{
 		"domainId": DomainSystem, "docType": DocumentTypeContest,
 		"$or": []bson.M{{"docId": oid}, {"_id": oid}},
-	}, "files", file); err != nil {
+	}, field, file); err != nil {
 		if err == filemeta.ErrNotFound {
 			return ErrNotFound
 		}
@@ -775,6 +798,14 @@ func (r *Repository) UpsertFile(ctx context.Context, tid string, file filemeta.F
 }
 
 func (r *Repository) DeleteFiles(ctx context.Context, tid string, names []string) error {
+	return r.deleteFiles(ctx, tid, "files", names)
+}
+
+func (r *Repository) DeletePrivateFiles(ctx context.Context, tid string, names []string) error {
+	return r.deleteFiles(ctx, tid, "privateFiles", names)
+}
+
+func (r *Repository) deleteFiles(ctx context.Context, tid, field string, names []string) error {
 	oid, err := bson.ObjectIDFromHex(tid)
 	if err != nil {
 		return ErrNotFound
@@ -782,13 +813,32 @@ func (r *Repository) DeleteFiles(ctx context.Context, tid string, names []string
 	if err := filemeta.Delete(ctx, r.coll, bson.M{
 		"domainId": DomainSystem, "docType": DocumentTypeContest,
 		"$or": []bson.M{{"docId": oid}, {"_id": oid}},
-	}, "files", names); err != nil {
+	}, field, names); err != nil {
 		if err == filemeta.ErrNotFound {
 			return ErrNotFound
 		}
 		return err
 	}
 	return nil
+}
+
+// CanReadPrivateFiles reports whether the participant may download contest
+// materials. Owners always can; participants only after the contest started.
+func (r *Repository) CanReadPrivateFiles(ctx context.Context, tid string, uid int64) (bool, error) {
+	if uid <= 0 {
+		return false, nil
+	}
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return false, err
+	}
+	if item.Owner == uid {
+		return true, nil
+	}
+	if time.Now().Before(item.BeginAt) {
+		return false, nil
+	}
+	return r.Attended(ctx, tid, uid)
 }
 
 // Unlock marks a locked scoreboard as unlocked so later submissions count.

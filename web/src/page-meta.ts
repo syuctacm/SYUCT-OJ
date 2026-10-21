@@ -23,7 +23,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/contest') return basic('contest_main', '比赛')
   if (pathname === '/contest/new') return basic('contest_create', '创建比赛')
   if (/^\/contest\/[^/]+\/edit\/?$/.test(pathname)) return basic('contest_edit', '编辑比赛')
-  if (/^\/contest\/[^/]+\/files\/?$/.test(pathname)) return basic('contest_files', '比赛文件')
+  if (/^\/contest\/[^/]+\/manag(ement)?\/?$/.test(pathname) || /^\/contest\/[^/]+\/files\/?$/.test(pathname)) return basic('contest_manage', '比赛管理')
   if (/^\/contest\/[^/]+\/problems\/?$/.test(pathname)) return basic('contest_problemlist', '比赛题目')
   if (/^\/contest\/[^/]+\/clarification\/?$/.test(pathname)) return basic('contest_clarification', '比赛答疑管理')
   if (/^\/contest\/[^/]+\/scoreboard\/?$/.test(pathname)) return basic('contest_scoreboard', '比赛榜单')

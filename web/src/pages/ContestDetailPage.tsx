@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  attendContest, getActivityFiles, getContest, getUsersByIDs,
-  type ActivityFile, type Contest, type UserChoice,
+  attendContest, getContest, getUsersByIDs,
+  type Contest, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -15,7 +15,6 @@ export function ContestDetailPage() {
   const { user } = useAuth()
   const [contest, setContest] = useState<Contest | null>(null)
   const [users, setUsers] = useState<UserChoice[]>([])
-  const [files, setFiles] = useState<ActivityFile[]>([])
   const [error, setError] = useState('')
   const [attendError, setAttendError] = useState('')
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
@@ -31,7 +30,6 @@ export function ContestDetailPage() {
   useEffect(() => {
     if (!contest) return
     getUsersByIDs([contest.owner]).then(setUsers).catch(() => setUsers([]))
-    getActivityFiles('contests', contest.docId).then(setFiles).catch(() => setFiles([]))
   }, [contest])
 
   const tdoc = useMemo(() => {
@@ -92,7 +90,9 @@ export function ContestDetailPage() {
       tdoc,
       tsdoc: { attend: Boolean(contest.attended) },
       udict,
-      files: files.map((file) => ({ name: file.name, size: file.size })),
+      // The upstream detail page only lists contest materials, and the API
+      // returns them for owners, administrators and participants.
+      files: (contest.privateFiles ?? []).map((file) => ({ name: file.name, size: file.size })),
       handler,
       perm: CONTEST_PERMS,
       PRIV: { PRIV_USER_PROFILE: 1, PRIV_MOD_BADGE: 2, PRIV_READ_RECORD_CODE: 3 },
@@ -101,7 +101,7 @@ export function ContestDetailPage() {
       UiContext: {},
       UserContext: user,
     }
-  }, [contest, files, tdoc, user, users])
+  }, [contest, tdoc, user, users])
 
   const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
     const id = String(args.tid ?? contest?.docId ?? tid)
@@ -122,9 +122,9 @@ export function ContestDetailPage() {
       case 'discussion_node':
       case 'wiki_help':
         return '/discuss'
-      // Contest management, print and code export are not ported yet; keep the
-      // upstream entries but make them inert instead of pointing at missing pages.
-      case 'contest_manage': return `/contest/${encodeURIComponent(id)}/clarification`
+      case 'contest_manage': return `/contest/${encodeURIComponent(id)}/management`
+      // Contest printing and code export are not ported yet; keep the upstream
+      // entries but make them inert instead of pointing at missing pages.
       case 'contest_print':
       case 'contest_code':
         return '#'
@@ -133,8 +133,8 @@ export function ContestDetailPage() {
   }, [contest?.docId, tid])
 
   const urlForFile = useCallback((name: string) => (
-    files.find((file) => file.name === name)?.downloadUrl ?? '#'
-  ), [files])
+    `/api/v1/contests/${encodeURIComponent(tid)}/files/${encodeURIComponent(name)}?type=private`
+  ), [tid])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = []
