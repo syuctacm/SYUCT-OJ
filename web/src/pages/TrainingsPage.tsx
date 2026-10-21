@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getTrainings, type Training } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 export function TrainingsPage() {
   const { user } = useAuth()
@@ -84,7 +85,7 @@ export function TrainingsPage() {
         },
       },
       utils: { getAlphabeticId: () => '' },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UserContext: user,
     }
   }, [items, query, user])

@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 export function ContestDetailPage() {
   const { tid = '' } = useParams()
@@ -97,7 +98,7 @@ export function ContestDetailPage() {
       perm: CONTEST_PERMS,
       PRIV: { PRIV_USER_PROFILE: 1, PRIV_MOD_BADGE: 2, PRIV_READ_RECORD_CODE: 3 },
       model: { contest: createContestModel(handler) },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UiContext: {},
       UserContext: user,
     }

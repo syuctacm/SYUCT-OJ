@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getHomeworks, type Contest } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 function pad(value: number) {
   return String(value).padStart(2, '0')
@@ -114,7 +115,7 @@ export function HomeworksPage() {
         const date = value instanceof Date ? value : new Date(value)
         return `<span class="time">${formatByPattern(date, pattern)}</span>`
       },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UiContext: {},
       UserContext: user,
     }

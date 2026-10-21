@@ -11,6 +11,7 @@ import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 import { CONTEST_PERMS, createContestModel, isDone } from '../upstream/contest.ts'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 const languageMap = Object.fromEntries(languageOptions.map((language) => [
   language._id,
@@ -198,7 +199,7 @@ export function ContestProblemsPage() {
       perm: CONTEST_PERMS,
       PRIV: { PRIV_USER_PROFILE: 1, PRIV_MOD_BADGE: 2, PRIV_READ_RECORD_CODE: 3 },
       model: { contest: contestModel, setting: { langs: languageMap } },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UiContext: {},
       UserContext: user,
     }

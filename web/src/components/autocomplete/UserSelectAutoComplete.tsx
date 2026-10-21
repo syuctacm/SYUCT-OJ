@@ -1,5 +1,6 @@
 import { forwardRef } from 'react'
 import { getUsersByIDs, searchUsers, type UserChoice } from '../../api.ts'
+import { avatarUrl } from '../../upstream/avatar.ts'
 import AutoComplete, { type AutoCompleteHandle, type AutoCompleteProps } from './AutoComplete.tsx'
 
 export const UserSelectAutoComplete = forwardRef<AutoCompleteHandle<UserChoice>, AutoCompleteProps<UserChoice>>((props, ref) => (
@@ -13,7 +14,7 @@ export const UserSelectAutoComplete = forwardRef<AutoCompleteHandle<UserChoice>,
     renderItem={(user) => (
       <div className="media">
         <div className="media__left medium">
-          {user.avatar ? <img className="small user-profile-avatar" alt="" src={user.avatar} width="30" height="30" /> : null}
+          {user.avatar ? <img className="small user-profile-avatar" alt="" src={avatarUrl(user.avatar, 30)} width="30" height="30" /> : null}
         </div>
         <div className="media__body medium">
           <div className="user-select__uname">{user.username}{user.displayName ? ` (${user.displayName})` : ''}</div>

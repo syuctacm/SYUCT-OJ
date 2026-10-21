@@ -7,6 +7,7 @@ import { getPublicUser, type PublicUser } from '../api.ts'
 import { ActivityCalendar } from '../components/ActivityCalendar.tsx'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 const USER_PERMS = {
   PERM_VIEW_USER_PRIVATE_INFO: 1,
@@ -84,7 +85,7 @@ export function UserProfilePage() {
       model: {
         builtin: { USER_GENDER_OTHER: 0, USER_GENDER_RANGE: {}, USER_GENDER_ICONS: {} },
       },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UiContext: {},
       UserContext: viewer,
     }

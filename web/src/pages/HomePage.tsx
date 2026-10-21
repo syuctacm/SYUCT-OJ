@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { createContestModel } from '../upstream/contest.ts'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 const HOME_PERMS = {
   PERM_VIEW_DISCUSSION: 1,
@@ -189,7 +190,7 @@ export function HomePage() {
         discussion: { typeDisplay: { 10: 'problem', 20: 'node', 30: 'contest', 40: 'training' } },
         document: { TYPE_PROBLEM: 10, TYPE_CONTEST: 30, TYPE_DISCUSSION_NODE: 20, TYPE_TRAINING: 40 },
       },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UiContext: {},
       UserContext: user,
     }

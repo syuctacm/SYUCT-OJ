@@ -7,6 +7,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 export function TrainingDetailPage() {
   const { tid = '' } = useParams()
@@ -122,7 +123,7 @@ export function TrainingDetailPage() {
       },
       perm: { PERM_EDIT_TRAINING: 1, PERM_VIEW_USER_PRIVATE_INFO: 2 },
       PRIV: { PRIV_USER_PROFILE: 1 },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UiContext: {},
       UserContext: user,
     }
