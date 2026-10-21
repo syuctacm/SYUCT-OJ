@@ -78,6 +78,12 @@
 - 仅管理员或题目所有者可访问
 - 后端尚未实现的创建、重命名、批量下载和生成测试数据控件会从页面移除
 
+## 判题配置页
+
+`/p/:pid/config` 由 `HydroTemplate` 渲染上游 `problem_config.html`：标题「评测设置(Beta)」、testdata 侧栏（`partials/problem_files.html`，支持上传）和题目侧栏都来自原模板。
+
+`#ProblemConfig` 是上游留给编辑器的挂载点，当前由 `web/src/components/ProblemConfigPanel.tsx` 填充：YAML 文本编辑 + 保存，走现有的题目编辑接口。上游那块编辑器是 `components/problemconfig`（Monaco + Redux + Mantine 表单 + `allotment` 分栏，约 1600 行，另需 `monaco-editor` / `monaco-yaml` / `react-redux` / `mantine-contextmenu` 等依赖），尚未移植——这是最后一个已知的页面内差异。
+
 ## 语言列表
 
 | 方法 | 路径 | 用途 |
