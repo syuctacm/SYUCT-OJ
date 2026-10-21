@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -34,6 +35,7 @@ func (h *DiscussionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/discussions/:did/star", h.star)
 	router.POST("/api/v1/discussions/:did/reaction", h.react)
 	router.GET("/api/v1/discussions/:did", h.get)
+	router.GET("/api/v1/discussions/:did/raw", h.raw)
 	router.GET("/api/v1/discussions/:did/replies", h.replies)
 	router.POST("/api/v1/discussions/:did/replies", h.createReply)
 	router.PATCH("/api/v1/discussions/:did/replies/:rid", h.updateReply)
@@ -148,6 +150,7 @@ func (h *DiscussionHandler) update(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "admin required"})
 		return
 	}
+	request.Editor = uid
 	updated, err := h.repo.Update(c.Request.Context(), c.Param("did"), request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update discussion"})
@@ -282,6 +285,64 @@ func (h *DiscussionHandler) react(c *gin.Context) {
 		"doc":  gin.H{"react": doc},
 		"sdoc": gin.H{"react": self},
 	}})
+}
+
+// raw serves the current markdown of a topic, reply or tail reply, the list of
+// stored revisions (`all=1`) and one revision (`time=<unix ms>`), mirroring the
+// upstream discussion_raw handlers.
+func (h *DiscussionHandler) raw(c *gin.Context) {
+	item, err := h.repo.Get(c.Request.Context(), c.Param("did"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "discussion not found"})
+		return
+	}
+	target := item.DocID
+	if raw := strings.TrimSpace(c.Query("docId")); raw != "" {
+		parsed, err := bson.ObjectIDFromHex(raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid docId"})
+			return
+		}
+		target = parsed
+	}
+	if c.Query("all") == "1" || c.Query("all") == "true" {
+		entries, err := h.repo.History(c.Request.Context(), target, nil)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load history"})
+			return
+		}
+		history := make([]gin.H, 0, len(entries))
+		for _, entry := range entries {
+			history = append(history, gin.H{"uid": entry.UID, "time": entry.Time})
+		}
+		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"history": history}})
+		return
+	}
+	if raw := strings.TrimSpace(c.Query("time")); raw != "" {
+		millis, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid time"})
+			return
+		}
+		at := time.UnixMilli(millis)
+		entries, err := h.repo.History(c.Request.Context(), target, &at)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load history"})
+			return
+		}
+		if len(entries) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "revision not found"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"content": entries[0].Content}})
+		return
+	}
+	content, err := h.repo.TargetContent(c.Request.Context(), item.DocID, target)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "document not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"content": content}})
 }
 
 func (h *DiscussionHandler) requireUser(c *gin.Context) (int64, bool) {
@@ -471,7 +532,7 @@ func (h *DiscussionHandler) updateReply(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "reply content is too long"})
 		return
 	}
-	reply, tail, err := h.repo.UpdateReply(c.Request.Context(), item.ID, replyID, request.Content)
+	reply, tail, err := h.repo.UpdateReply(c.Request.Context(), item.ID, replyID, uid, request.Content)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "reply not found"})
 		return

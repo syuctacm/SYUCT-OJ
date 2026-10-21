@@ -783,6 +783,23 @@ export type Discussion = {
   reactions?: Record<string, Record<string, number>>
 }
 
+export type DiscussionHistoryEntry = { uid: number; time: string }
+
+export async function getDiscussionHistory(did: string, docId?: string): Promise<DiscussionHistoryEntry[]> {
+  const params = new URLSearchParams({ all: '1' })
+  if (docId) params.set('docId', docId)
+  const result = await request<Envelope<{ history: DiscussionHistoryEntry[] }>>(`/api/v1/discussions/${encodeURIComponent(did)}/raw?${params.toString()}`)
+  return result.data.history
+}
+
+export async function getDiscussionRevision(did: string, docId: string | undefined, time: string): Promise<string> {
+  const millis = new Date(time).getTime()
+  const params = new URLSearchParams({ time: String(millis) })
+  if (docId) params.set('docId', docId)
+  const result = await request<Envelope<{ content: string }>>(`/api/v1/discussions/${encodeURIComponent(did)}/raw?${params.toString()}`)
+  return result.data.content
+}
+
 export type DiscussionReactionNode = 'did' | 'drid'
 
 export type DiscussionReactionResult = {
