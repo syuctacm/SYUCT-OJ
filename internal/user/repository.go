@@ -45,6 +45,7 @@ type Repository struct {
 	collection *mongo.Collection
 	records    *mongo.Collection
 	groups     *mongo.Collection
+	documents  *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
@@ -52,6 +53,7 @@ func NewRepository(db *mongo.Database) *Repository {
 		collection: db.Collection("user"),
 		records:    db.Collection("record"),
 		groups:     db.Collection("user.group"),
+		documents:  db.Collection("document"),
 	}
 }
 
@@ -237,6 +239,50 @@ func (r *Repository) Statistics(ctx context.Context, uid int64) (int64, int64, e
 		return 0, 0, err
 	}
 	return submit, int64(len(pids)), nil
+}
+
+// ProblemBrief is a compact problem reference used by the profile page.
+type ProblemBrief struct {
+	DocID int64  `json:"docId"`
+	PID   string `json:"pid"`
+	Title string `json:"title"`
+}
+
+// AcceptedProblems returns the visible problems the user has solved, ordered
+// by docId, capped at limit (default 100, max 200).
+func (r *Repository) AcceptedProblems(ctx context.Context, uid int64, limit int64) ([]ProblemBrief, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	result := r.records.Distinct(ctx, "pid", bson.M{"uid": uid, "domainId": "system", "status": 1})
+	if err := result.Err(); err != nil {
+		return nil, err
+	}
+	var pids []any
+	if err := result.Decode(&pids); err != nil {
+		return nil, err
+	}
+	if len(pids) == 0 {
+		return []ProblemBrief{}, nil
+	}
+	cursor, err := r.documents.Find(ctx, bson.M{
+		"domainId": "system",
+		"docType":  10,
+		"hidden":   bson.M{"$ne": true},
+		"docId":    bson.M{"$in": pids},
+	}, options.Find().
+		SetProjection(bson.M{"docId": 1, "pid": 1, "title": 1}).
+		SetSort(bson.D{{Key: "docId", Value: 1}}).
+		SetLimit(limit))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]ProblemBrief, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 type ActivityDay struct {

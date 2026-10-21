@@ -81,6 +81,25 @@ func TestRepositoryIntegration(t *testing.T) {
 	if _, err := db.Collection("record").InsertMany(ctx, activityRecords); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.Collection("document").InsertMany(ctx, []any{
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(1), "pid": "P1", "title": "First"},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(2), "pid": "P2", "title": "Second"},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(3), "pid": "P3", "title": "Hidden", "hidden": true},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Collection("record").InsertOne(ctx, bson.M{
+		"_id": bson.NewObjectID(), "uid": int64(8), "pid": int64(3), "domainId": "system", "status": 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	problems, err := repo.AcceptedProblems(ctx, 7, 10)
+	if err != nil || len(problems) != 2 || problems[0].DocID != 1 || problems[1].PID != "P2" {
+		t.Fatalf("accepted problems: %+v err=%v", problems, err)
+	}
+	if hidden, err := repo.AcceptedProblems(ctx, 8, 10); err != nil || len(hidden) != 0 {
+		t.Fatalf("hidden problems should be excluded: %+v err=%v", hidden, err)
+	}
 	activity, err := repo.Activity(ctx, 9)
 	if err != nil {
 		t.Fatal(err)
