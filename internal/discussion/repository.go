@@ -78,12 +78,14 @@ type Reply struct {
 type Repository struct {
 	coll     *mongo.Collection
 	statuses *mongo.Collection
+	history  *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
 	return &Repository{
 		coll:     db.Collection("document"),
 		statuses: db.Collection("document.status"),
+		history:  db.Collection("discussion.history"),
 	}
 }
 
@@ -230,6 +232,67 @@ func (r *Repository) Reactions(ctx context.Context, uid int64, ids []bson.Object
 	return result, cursor.Err()
 }
 
+// HistoryEntry is one stored revision of a discussion, reply or tail reply.
+type HistoryEntry struct {
+	UID     int64     `bson:"uid" json:"uid"`
+	Time    time.Time `bson:"time" json:"time"`
+	Content string    `bson:"content" json:"content,omitempty"`
+}
+
+// addHistory records a revision. History is best effort: losing one entry must
+// never fail the write that produced it.
+func (r *Repository) addHistory(ctx context.Context, docID bson.ObjectID, uid int64, content string) {
+	if r.history == nil || docID.IsZero() {
+		return
+	}
+	_, _ = r.history.InsertOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docId":    docID,
+		"uid":      uid,
+		"content":  content,
+		"time":     time.Now(),
+	})
+}
+
+// History lists revisions of one document newest first. When at is set only the
+// revision with that exact timestamp is returned.
+func (r *Repository) History(ctx context.Context, docID bson.ObjectID, at *time.Time) ([]HistoryEntry, error) {
+	filter := bson.M{"domainId": DomainSystem, "docId": docID}
+	if at != nil {
+		filter["time"] = *at
+	}
+	cursor, err := r.history.Find(ctx, filter, options.Find().SetSort(bson.D{{Key: "time", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]HistoryEntry, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// TargetContent returns the current content of a discussion, a reply or a tail
+// reply, and reports whether the id belongs to the discussion.
+func (r *Repository) TargetContent(ctx context.Context, discussionID, targetID bson.ObjectID) (string, error) {
+	item, err := r.Get(ctx, discussionID.Hex())
+	if err != nil {
+		return "", err
+	}
+	if item.DocID == targetID {
+		return item.Content, nil
+	}
+	reply, tail, _, err := r.findReply(ctx, discussionID, targetID)
+	if err != nil {
+		return "", err
+	}
+	if tail != nil {
+		return tail.Content, nil
+	}
+	return reply.Content, nil
+}
+
 func (r *Repository) List(ctx context.Context) ([]Discussion, error) {
 	items, _, err := r.ListFiltered(ctx, 0, "", 1, 1000)
 	return items, err
@@ -349,6 +412,7 @@ func (r *Repository) Create(ctx context.Context, node *Node, owner int64, title,
 	if err != nil {
 		return nil, err
 	}
+	r.addHistory(ctx, did, owner, content)
 	return item, nil
 }
 
@@ -357,6 +421,8 @@ type EditInput struct {
 	Content   string `json:"content"`
 	Pin       bool   `json:"pin"`
 	Highlight bool   `json:"highlight"`
+	// Editor is filled by the handler and never read from the request body.
+	Editor int64 `json:"-"`
 }
 
 func (r *Repository) Update(ctx context.Context, did string, input EditInput) (*Discussion, error) {
@@ -380,6 +446,7 @@ func (r *Repository) Update(ctx context.Context, did string, input EditInput) (*
 	if result.MatchedCount == 0 {
 		return nil, ErrNotFound
 	}
+	r.addHistory(ctx, oid, input.Editor, input.Content)
 	return r.Get(ctx, did)
 }
 
@@ -478,7 +545,7 @@ func (node Node) DisplayTitle() string {
 	return node.DocID
 }
 
-func (r *Repository) UpdateReply(ctx context.Context, discussionID, replyID bson.ObjectID, content string) (*Reply, *TailReply, error) {
+func (r *Repository) UpdateReply(ctx context.Context, discussionID, replyID bson.ObjectID, editor int64, content string) (*Reply, *TailReply, error) {
 	reply, tail, isTail, err := r.findReply(ctx, discussionID, replyID)
 	if err != nil {
 		return nil, nil, err
@@ -495,6 +562,7 @@ func (r *Repository) UpdateReply(ctx context.Context, discussionID, replyID bson
 		}
 		reply.Content = content
 		reply.Edited = true
+		r.addHistory(ctx, reply.ID, editor, content)
 		return reply, nil, nil
 	}
 	result, err := r.coll.UpdateOne(ctx, bson.M{
@@ -510,6 +578,7 @@ func (r *Repository) UpdateReply(ctx context.Context, discussionID, replyID bson
 	}
 	tail.Content = content
 	tail.Edited = true
+	r.addHistory(ctx, tail.ID, editor, content)
 	return reply, tail, nil
 }
 
@@ -631,6 +700,7 @@ func (r *Repository) AddReply(ctx context.Context, discussionID bson.ObjectID, o
 		_, _ = r.coll.DeleteOne(ctx, bson.M{"_id": replyID})
 		return nil, ErrNotFound
 	}
+	r.addHistory(ctx, item.ID, owner, content)
 	return &item, nil
 }
 
@@ -665,5 +735,6 @@ func (r *Repository) AddTailReply(ctx context.Context, discussionID, replyID bso
 	}, bson.M{"$set": bson.M{"updateAt": now}}); err != nil {
 		return nil, nil, err
 	}
+	r.addHistory(ctx, tail.ID, owner, content)
 	return &reply, &tail, nil
 }

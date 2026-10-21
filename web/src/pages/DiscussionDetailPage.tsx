@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { mountDiscussionReactions } from '../components/DiscussionReaction.tsx'
+import { mountDiscussionHistory } from '../components/DiscussionHistory.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 
@@ -159,6 +160,11 @@ export function DiscussionDetailPage() {
       case 'discussion_detail': return `/discuss/${encodeURIComponent(String(args.did ?? did))}`
       case 'discussion_edit': return `/discuss/${encodeURIComponent(String(args.did ?? did))}/edit`
       case 'discussion_node': return `/discuss/node/${encodeURIComponent(String(args.name ?? ''))}`
+      case 'discussion_raw': return `/api/v1/discussions/${encodeURIComponent(String(args.did ?? did))}/raw`
+      case 'discussion_reply_raw':
+        return `/api/v1/discussions/${encodeURIComponent(String(args.did ?? did))}/raw?docId=${encodeURIComponent(String(args.drid ?? ''))}`
+      case 'discussion_tail_reply_raw':
+        return `/api/v1/discussions/${encodeURIComponent(String(args.did ?? did))}/raw?docId=${encodeURIComponent(String(args.drrid ?? ''))}`
       case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
       case 'wiki_help':
       case 'wiki':
@@ -194,6 +200,7 @@ export function DiscussionDetailPage() {
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = [hydrateHydroEditForm(root)]
+    cleanups.push(mountDiscussionHistory(root))
     cleanups.push(mountDiscussionReactions(root, {
       did,
       canReact: Boolean(user),

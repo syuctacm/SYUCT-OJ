@@ -82,11 +82,23 @@
 ## 尚未完成
 
 - 问题/比赛/训练维度的讨论节点路由尚未接入
-- 历史版本和行内 raw 查看
 - 浏览量暂时不会随访问自增
 - 回复通知和提及
 - 节点管理
 - 讨论编辑器暂不提供图片上传，只能插入外链图片
+
+## 历史版本
+
+每次创建/编辑主题、主回复和楼中楼都会往 `discussion.history` 集合写一条 `{docId, content, uid, time}`（尽力而为，写入失败不影响正文更新）。
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/api/v1/discussions/:did/raw` | 当前正文（原文） |
+| GET | `/api/v1/discussions/:did/raw?all=1` | 版本列表（`uid` + `time`） |
+| GET | `/api/v1/discussions/:did/raw?time=<ms>` | 指定版本正文 |
+| GET | `/api/v1/discussions/:did/raw?docId=<id>` | 指定回复/楼中楼的正文与历史 |
+
+详情页的 `[data-discussion-history]` 由 `web/src/components/DiscussionHistory.tsx` 接管（移植自上游 `components/discussion/history.page.tsx`）：悬停/点击「编辑于」弹出 Mantine Popover 列出各版本，选中后在本站对话框里按 Markdown 渲染当时的内容。
 
 ## 反应
 
