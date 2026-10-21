@@ -79,10 +79,23 @@ func NewRepository(db *mongo.Database) *Repository {
 }
 
 func (r *Repository) List(ctx context.Context) ([]Discussion, error) {
-	cursor, err := r.coll.Find(ctx, bson.M{
+	return r.ListFiltered(ctx, 0, "")
+}
+
+// ListFiltered lists discussions, optionally limited to one parent
+// (parentType/parentId), which is how the node pages scope their list.
+func (r *Repository) ListFiltered(ctx context.Context, parentType int64, parentID string) ([]Discussion, error) {
+	filter := bson.M{
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeDiscussion,
-	}, options.Find().
+	}
+	if parentType > 0 {
+		filter["parentType"] = parentType
+	}
+	if parentID = strings.TrimSpace(parentID); parentID != "" {
+		filter["parentId"] = parentID
+	}
+	cursor, err := r.coll.Find(ctx, filter, options.Find().
 		SetProjection(bson.M{"docId": 1, "title": 1, "owner": 1, "updateAt": 1, "nReply": 1, "views": 1, "pin": 1, "highlight": 1, "lock": 1, "edited": 1, "parentType": 1, "parentId": 1}).
 		SetSort(bson.D{{Key: "pin", Value: -1}, {Key: "updateAt", Value: -1}, {Key: "docId", Value: -1}}))
 	if err != nil {

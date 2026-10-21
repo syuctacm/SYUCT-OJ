@@ -709,8 +709,12 @@ export type DiscussionReply = {
   createdAt: string
 }
 
-export async function getDiscussions(): Promise<Discussion[]> {
-  const result = await request<Envelope<{ items: Discussion[]; total: number }>>('/api/v1/discussions')
+export async function getDiscussions(filter: { parentType?: number; parentId?: string } = {}): Promise<Discussion[]> {
+  const params = new URLSearchParams()
+  if (filter.parentType) params.set('parentType', String(filter.parentType))
+  if (filter.parentId) params.set('parentId', filter.parentId)
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  const result = await request<Envelope<{ items: Discussion[]; total: number }>>(`/api/v1/discussions${suffix}`)
   return result.data.items
 }
 
