@@ -7,6 +7,7 @@ import { getPublicUser, type PublicUser } from '../api.ts'
 import { ActivityCalendar } from '../components/ActivityCalendar.tsx'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { mountClipboard } from '../upstream/clipboard.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 
 const USER_PERMS = {
@@ -109,8 +110,9 @@ export function UserProfilePage() {
   }, [uid])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
+    const cleanups: Array<() => void> = [mountClipboard(root)]
     const tabs = root.querySelector('.section__tabs')
-    if (!tabs || !uid) return
+    if (!tabs || !uid) return () => cleanups.forEach((cleanup) => cleanup())
     const item = document.createElement('li')
     item.className = 'section__tab-item'
     item.innerHTML = '<h1 class="section__tab-title">活跃日历</h1><div class="section__tab-main"><div class="section__body"></div></div>'
@@ -118,10 +120,11 @@ export function UserProfilePage() {
     const mount = item.querySelector('.section__body') as HTMLElement
     const calendar = createRoot(mount)
     calendar.render(<ActivityCalendar uid={Number(uid)} />)
-    return () => {
+    cleanups.push(() => {
       calendar.unmount()
       item.remove()
-    }
+    })
+    return () => cleanups.forEach((cleanup) => cleanup())
   }, [uid])
 
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>

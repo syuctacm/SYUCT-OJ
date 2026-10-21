@@ -173,6 +173,46 @@ func TestContestAttendeesIntegration(t *testing.T) {
 		t.Fatalf("attend counter = %d", doc.Attend)
 	}
 
+	// Flexible-duration attendees can be resumed while the contest is live.
+	if _, err := db.Collection("document.status").UpdateOne(ctx,
+		bson.M{"docId": contestID, "uid": int64(7)},
+		bson.M{"$set": bson.M{"endAt": now.Add(30 * time.Minute)}}); err != nil {
+		t.Fatal(err)
+	}
+	req, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/contests/"+contestID.Hex()+"/attendees/7/resume", nil)
+	for _, cookie := range adminCookies {
+		req.AddCookie(cookie)
+	}
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("resume = %d", resp.StatusCode)
+	}
+	var resumed struct {
+		EndAt *time.Time `bson:"endAt"`
+	}
+	if err := db.Collection("document.status").FindOne(ctx, bson.M{"docId": contestID, "uid": int64(7)}).Decode(&resumed); err != nil {
+		t.Fatal(err)
+	}
+	if resumed.EndAt != nil {
+		t.Fatalf("endAt should be cleared: %v", *resumed.EndAt)
+	}
+	req, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/contests/"+contestID.Hex()+"/attendees/7/resume", nil)
+	for _, cookie := range aliceCookies {
+		req.AddCookie(cookie)
+	}
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("non-editor resume = %d", resp.StatusCode)
+	}
+
 	// Registrations cannot be cancelled once the contest started.
 	if _, err := db.Collection("document").UpdateOne(ctx, bson.M{"_id": contestID}, bson.M{"$set": bson.M{"beginAt": now.Add(-time.Hour)}}); err != nil {
 		t.Fatal(err)

@@ -556,6 +556,10 @@ export async function cancelContestAttendee(tid: string, uid: number): Promise<v
   await request(`/api/v1/contests/${encodeURIComponent(tid)}/attendees/${uid}`, { method: 'DELETE' })
 }
 
+export async function resumeContestAttendee(tid: string, uid: number): Promise<void> {
+  await request(`/api/v1/contests/${encodeURIComponent(tid)}/attendees/${uid}/resume`, { method: 'POST' })
+}
+
 export async function getContestProblems(tid: string): Promise<ContestProblemPage> {
   const result = await request<Envelope<ContestProblemPage>>(`/api/v1/contests/${encodeURIComponent(tid)}/problems`)
   return result.data

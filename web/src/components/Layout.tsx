@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth.tsx'
 import { applyPageMeta, pageMetaForPath } from '../page-meta.ts'
+import { NotificationsHost } from './Notification.tsx'
 
 const navClass = ({ isActive }: { isActive: boolean }) => `nav__item${isActive ? ' nav--active' : ''}`
 
@@ -126,6 +127,7 @@ export function Layout() {
           </div></div>
         </div>
       </div>
+      <NotificationsHost />
     </>
   )
 }
