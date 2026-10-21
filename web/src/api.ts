@@ -213,6 +213,19 @@ export async function deleteUserFiles(names: string[]): Promise<void> {
   })
 }
 
+export async function starProblem(pid: string, star: boolean): Promise<boolean> {
+  const result = await request<Envelope<{ star: boolean }>>(`/api/v1/problems/${encodeURIComponent(pid)}/star`, {
+    method: 'POST',
+    body: JSON.stringify({ star }),
+  })
+  return result.data.star
+}
+
+export async function getStarredProblems(limit = 50): Promise<ProblemSummary[]> {
+  const result = await request<Envelope<{ items: ProblemSummary[]; total: number }>>(`/api/v1/starred-problems?limit=${limit}`)
+  return result.data.items
+}
+
 export type ProblemAssetList = {
   problem: ProblemDetail
   testdata: ProblemAsset[]
@@ -249,6 +262,7 @@ export type ProblemDetail = ProblemSummary & {
   problemType?: string
   timeLimit?: string
   memoryLimit?: string
+  starred?: boolean
 }
 
 export type Submission = {

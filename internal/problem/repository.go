@@ -56,6 +56,7 @@ type Problem struct {
 	TimeMax         string        `bson:"-" json:"timeMax,omitempty"`
 	MemoryMin       string        `bson:"-" json:"memoryMin,omitempty"`
 	MemoryMax       string        `bson:"-" json:"memoryMax,omitempty"`
+	Starred         bool          `bson:"-" json:"starred,omitempty"`
 }
 
 type UserStatus struct {
@@ -120,12 +121,13 @@ type Repository struct {
 	records  *mongo.Collection
 	users    *mongo.Collection
 	counters *mongo.Collection
+	statuses *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
 	return &Repository{
 		coll: db.Collection("document"), records: db.Collection("record"), users: db.Collection("user"),
-		counters: db.Collection("counter"),
+		counters: db.Collection("counter"), statuses: db.Collection("document.status"),
 	}
 }
 
@@ -282,6 +284,98 @@ func (r *Repository) List(ctx context.Context, opts ListOptions) (*ListResult, e
 		}
 	}
 	return &ListResult{Items: items, Total: total, Page: opts.Page, Limit: opts.Limit}, nil
+}
+
+// Star stores the per-user star flag on the problem status document, the same
+// place Hydro keeps `problem.setStar`.
+func (r *Repository) Star(ctx context.Context, docID int64, uid int64, star bool) error {
+	if uid <= 0 {
+		return fmt.Errorf("invalid user id")
+	}
+	_, err := r.statuses.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeProblem,
+		"docId":    docID,
+		"uid":      uid,
+	}, bson.M{"$set": bson.M{"star": star}}, options.UpdateOne().SetUpsert(true))
+	return err
+}
+
+// Starred returns the problems a user starred, newest first.
+func (r *Repository) Starred(ctx context.Context, uid int64, limit int) ([]Problem, error) {
+	if uid <= 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	cursor, err := r.statuses.Find(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeProblem,
+		"uid":      uid,
+		"star":     true,
+	}, options.Find().SetSort(bson.D{{Key: "_id", Value: -1}}).SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var statuses []struct {
+		DocID int64 `bson:"docId"`
+	}
+	if err := cursor.All(ctx, &statuses); err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, len(statuses))
+	for _, item := range statuses {
+		ids = append(ids, item.DocID)
+	}
+	if len(ids) == 0 {
+		return []Problem{}, nil
+	}
+	items, err := r.GetManyByDocIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]Problem, len(items))
+	for _, item := range items {
+		byID[item.DocID] = item
+	}
+	ordered := make([]Problem, 0, len(ids))
+	for _, id := range ids {
+		if item, ok := byID[id]; ok && !item.Hidden {
+			ordered = append(ordered, item)
+		}
+	}
+	return ordered, nil
+}
+
+// StarredIDs reports which of the given problems the user starred.
+func (r *Repository) StarredIDs(ctx context.Context, uid int64, docIDs []int64) (map[int64]bool, error) {
+	result := make(map[int64]bool, len(docIDs))
+	if uid <= 0 || len(docIDs) == 0 {
+		return result, nil
+	}
+	cursor, err := r.statuses.Find(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeProblem,
+		"uid":      uid,
+		"docId":    bson.M{"$in": docIDs},
+		"star":     true,
+	}, options.Find().SetProjection(bson.M{"docId": 1}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var status struct {
+			DocID int64 `bson:"docId"`
+		}
+		if err := cursor.Decode(&status); err != nil {
+			return nil, err
+		}
+		result[status.DocID] = true
+	}
+	return result, cursor.Err()
 }
 
 func (r *Repository) fillUserStatus(ctx context.Context, uid int64, items []Problem) error {

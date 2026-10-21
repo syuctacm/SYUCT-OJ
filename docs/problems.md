@@ -78,6 +78,15 @@
 - 仅管理员或题目所有者可访问
 - 后端尚未实现的创建、重命名、批量下载和生成测试数据控件会从页面移除
 
+## 题目收藏
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| POST | `/api/v1/problems/:pid/star` | 收藏 / 取消收藏（`{star: bool}`） |
+| GET | `/api/v1/starred-problems` | 当前用户收藏的题目（默认 50 条，按收藏时间倒序） |
+
+状态存在 `document.status`（`docType=10`、`docId=题目 docId`、`star`），与 Hydro `problem.setStar` 一致。题目详情接口会返回 `starred`，模板据此决定按钮的 `activated` 状态；首页的 `starred_problems` 区块读取同一份数据。
+
 ## 文件存储
 
 存储布局与 Hydro 对齐：
