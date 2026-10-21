@@ -78,6 +78,15 @@
 - 仅管理员或题目所有者可访问
 - 后端尚未实现的创建、重命名、批量下载和生成测试数据控件会从页面移除
 
+## 语言列表
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/api/v1/languages` | 判题语言注册表（`internal/judge.DefaultLanguages()` 过滤 hidden/remote） |
+| GET | `/api/v1/problems/:pid/langs` | 该题可用的语言，可带 `?contest=<tid>` 叠加比赛限制 |
+
+语言列表由服务端提供：注册表来自服务端向判题机广播的那份 `DefaultLanguages()`，再与题目 `config.langs`、比赛 `langs` 求交集（与上游 `handler/problem.ts` 的 intersection 语义一致）。提交页默认选中列表第一项，提交记录的语言筛选也走同一份注册表；前端保留一份静态列表作为首屏兜底。
+
 ## 题目收藏
 
 | 方法 | 路径 | 用途 |

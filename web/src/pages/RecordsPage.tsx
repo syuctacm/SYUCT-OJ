@@ -8,6 +8,7 @@ import { languageOptions } from '../components/autocomplete/LanguageSelectAutoCo
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { statusClass, statusLabels } from '../status.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
+import { loadLanguages } from '../upstream/languages.ts'
 
 const languageMap = Object.fromEntries(languageOptions.map((language) => [
   language._id,
@@ -77,18 +78,22 @@ export function RecordsPage() {
     const form = root.querySelector<HTMLFormElement>('form[method="get"]')
     const langSelect = root.querySelector<HTMLSelectElement>('select[name="lang"]')
     if (langSelect) {
-      langSelect.replaceChildren()
-      const all = document.createElement('option')
-      all.value = ''
-      all.textContent = '所有语言'
-      langSelect.appendChild(all)
-      for (const language of languageOptions) {
-        const option = document.createElement('option')
-        option.value = language._id
-        option.textContent = language.name
-        langSelect.appendChild(option)
+      const fill = (items: Array<{ _id: string; name: string }>) => {
+        langSelect.replaceChildren()
+        const all = document.createElement('option')
+        all.value = ''
+        all.textContent = '所有语言'
+        langSelect.appendChild(all)
+        for (const language of items) {
+          const option = document.createElement('option')
+          option.value = language._id
+          option.textContent = language.name
+          langSelect.appendChild(option)
+        }
+        langSelect.value = filters.lang
       }
-      langSelect.value = filters.lang
+      fill(languageOptions)
+      void loadLanguages().then(fill)
     }
     if (!hasMore) root.querySelector('.pager')?.remove()
     const onSubmit = (event: SubmitEvent) => {

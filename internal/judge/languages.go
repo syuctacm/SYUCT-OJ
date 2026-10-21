@@ -1,5 +1,39 @@
 package judge
 
+import "sort"
+
+// LanguageOption is the UI facing view of one judge language.
+type LanguageOption struct {
+	ID      string `json:"id"`
+	Display string `json:"display"`
+}
+
+// LanguageOptions lists the languages this server advertises to the judge,
+// skipping hidden and remote entries the same way Hydro filters them.
+func LanguageOptions() []LanguageOption {
+	languages := DefaultLanguages()
+	options := make([]LanguageOption, 0, len(languages))
+	for key, raw := range languages {
+		entry, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if hidden, _ := entry["hidden"].(bool); hidden {
+			continue
+		}
+		if remote, _ := entry["remote"].(bool); remote {
+			continue
+		}
+		display, _ := entry["display"].(string)
+		if display == "" {
+			display = key
+		}
+		options = append(options, LanguageOption{ID: key, Display: display})
+	}
+	sort.Slice(options, func(i, j int) bool { return options[i].ID < options[j].ID })
+	return options
+}
+
 func DefaultLanguages() map[string]any {
 	return map[string]any{
 		"cpp": map[string]any{
