@@ -13,6 +13,25 @@ export type User = {
   backgroundImage?: string
 }
 
+export type PublicSettings = { bulletin: string }
+
+export async function getPublicSettings(): Promise<PublicSettings> {
+  const result = await request<Envelope<PublicSettings>>('/api/v1/settings')
+  return result.data
+}
+
+export async function getAdminSettings(): Promise<PublicSettings> {
+  const result = await request<Envelope<PublicSettings>>('/api/v1/admin/settings')
+  return result.data
+}
+
+export async function updateAdminSettings(input: PublicSettings): Promise<void> {
+  await request<Envelope<PublicSettings>>('/api/v1/admin/settings', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+}
+
 export type UserSettingsInput = {
   avatar?: string
   qq?: string
