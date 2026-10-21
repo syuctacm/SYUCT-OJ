@@ -47,9 +47,17 @@ func TestTrainingRepositoryIntegration(t *testing.T) {
 	if len(items) != 2 || items[0].Title != "置顶训练" {
 		t.Fatalf("unexpected trainings: %+v", items)
 	}
-	items, err = repo.ListFiltered(ctx, "置顶")
+	items, _, err = repo.ListFiltered(ctx, "置顶", 1, 20)
 	if err != nil || len(items) != 1 || items[0].Title != "置顶训练" {
 		t.Fatalf("training search: items=%+v err=%v", items, err)
+	}
+	trainingPage1, trainingTotal, err := repo.ListFiltered(ctx, "", 1, 1)
+	if err != nil || trainingTotal != 2 || len(trainingPage1) != 1 || trainingPage1[0].Title != "置顶训练" {
+		t.Fatalf("training page 1: items=%+v total=%d err=%v", trainingPage1, trainingTotal, err)
+	}
+	trainingPage2, trainingTotal, err := repo.ListFiltered(ctx, "", 2, 1)
+	if err != nil || trainingTotal != 2 || len(trainingPage2) != 1 || trainingPage2[0].Title != "基础训练" {
+		t.Fatalf("training page 2: items=%+v total=%d err=%v", trainingPage2, trainingTotal, err)
 	}
 	found, err := repo.Get(ctx, secondID.Hex())
 	if err != nil {

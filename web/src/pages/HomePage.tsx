@@ -60,8 +60,15 @@ export function HomePage() {
       getProblems('', 1, 'recent'),
       getDiscussionNodes(),
     ])
-      .then(([contests, homeworks, trainings, discussions, problems, nodes]) => {
-        setData({ contests, homeworks, trainings, discussions, problems: problems.items, nodes })
+      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes]) => {
+        setData({
+          contests: contestPage.items,
+          homeworks: homeworkPage.items,
+          trainings: trainingPage.items,
+          discussions: discussionPage.items,
+          problems: problems.items,
+          nodes,
+        })
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '首页加载失败'))
   }, [])

@@ -37,12 +37,16 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *ContestHandler) list(c *gin.Context) {
-	items, err := h.repo.ListFiltered(c.Request.Context(), c.Query("q"), c.Query("rule"))
+	page, limit := parsePaging(c)
+	items, total, err := h.repo.ListFiltered(c.Request.Context(), c.Query("q"), c.Query("rule"), page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list contests"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"items": items, "total": len(items)}})
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"items": items, "total": total, "page": page, "limit": limit},
+	})
 }
 
 func (h *ContestHandler) create(c *gin.Context) {

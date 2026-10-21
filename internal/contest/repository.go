@@ -335,10 +335,20 @@ func validRule(rule string) bool {
 }
 
 func (r *Repository) List(ctx context.Context) ([]Contest, error) {
-	return r.ListFiltered(ctx, "", "")
+	items, _, err := r.ListFiltered(ctx, "", "", 1, 1000)
+	return items, err
 }
 
-func (r *Repository) ListFiltered(ctx context.Context, query, rule string) ([]Contest, error) {
+func (r *Repository) ListFiltered(ctx context.Context, query, rule string, page, pageSize int) ([]Contest, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 1000 {
+		pageSize = 1000
+	}
 	projection := bson.M{
 		"docId": 1, "title": 1, "beginAt": 1, "endAt": 1,
 		"rule": 1, "owner": 1, "attend": 1, "pids": 1, "duration": 1, "rated": 1,
@@ -354,25 +364,41 @@ func (r *Repository) ListFiltered(ctx context.Context, query, rule string) ([]Co
 	if rule = strings.TrimSpace(rule); rule != "" {
 		filter["rule"] = rule
 	}
+	total, err := r.coll.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
 	cursor, err := r.coll.Find(ctx, filter, options.Find().
 		SetProjection(projection).
-		SetSort(bson.D{{Key: "beginAt", Value: -1}}))
+		SetSort(bson.D{{Key: "beginAt", Value: -1}}).
+		SetSkip(int64((page-1)*pageSize)).
+		SetLimit(int64(pageSize)))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer cursor.Close(ctx)
 	items := make([]Contest, 0)
 	if err := cursor.All(ctx, &items); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return items, nil
+	return items, total, nil
 }
 
 func (r *Repository) ListHomework(ctx context.Context) ([]Contest, error) {
-	return r.ListHomeworkFiltered(ctx, "")
+	items, _, err := r.ListHomeworkFiltered(ctx, "", 1, 1000)
+	return items, err
 }
 
-func (r *Repository) ListHomeworkFiltered(ctx context.Context, query string) ([]Contest, error) {
+func (r *Repository) ListHomeworkFiltered(ctx context.Context, query string, page, pageSize int) ([]Contest, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 1000 {
+		pageSize = 1000
+	}
 	projection := bson.M{
 		"docId": 1, "title": 1, "beginAt": 1, "endAt": 1,
 		"rule": 1, "owner": 1, "attend": 1, "pids": 1, "duration": 1, "rated": 1, "penaltySince": 1,
@@ -385,18 +411,24 @@ func (r *Repository) ListHomeworkFiltered(ctx context.Context, query string) ([]
 	if query = strings.TrimSpace(query); query != "" {
 		filter["title"] = bson.M{"$regex": regexp.QuoteMeta(query), "$options": "i"}
 	}
+	total, err := r.coll.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
 	cursor, err := r.coll.Find(ctx, filter, options.Find().
 		SetProjection(projection).
-		SetSort(bson.D{{Key: "endAt", Value: -1}, {Key: "_id", Value: -1}}))
+		SetSort(bson.D{{Key: "endAt", Value: -1}, {Key: "_id", Value: -1}}).
+		SetSkip(int64((page-1)*pageSize)).
+		SetLimit(int64(pageSize)))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer cursor.Close(ctx)
 	items := make([]Contest, 0)
 	if err := cursor.All(ctx, &items); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return items, nil
+	return items, total, nil
 }
 
 func (r *Repository) GetHomework(ctx context.Context, tid string) (*Contest, error) {

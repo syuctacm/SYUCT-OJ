@@ -74,13 +74,21 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	if len(items) != 2 || items[0].Title != "New Contest" {
 		t.Fatalf("unexpected contest list: %+v", items)
 	}
-	items, err = repo.ListFiltered(ctx, "New", "")
+	items, _, err = repo.ListFiltered(ctx, "New", "", 1, 20)
 	if err != nil || len(items) != 1 || items[0].Title != "New Contest" {
 		t.Fatalf("contest search: items=%+v err=%v", items, err)
 	}
-	items, err = repo.ListFiltered(ctx, "", "acm")
+	items, _, err = repo.ListFiltered(ctx, "", "acm", 1, 20)
 	if err != nil || len(items) != 1 || items[0].Title != "Old Contest" {
 		t.Fatalf("contest rule filter: items=%+v err=%v", items, err)
+	}
+	contestPage1, contestTotal, err := repo.ListFiltered(ctx, "", "", 1, 1)
+	if err != nil || contestTotal != 2 || len(contestPage1) != 1 || contestPage1[0].Title != "New Contest" {
+		t.Fatalf("contest page 1: items=%+v total=%d err=%v", contestPage1, contestTotal, err)
+	}
+	contestPage2, contestTotal, err := repo.ListFiltered(ctx, "", "", 2, 1)
+	if err != nil || contestTotal != 2 || len(contestPage2) != 1 || contestPage2[0].Title != "Old Contest" {
+		t.Fatalf("contest page 2: items=%+v total=%d err=%v", contestPage2, contestTotal, err)
 	}
 	found, err := repo.Get(ctx, newID.Hex())
 	if err != nil {
@@ -159,9 +167,13 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	if len(homeworks) != 1 || homeworks[0].Title != "Homework 1" || homeworks[0].PenaltySince == nil {
 		t.Fatalf("unexpected homeworks: %+v", homeworks)
 	}
-	homeworks, err = repo.ListHomeworkFiltered(ctx, "Homework")
+	homeworks, _, err = repo.ListHomeworkFiltered(ctx, "Homework", 1, 20)
 	if err != nil || len(homeworks) != 1 {
 		t.Fatalf("homework search: homeworks=%+v err=%v", homeworks, err)
+	}
+	homeworkPage, homeworkTotal, err := repo.ListHomeworkFiltered(ctx, "", 1, 1)
+	if err != nil || homeworkTotal != 1 || len(homeworkPage) != 1 {
+		t.Fatalf("homework page: items=%+v total=%d err=%v", homeworkPage, homeworkTotal, err)
 	}
 	if _, err := repo.GetHomework(ctx, oldID.Hex()); err != contest.ErrNotFound {
 		t.Fatalf("non-homework rule should not be returned: %v", err)

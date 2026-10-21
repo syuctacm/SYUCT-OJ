@@ -28,18 +28,20 @@ export function HomeworksPage() {
   const [searchParams] = useSearchParams()
   const query = searchParams.get('q') ?? ''
   const group = searchParams.get('group') ?? ''
+  const page = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
   const [items, setItems] = useState<Contest[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     setLoading(true)
     setError('')
-    getHomeworks(query)
-      .then(setItems)
+    getHomeworks(query, page)
+      .then((data) => { setItems(data.items); setTotal(data.total) })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '作业加载失败'))
       .finally(() => setLoading(false))
-  }, [query])
+  }, [query, page])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     root.querySelector('.nojs--hide')?.remove()
@@ -77,8 +79,8 @@ export function HomeworksPage() {
       q: query,
       groups: [],
       group,
-      page: 1,
-      tpcount: 1,
+      page,
+      tpcount: Math.max(1, Math.ceil(total / 20)),
       qs: params.toString(),
       handler: {
         user: {

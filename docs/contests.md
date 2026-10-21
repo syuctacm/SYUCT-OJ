@@ -34,7 +34,7 @@
 - `contest_problemlist.html`：由 `HydroTemplate` 直接渲染题目表、本场提交表和答疑区块
 - `contest_scoreboard.html`：由 `HydroTemplate` 直接渲染榜单表格、封榜提示和导出按钮位置
 
-比赛列表的搜索和赛制筛选由 React 适配层保持；未实现的团队管理入口会隐藏。当前比赛 API 一次返回全部比赛，列表暂未分页。
+比赛列表的搜索和赛制筛选由 React 适配层保持；未实现的团队管理入口会隐藏。列表按上游默认每页 20 条分页，分页链接会保留搜索和赛制筛选参数。
 
 比赛详情不再内嵌题目列表和榜单，改为原版结构下的独立路由 `/contest/:tid/problems` 和 `/contest/:tid/scoreboard`，两个页面都已迁移到上游模板。题目行提供带 `contest` 参数的提交入口，提交会写入比赛关联并进入榜单。比赛结束或未开始时后端拒绝比赛提交。
 
