@@ -16,10 +16,10 @@
 | `problem_search` | 静态搜索框（提交到 `/p?q=`） | 已接入 |
 | `suggestion` | 静态推荐链接 | 已接入 |
 | `bulletin` | `system` 集合的 `bulletin`（管理员在 `/admin/settings` 编辑） | 已接入 |
-| `hitokoto` | 外部一言 API | 未接入 |
-| `starred_problems` | 需要题目收藏状态 | 未接入 |
+| `hitokoto` | `https://v1.hitokoto.cn`（浏览器直接请求，失败时显示提示） | 已接入 |
+| `starred_problems` | 收藏题目 API（`document.status` docType=10、`star=true`） | 已接入 |
 
-未接入的区块不会出现在首页，其余区块为空时自动隐藏（公告为空时 `partials/homepage/bulletin.html` 自身不会渲染）。
+区块顺序对齐上游默认配置（9 栏：bulletin/contest/homework/training/ranking/discussion；3 栏：hitokoto/starred_problems/recent_problems/discussion_nodes/suggestion，另加了搜索框）。区块为空时多数 partial 自身不渲染（公告、收藏题目、一言以外的列表类）。
 
 ## 已知差异
 

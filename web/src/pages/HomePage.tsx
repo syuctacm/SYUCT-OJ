@@ -1,13 +1,14 @@
 // Page markup is rendered from the pinned Hydro ui-default template. The section
 // list mirrors the upstream `hydrooj.homepage` config for the parts backed by
-// this backend (bulletin/ranking/hitokoto/starred have no data source yet).
-import { useEffect, useMemo, useState } from 'react'
+// this backend.
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  getContests, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getPublicSettings, getRanking, getTrainings, getUsersByIDs,
+  getContests, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getPublicSettings, getRanking, getStarredProblems, getTrainings, getUsersByIDs,
   type Contest, type Discussion, type DiscussionNode, type ProblemSummary, type RankingUser, type Training, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { mountHitokoto } from '../components/Hitokoto.tsx'
 import { createContestModel } from '../upstream/contest.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 
@@ -27,6 +28,7 @@ type HomeData = {
   nodes: DiscussionNode[]
   ranking: RankingUser[]
   bulletin: string
+  starred: ProblemSummary[]
 }
 
 function withDates<T extends { beginAt: string; endAt: string; lockAt?: string; penaltySince?: string }>(item: T) {
@@ -64,8 +66,9 @@ export function HomePage() {
       getDiscussionNodes(),
       getRanking(1, 10),
       getPublicSettings(),
+      user ? getStarredProblems(50).catch(() => []) : Promise.resolve([]),
     ])
-      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes, ranking, settings]) => {
+      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes, ranking, settings, starred]) => {
         setData({
           contests: contestPage.items,
           homeworks: homeworkPage.items,
@@ -75,10 +78,11 @@ export function HomePage() {
           nodes,
           ranking: ranking.items,
           bulletin: settings.bulletin,
+          starred,
         })
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '首页加载失败'))
-  }, [])
+  }, [user])
 
   useEffect(() => {
     if (!data) return
@@ -130,6 +134,13 @@ export function HomePage() {
       content: node.category,
       pic: node.pic ?? '',
     }))
+    const starredProblems = data.starred.map((problem) => ({
+      _id: problem.id,
+      docId: problem.docId,
+      pid: problem.pid,
+      title: problem.title,
+      hidden: false,
+    }))
     const recentProblems = data.problems.slice(0, 10).map((problem) => ({
       _id: problem.id,
       docId: problem.docId,
@@ -174,6 +185,8 @@ export function HomePage() {
         {
           width: 3,
           sections: [
+            ['hitokoto', true],
+            ['starred_problems', [starredProblems]],
             ['recent_problems', [recentProblems, {}]],
             ['discussion_nodes', vnodes],
             ['problem_search', true],
@@ -200,6 +213,8 @@ export function HomePage() {
     }
   }, [data, user, users])
 
+  const handleReady = useCallback((root: HTMLDivElement) => mountHitokoto(root), [])
+
   const buildUrl = useMemo(() => (name: string, args: Record<string, unknown> = {}) => {
     switch (name) {
       case 'contest_main': return '/contest'
@@ -224,5 +239,6 @@ export function HomePage() {
   if (!data) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
   }
-  return <HydroTemplate template="main.html" context={context} url={buildUrl} />
+
+  return <HydroTemplate template="main.html" context={context} url={buildUrl} onReady={handleReady} />
 }

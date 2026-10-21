@@ -2,7 +2,7 @@
 // file limited to data and interaction adapters.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getProblem, type ProblemDetail } from '../api.ts'
+import { getProblem, starProblem, type ProblemDetail } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { renderMarkdown } from '../upstream/markdown.ts'
@@ -34,10 +34,24 @@ export function ProblemDetailPage() {
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = []
-    root.querySelector('form.form--inline')?.remove()
     root.querySelectorAll('[name="problem-sidebar__download"], [name="problem-sidebar__copy"]')
       .forEach((element) => element.closest('li')?.remove())
     root.querySelector('.icon-statistics')?.closest('li')?.remove()
+
+    for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
+      const operation = form.querySelector<HTMLInputElement>('input[name="operation"]')?.value
+      if (operation !== 'star') continue
+      const onSubmit = (event: SubmitEvent) => {
+        event.preventDefault()
+        const next = form.querySelector<HTMLInputElement>('input[name="star"]')?.value === 'true'
+        void starProblem(pid, next)
+          .then(() => getProblem(pid))
+          .then(setProblem)
+          .catch((err: unknown) => setError(err instanceof Error ? err.message : '收藏失败'))
+      }
+      form.addEventListener('submit', onSubmit)
+      cleanups.push(() => form.removeEventListener('submit', onSubmit))
+    }
 
     const tagToggle = root.querySelector<HTMLElement>('[name="show_tags"]')
     if (tagToggle) {
@@ -53,7 +67,7 @@ export function ProblemDetailPage() {
       cleanups.push(() => tagToggle.removeEventListener('click', onClick))
     }
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [])
+  }, [pid])
 
   const context = useMemo(() => {
     if (!problem) return null
@@ -78,7 +92,7 @@ export function ProblemDetailPage() {
       pdoc,
       tdoc: null,
       rdoc: null,
-      psdoc: { star: false, status: 0 },
+      psdoc: { star: Boolean(problem.starred), status: 0 },
       udoc: owner,
       owner_udoc: owner,
       mode: 'normal',

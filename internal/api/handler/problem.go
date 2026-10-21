@@ -55,6 +55,8 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.DELETE("/api/v1/problems/:pid/assets", h.deleteAssets)
 	router.GET("/api/v1/problems/:pid/assets/download", h.downloadAsset)
 	router.GET("/api/v1/problems/:pid", h.get)
+	router.GET("/api/v1/starred-problems", h.starred)
+	router.POST("/api/v1/problems/:pid/star", h.star)
 }
 
 type problemEditRequest struct {
@@ -304,7 +306,70 @@ func (h *ProblemHandler) get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
 		return
 	}
+	if uid, ok := h.currentUser(c); ok {
+		starred, err := h.repo.StarredIDs(c.Request.Context(), uid, []int64{pdoc.DocID})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load problem status"})
+			return
+		}
+		pdoc.Starred = starred[pdoc.DocID]
+	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": pdoc})
+}
+
+// starred lists the problems the caller starred, newest first.
+func (h *ProblemHandler) starred(c *gin.Context) {
+	uid, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	items, err := h.repo.Starred(c.Request.Context(), uid, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load starred problems"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+		"items": items, "total": len(items),
+	}})
+}
+
+// star toggles the caller's star flag on one problem.
+func (h *ProblemHandler) star(c *gin.Context) {
+	uid, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	pdoc, err := h.repo.Get(c.Request.Context(), c.Param("pid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
+		return
+	}
+	var request struct {
+		Star bool `json:"star"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if err := h.repo.Star(c.Request.Context(), pdoc.DocID, uid, request.Star); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update problem status"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"star": request.Star}})
+}
+
+func (h *ProblemHandler) currentUser(c *gin.Context) (int64, bool) {
+	if h.sessions == nil {
+		return 0, false
+	}
+	session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
+	if !ok || session.Kind != "user" || session.UserID <= 0 {
+		return 0, false
+	}
+	return session.UserID, true
 }
 
 type problemAsset struct {
