@@ -843,6 +843,7 @@ export type PublicUser = {
   bio?: string
   nSubmit: number
   nAccept: number
+  acceptedProblems?: Array<{ docId: number; pid: string; title: string }>
 }
 
 export async function getPublicUser(uid: string): Promise<PublicUser> {

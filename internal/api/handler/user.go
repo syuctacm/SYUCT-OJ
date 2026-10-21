@@ -119,12 +119,18 @@ func (h *UserHandler) get(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load user statistics"})
 		return
 	}
+	acceptedProblems, err := h.users.AcceptedProblems(c.Request.Context(), uid, 100)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load accepted problems"})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
 		"data": gin.H{
 			"id": u.ID, "username": u.Uname, "displayName": u.DisplayName,
 			"studentId": u.StudentID, "avatar": u.Avatar, "regAt": u.RegAt,
 			"loginAt": u.LoginAt, "bio": u.Bio, "nSubmit": submit, "nAccept": accepted,
+			"acceptedProblems": acceptedProblems,
 		},
 	})
 }

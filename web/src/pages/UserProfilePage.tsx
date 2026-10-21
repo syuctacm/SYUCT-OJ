@@ -1,84 +1,122 @@
-import { useEffect, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to data mapping; the activity calendar is mounted as its tab.
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createRoot } from 'react-dom/client'
 import { useParams } from 'react-router-dom'
 import { getPublicUser, type PublicUser } from '../api.ts'
 import { ActivityCalendar } from '../components/ActivityCalendar.tsx'
+import { useAuth } from '../auth.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
 
-function formatDate(value?: string) {
-  if (!value) return '-'
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
-}
+const USER_PERMS = {
+  PERM_VIEW_USER_PRIVATE_INFO: 1,
+  PERM_MOD_BADGE: 2,
+} as const
 
 export function UserProfilePage() {
   const { uid = '' } = useParams()
-  const [user, setUser] = useState<PublicUser | null>(null)
+  const { user: viewer } = useAuth()
+  const [profile, setProfile] = useState<PublicUser | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    getPublicUser(uid).then(setUser).catch((err: unknown) => setError(err instanceof Error ? err.message : '用户加载失败'))
+    setProfile(null)
+    setError('')
+    getPublicUser(uid)
+      .then(setProfile)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : '用户加载失败'))
+  }, [uid])
+
+  const context = useMemo(() => {
+    if (!profile) return {}
+    const udoc = {
+      _id: profile.id,
+      uname: profile.username,
+      displayName: profile.displayName ?? '',
+      avatar: profile.avatar ?? '',
+      bio: profile.bio ?? '',
+      regat: new Date(profile.regAt),
+      loginat: new Date(profile.loginAt ?? profile.regAt),
+      nSubmit: profile.nSubmit,
+      nAccept: profile.nAccept,
+      nLiked: 0,
+      rp: 0,
+      rank: '?',
+      gender: 0,
+      hasPriv: (privilege: number) => privilege === 1,
+      hasPerm: () => false,
+    }
+    const pdocs = (profile.acceptedProblems ?? []).map((problem) => ({
+      docId: problem.docId,
+      pid: problem.pid,
+      title: problem.title,
+      hidden: false,
+    }))
+    return {
+      page_name: 'user_detail',
+      udoc,
+      sdoc: null,
+      pdocs,
+      tags: [],
+      // The account sidebar (messages/settings/files) is not ported yet.
+      isSelfProfile: false,
+      handler: {
+        user: {
+          _id: viewer?.id ?? 0,
+          viewLang: 'zh',
+          _dudoc: { join: true },
+          hasPerm: (permission: number) => permission === USER_PERMS.PERM_VIEW_USER_PRIVATE_INFO && Boolean(viewer),
+          hasPriv: (privilege: number) => privilege === 1 && Boolean(viewer),
+          own: (doc?: unknown) => Boolean(viewer && doc && (doc as { owner?: number }).owner === viewer.id),
+        },
+        args: { domainId: 'system' },
+        request: {
+          query: {},
+          path: `/user/${profile.id}`,
+          headers: { 'user-agent': navigator.userAgent },
+        },
+        session: { legacy: false, viewLang: 'zh' },
+        ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+      },
+      perm: USER_PERMS,
+      PRIV: { PRIV_USER_PROFILE: 1, PRIV_MOD_BADGE: 2 },
+      model: {
+        builtin: { USER_GENDER_OTHER: 0, USER_GENDER_RANGE: {}, USER_GENDER_ICONS: {} },
+      },
+      avatarUrl: (value?: string) => value || '/logo.png',
+      UiContext: {},
+      UserContext: viewer,
+    }
+  }, [profile, viewer])
+
+  const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
+    switch (name) {
+      case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? uid))}`
+      case 'problem_detail': return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
+      case 'contest_detail': return `/contest/${encodeURIComponent(String(args.tid ?? ''))}`
+      case 'homework_detail': return `/homework/${encodeURIComponent(String(args.tid ?? ''))}`
+      default: return '#'
+    }
+  }, [uid])
+
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    const tabs = root.querySelector('.section__tabs')
+    if (!tabs || !uid) return
+    const item = document.createElement('li')
+    item.className = 'section__tab-item'
+    item.innerHTML = '<h1 class="section__tab-title">活跃日历</h1><div class="section__tab-main"><div class="section__body"></div></div>'
+    tabs.appendChild(item)
+    const mount = item.querySelector('.section__body') as HTMLElement
+    const calendar = createRoot(mount)
+    calendar.render(<ActivityCalendar uid={Number(uid)} />)
+    return () => {
+      calendar.unmount()
+      item.remove()
+    }
   }, [uid])
 
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
-  if (!user) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
+  if (!profile) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
 
-  return (
-    <div className="row">
-      <div className="medium-9 columns">
-        <div className="section">
-          <div className="profile-header user-profile-bg">
-            <div className="profile-header__content">
-              <div className="media">
-                <div className="media__left">
-                  {user.avatar ? <img src={user.avatar} width={120} height={120} className="large user-profile-avatar" alt="" /> : (
-                    <div className="large user-profile-avatar" style={{ display: 'grid', placeItems: 'center', width: 120, height: 120, fontSize: 48, background: '#fff', color: '#56758f' }}>
-                      {(user.displayName || user.username).slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div className="media__body profile-header__main">
-                  <h1>{user.username}{user.displayName ? <small> ({user.displayName})</small> : null}</h1>
-                  <p>
-                    UID: {user.id}, 注册于 {formatDate(user.regAt)}, 最后登录于 {formatDate(user.loginAt)}.
-                  </p>
-                  <p>已通过 {user.nAccept} 道题，累计提交 {user.nSubmit} 次。</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="profile-content">
-            <div className="section__tab-container immersive memo">
-              <ul className="section__tabs">
-                <li className="section__tab-item">
-                  <h1 className="section__tab-title">简介</h1>
-                  <div className="section__tab-main">
-                    {user.bio ? <div className="section__body typo richmedia"><ReactMarkdown remarkPlugins={[remarkGfm]}>{user.bio}</ReactMarkdown></div> : (
-                      <div className="nothing-placeholder compact">这位用户还没有填写简介。</div>
-                    )}
-                  </div>
-                </li>
-                <li className="section__tab-item">
-                  <h1 className="section__tab-title">活跃日历</h1>
-                  <div className="section__tab-main">
-                    <div className="section__body"><ActivityCalendar uid={user.id} /></div>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="medium-3 columns">
-        <div className="section side">
-          <div className="section__body">
-            <div className="balancer sidebar-user-stat">
-              <div className="balancer__body"><div className="numbox"><div className="numbox__num medium">{user.nSubmit}</div><div className="numbox__text">提交</div></div></div>
-              <div className="balancer__body"><div className="numbox"><div className="numbox__num medium">{user.nAccept}</div><div className="numbox__text">通过</div></div></div>
-              <div className="balancer__body"><div className="numbox"><div className="numbox__num medium">0</div><div className="numbox__text">获赞题解</div></div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  return <HydroTemplate template="user_detail.html" context={context} url={buildUrl} onReady={handleReady} />
 }
