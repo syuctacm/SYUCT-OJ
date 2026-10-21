@@ -17,6 +17,7 @@ import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 import { renderHydroTemplate } from '../upstream/render.ts'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 const defaultConfig = `type: default
 time: 1000ms
@@ -190,7 +191,7 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
       discussionCount: 0,
       solutionCount: 0,
       UiContext: { cdn_prefix: '/' },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       model: {
         builtin: { LEVELS: {} },
         system: { get: (key: string) => key === 'server.login' ? true : false },

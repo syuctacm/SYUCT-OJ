@@ -7,6 +7,7 @@ import { useAuth } from '../auth.tsx'
 import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { statusClass, statusLabels } from '../status.ts'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 const languageMap = Object.fromEntries(languageOptions.map((language) => [
   language._id,
@@ -202,7 +203,7 @@ export function SubmissionPage() {
         return `<span class="time">${formatDate(date)}</span>`
       },
       formatJudgeTexts: (values: unknown[]) => values.map(judgeText).join('\n'),
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UiContext: {},
       UserContext: user,
     }

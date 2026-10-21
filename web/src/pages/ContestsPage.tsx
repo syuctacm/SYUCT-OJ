@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getContests, type Contest } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 const ruleNames: Record<string, string> = {
   acm: 'XCPC / ACM',
@@ -135,7 +136,7 @@ export function ContestsPage() {
         const date = value instanceof Date ? value : new Date(value)
         return `<span class="time">${formatByPattern(date, pattern)}</span>`
       },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UserContext: user,
     }
   }, [group, items, query, rule, user])

@@ -6,6 +6,7 @@ import { getProblem, type ProblemDetail } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { renderMarkdown } from '../upstream/markdown.ts'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 function configSummary(problem: ProblemDetail) {
   return {
@@ -118,7 +119,7 @@ export function ProblemDetailPage() {
         contest: { canShowSelfRecord: () => true },
       },
       lib: { difficulty: () => 0 },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       utils: { getAlphabeticId: () => '' },
       UiContext: {
         cdn_prefix: '/',

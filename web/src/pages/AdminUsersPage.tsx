@@ -8,6 +8,7 @@ import { Dialog } from '../components/Dialog.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { UserSelectAutoComplete } from '../components/autocomplete/UserSelectAutoComplete.tsx'
 import { PRIV_DEFAULT, PRIV_OPTIONS } from '../upstream/priv.ts'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 export function AdminUsersPage() {
   const { user } = useAuth()
@@ -119,7 +120,7 @@ export function AdminUsersPage() {
       session: { legacy: false, viewLang: 'zh' },
       ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
     },
-    avatarUrl: (value?: string) => value || '/logo.png',
+    avatarUrl,
     UiContext: {},
     UserContext: user,
   }), [data, user])

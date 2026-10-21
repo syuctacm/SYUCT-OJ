@@ -8,6 +8,7 @@ import {
   type UserChoice,
 } from '../../api.ts'
 import AutoComplete, { type AutoCompleteHandle, type AutoCompleteProps } from './AutoComplete.tsx'
+import { avatarUrl } from '../../upstream/avatar.ts'
 
 export type AssignItem = {
   type: 'user' | 'group'
@@ -55,7 +56,7 @@ export const AssignSelectAutoComplete = forwardRef<AutoCompleteHandle<AssignItem
       <div className="media">
         {item.type === 'user' && item.avatar ? (
           <div className="media__left medium">
-            <img className="small user-profile-avatar" alt="" src={item.avatar} width="30" height="30" />
+            <img className="small user-profile-avatar" alt="" src={avatarUrl(item.avatar, 30)} width="30" height="30" />
           </div>
         ) : null}
         <div className="media__body medium">

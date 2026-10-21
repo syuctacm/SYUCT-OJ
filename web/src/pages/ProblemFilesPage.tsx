@@ -10,6 +10,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 type AssetKind = 'testdata' | 'additional_file'
 
@@ -164,7 +165,7 @@ export function ProblemFilesPage() {
       discussionCount: 0,
       solutionCount: 0,
       UiContext: { cdn_prefix: '/' },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       model: {
         builtin: { LEVELS: {} },
         system: { get: (key: string) => key === 'server.login' },

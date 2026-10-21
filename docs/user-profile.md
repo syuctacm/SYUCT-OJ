@@ -21,9 +21,26 @@
 - 页面由 `HydroTemplate` 直接渲染上游 `user_detail.html`：资料头部、联系方式图标、简介标签页、已通过题目标签页和侧栏统计都来自原模板
 - 活跃日历（原 Activity Calendar 插件）作为标签页挂载到原版标签结构中
 
+## 头像
+
+用户文档里的 `avatar` 是带 scheme 的字符串，渲染前统一走 `web/src/upstream/avatar.ts`（移植自上游 `packages/hydrooj/src/lib/avatar.ts`）：
+
+| 值 | 渲染结果 |
+|---|---|
+| `gravatar:mail@example.com` | `//cn.gravatar.com/avatar/<md5(小写邮箱)>?d=mm&s=<size>` |
+| `qq:123456789` | `//q1.qlogo.cn/g?b=qq&nk=123456789&s=160` |
+| `github:hydro-dev` | `//github.com/hydro-dev.png?size=<min(size,460)>` |
+| `url:https://…` | 原样输出 |
+| 空值 | 空邮箱的 gravatar（与旧站一致） |
+
+gravatar 需要 MD5，浏览器没有同步实现，因此在 `web/src/upstream/md5.ts` vendored 了一份 RFC 1321 实现，并用 RFC 测试向量和 `md5sum` 对照验证（含 UTF-8 中文）。Gravatar 前缀沿用上游默认值 `//cn.gravatar.com/avatar/`，等设置系统接入后再改成可配置项。
+
+所有页面和两个用户自动补全组件都使用同一个 `avatarUrl()`，不再各自内联 `value || '/logo.png'`。
+
 ## 尚未完成
 
 - 用户签名和社交信息（邮箱/QQ/微信/性别图标）
+- 头像上传与 `/home/settings` 账户设置页
 - 获赞题解（当前显示 0）
 - 个人主页的账号自助侧栏（消息、设置、文件）暂不显示
 - 在线状态（当前统一显示离线）

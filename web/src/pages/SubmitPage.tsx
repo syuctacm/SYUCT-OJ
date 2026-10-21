@@ -6,6 +6,7 @@ import { createSubmission, getProblem, type ProblemDetail } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 function configSummary(problem: ProblemDetail) {
   return {
@@ -123,7 +124,7 @@ export function SubmitPage() {
       discussionCount: 0,
       solutionCount: 0,
       UiContext: { cdn_prefix: '/' },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       model: {
         builtin: { LEVELS: {} },
         system: { get: (key: string) => key === 'server.login' },

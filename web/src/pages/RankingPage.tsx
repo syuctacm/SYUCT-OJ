@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import { getPublicUser, getRanking, type PublicUser, type RankingUser } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 export function RankingPage() {
   const { user } = useAuth()
@@ -74,7 +75,7 @@ export function RankingPage() {
       perm: {},
       PRIV: { PRIV_USER_PROFILE: 1 },
       model: { rp: {}, system: { get: (key: string) => (key === 'pagination.ranking' ? 20 : '') } },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UiContext: {},
       UserContext: user,
     }

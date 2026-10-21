@@ -4,6 +4,7 @@
 import { useCallback, useMemo } from 'react'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 export function AdminPage() {
   const { user } = useAuth()
@@ -27,7 +28,7 @@ export function AdminPage() {
   const context = useMemo(() => ({
     page_name: 'manage_dashboard',
     domain: { name: 'SYUCT ACM', avatar: '' },
-    avatarUrl: (value?: string) => value || '/logo.png',
+    avatarUrl,
     handler: {
       user: {
         _id: user?.id ?? 0,

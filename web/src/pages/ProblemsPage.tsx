@@ -6,6 +6,7 @@ import { getProblems, type ProblemPage } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { statusClass, statusLabels } from '../status.ts'
+import { avatarUrl } from '../upstream/avatar.ts'
 
 const statusCodes = Object.fromEntries(Object.keys(statusLabels).map((status) => [
   status,
@@ -165,7 +166,7 @@ export function ProblemsPage() {
           getScoreColor: (score: number) => score >= 100 ? '#25ad40' : score > 0 ? '#e64c72' : '#999',
         },
       },
-      avatarUrl: (value?: string) => value || '/logo.png',
+      avatarUrl,
       UserContext: user,
     }
   }, [page, ppcount, query, sort, tag, user])
