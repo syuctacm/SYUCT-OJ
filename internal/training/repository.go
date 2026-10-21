@@ -21,6 +21,7 @@ const (
 	DocumentTypeTraining = 40
 	DocumentTypeProblem  = 10
 	DomainSystem         = "system"
+	statusAccepted       = 1
 )
 
 var ErrNotFound = fmt.Errorf("training not found")
@@ -74,6 +75,9 @@ type Problem struct {
 	Tried      bool   `json:"tried"`
 	Solved     bool   `json:"solved"`
 	Missing    bool   `json:"missing"`
+	RID        string `json:"rid,omitempty"`
+	Status     int    `json:"status,omitempty"`
+	Score      int    `json:"score,omitempty"`
 }
 
 type Section struct {
@@ -92,6 +96,7 @@ type Detail struct {
 	Completed     bool      `json:"completed"`
 	DoneProblems  int       `json:"doneProblems"`
 	TotalProblems int       `json:"totalProblems"`
+	EnrolledUsers []int64   `json:"enrolledUsers"`
 	Sections      []Section `json:"sections"`
 }
 
@@ -406,14 +411,26 @@ func (r *Repository) Detail(ctx context.Context, tid string, uid int64) (*Detail
 			return nil, err
 		}
 	}
-	donePids, progressPids := map[int64]bool{}, map[int64]bool{}
+	records := map[int64]problemRecord{}
 	if uid > 0 {
-		donePids, progressPids, err = r.userProblemStatus(ctx, uid, pids)
+		records, err = r.userProblemStatus(ctx, uid, pids)
 		if err != nil {
 			return nil, err
 		}
 	}
+	donePids, progressPids := map[int64]bool{}, map[int64]bool{}
+	for pid, record := range records {
+		if record.Status == statusAccepted {
+			donePids[pid] = true
+		} else {
+			progressPids[pid] = true
+		}
+	}
 	problems, err := r.problems(ctx, pids)
+	if err != nil {
+		return nil, err
+	}
+	enrolledUsers, err := r.enrolledUsers(ctx, item.DocID)
 	if err != nil {
 		return nil, err
 	}
@@ -430,6 +447,11 @@ func (r *Repository) Detail(ctx context.Context, tid string, uid int64) (*Detail
 			if p, ok := problems[pid]; ok {
 				p.Tried = progressPids[pid] || donePids[pid]
 				p.Solved = donePids[pid]
+				if record, ok := records[pid]; ok {
+					p.RID = record.RID
+					p.Status = record.Status
+					p.Score = record.Score
+				}
 				sectionProblems = append(sectionProblems, p)
 			} else {
 				sectionProblems = append(sectionProblems, Problem{DocID: pid, Title: "题目不可用", Missing: true})
@@ -461,6 +483,7 @@ func (r *Repository) Detail(ctx context.Context, tid string, uid int64) (*Detail
 		Completed:     len(item.DAG) > 0 && len(doneNids) == len(item.DAG),
 		DoneProblems:  doneProblems,
 		TotalProblems: len(pids),
+		EnrolledUsers: enrolledUsers,
 		Sections:      sections,
 	}, nil
 }
@@ -518,35 +541,74 @@ func (r *Repository) isEnrolled(ctx context.Context, tid bson.ObjectID, uid int6
 	return count > 0, err
 }
 
-func (r *Repository) userProblemStatus(ctx context.Context, uid int64, pids []int64) (map[int64]bool, map[int64]bool, error) {
-	done := map[int64]bool{}
-	progress := map[int64]bool{}
+type problemRecord struct {
+	RID    string
+	Status int
+	Score  int
+}
+
+// userProblemStatus returns the latest submission of the user for each problem.
+func (r *Repository) userProblemStatus(ctx context.Context, uid int64, pids []int64) (map[int64]problemRecord, error) {
+	records := map[int64]problemRecord{}
 	if len(pids) == 0 {
-		return done, progress, nil
+		return records, nil
 	}
 	cursor, err := r.records.Find(ctx, bson.M{
 		"uid": uid,
 		"pid": bson.M{"$in": pids},
-	}, options.Find().SetProjection(bson.M{"pid": 1, "status": 1}))
+	}, options.Find().
+		SetProjection(bson.M{"pid": 1, "status": 1, "score": 1}).
+		SetSort(bson.D{{Key: "_id", Value: -1}}))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer cursor.Close(ctx)
-	var records []struct {
-		PID    int64 `bson:"pid"`
-		Status int   `bson:"status"`
+	var items []struct {
+		ID     bson.ObjectID `bson:"_id"`
+		PID    int64         `bson:"pid"`
+		Status int           `bson:"status"`
+		Score  int           `bson:"score"`
 	}
-	if err := cursor.All(ctx, &records); err != nil {
-		return nil, nil, err
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
 	}
-	for _, record := range records {
-		if record.Status == 1 {
-			done[record.PID] = true
-		} else {
-			progress[record.PID] = true
+	for _, item := range items {
+		if _, ok := records[item.PID]; ok {
+			continue
+		}
+		records[item.PID] = problemRecord{RID: item.ID.Hex(), Status: item.Status, Score: item.Score}
+	}
+	return records, nil
+}
+
+// enrolledUsers lists the users enrolled in the training.
+func (r *Repository) enrolledUsers(ctx context.Context, tid bson.ObjectID) ([]int64, error) {
+	cursor, err := r.statuses.Find(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeTraining,
+		"docId":    tid,
+		"enroll":   1,
+	}, options.Find().
+		SetProjection(bson.M{"uid": 1}).
+		SetSort(bson.D{{Key: "uid", Value: 1}}).
+		SetLimit(500))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var docs []struct {
+		UID int64 `bson:"uid"`
+	}
+	if err := cursor.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+	uids := make([]int64, 0, len(docs))
+	for _, doc := range docs {
+		if doc.UID > 0 {
+			uids = append(uids, doc.UID)
 		}
 	}
-	return done, progress, nil
+	return uids, nil
 }
 
 func (r *Repository) problems(ctx context.Context, pids []int64) (map[int64]Problem, error) {

@@ -41,7 +41,7 @@ enroll=1
 页面结构对应 Hydro `ui-default`：
 
 - `training_main.html`：由 `HydroTemplate` 直接渲染训练列表、搜索、章节/题目数和报名人数
-- `training_detail.html`：训练说明、状态、章节和题目
+- `training_detail.html`：由 `HydroTemplate` 直接渲染训练说明、状态、章节和题目
 - `training_edit.html`：训练创建和编辑表单
 - `partials/training_detail.html`：DAG 章节状态、前置条件和题目表格
 
@@ -55,12 +55,12 @@ enroll=1
 
 创建和编辑使用管理员权限；编辑还需要训练所有者或管理员。DAG JSON 会校验节点 ID 唯一、前置节点存在、每节至少一道题，并把 PID 或 docId 统一解析为题目 docId。
 
-未报名或章节未解锁时仍可查看内容，但题目入口不可点击。页面直接使用 Hydro 原版 `.training__section`、`.training__problems` 和训练状态类名。训练创建/编辑页由 `HydroTemplate` 直接渲染上游 `training_edit.html`，Markdown 图片上传已接入训练文件接口。训练列表的搜索由 React 适配层保持，章节/题目统计来自列表 API 的聚合字段；报名进度和已报名侧栏暂未接入。
+未报名或章节未解锁时仍可查看内容，但题目入口不可点击。训练详情由 `HydroTemplate` 直接渲染上游 `training_detail.html` 和 `partials/training_detail.html`，保留原版 `.training__section`、`.training__problems`、状态列和报名用户菜单；章节展开/收缩和报名表单由适配层接管。详情 API 返回每题最近一次提交（rid/status/score）和已报名用户，用于渲染原版状态列与报名用户菜单。训练创建/编辑页由 `HydroTemplate` 直接渲染上游 `training_edit.html`，Markdown 图片上传已接入训练文件接口。训练列表的搜索由 React 适配层保持，章节/题目统计来自列表 API 的聚合字段。
 
 ## 尚未完成
 
 - 训练私有文件
-- 他人进度对比和完成排行榜
+- 他人进度对比和完成排行榜（`?uid=` 切换和标题导航提取）
 - 训练通知
 
 ## 验证

@@ -5,6 +5,11 @@ import nunjucks from 'nunjucks'
 import yaml from 'js-yaml'
 import zhYaml from '@hydrooj/ui-default/locales/zh.yaml?raw'
 import { size } from './format.ts'
+import { renderMarkdown } from './markdown.ts'
+import { difficulty } from './difficulty.ts'
+import {
+  STATUS, STATUS_CODES, STATUS_SHORT_TEXTS, STATUS_TEXTS, getScoreColor,
+} from './status.ts'
 
 type TranslationMap = Record<string, string>
 type RenderContext = Record<string, unknown>
@@ -70,6 +75,7 @@ env.addFilter('problemPreview', (value: unknown) => String(value ?? '')
   .replace(/[#>*_`\[\]]/g, ' ')
   .replace(/\s+/g, ' ')
   .trim())
+env.addFilter('markdown', (value: unknown) => renderMarkdown(String(value ?? '')))
 
 
 function paginate(page: number, numPages: number) {
@@ -119,6 +125,11 @@ function defaultUrl(name: string, args: Record<string, unknown> = {}) {
     contest_detail: `/contest/${encodeURIComponent(id)}`,
     homework_detail: `/homework/${encodeURIComponent(id)}`,
     training_detail: `/training/${encodeURIComponent(id)}`,
+    training_files: `/training/${encodeURIComponent(id)}/files`,
+    problem_detail: `/p/${encodeURIComponent(String(args.pid ?? ''))}`,
+    record_detail: `/record/${encodeURIComponent(String(args.rid ?? ''))}`,
+    user_detail: `/user/${encodeURIComponent(String(args.uid ?? ''))}`,
+    wiki_help: '/discuss',
   }
   return routes[name] ?? '/'
 }
@@ -130,7 +141,7 @@ export type HydroRenderOptions = {
 }
 
 export function renderHydroTemplate(template: string, options: HydroRenderOptions = {}) {
-  const context: RenderContext = {
+  const base: RenderContext = {
     _: translate,
     url: options.url ?? defaultUrl,
     urlForFile: options.urlForFile ?? ((filename: string) => filename),
@@ -150,10 +161,23 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
       else Object.assign(target, keyOrValues)
       return ''
     },
-    ...options.context,
+    STATUS,
+    model: { builtin: { STATUS_CODES, STATUS_TEXTS, STATUS_SHORT_TEXTS } },
+    utils: {
+      status: { getScoreColor },
+      getAlphabeticId: (index: number) => String.fromCharCode(65 + index),
+    },
+    lib: { difficulty },
+  }
+  const extra = options.context ?? {}
+  const context: RenderContext = {
+    ...base,
+    ...extra,
+    model: { ...(base.model as RenderContext), ...(extra.model as RenderContext | undefined) },
+    utils: { ...(base.utils as RenderContext), ...(extra.utils as RenderContext | undefined) },
   }
   return env.renderString(
-    `{% import "components/user.html" as user with context %}{% import "components/problem.html" as problem with context %}{% import "components/nothing.html" as nothing with context %}{% import "components/record.html" as record with context %}{% import "components/paginator.html" as paginator with context %}{% import "components/form.html" as form with context %}{% import "components/noscript_note.html" as noscript_note with context %}{% include "${template}" %}`,
+    `{% import "components/user.html" as user with context %}{% import "components/problem.html" as problem with context %}{% import "components/nothing.html" as nothing with context %}{% import "components/record.html" as record with context %}{% import "components/paginator.html" as paginator with context %}{% import "components/form.html" as form with context %}{% import "components/sidemenu.html" as sidemenu with context %}{% import "components/noscript_note.html" as noscript_note with context %}{% include "${template}" %}`,
     context,
   )
 }
