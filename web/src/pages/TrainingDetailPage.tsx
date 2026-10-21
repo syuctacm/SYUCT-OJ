@@ -133,7 +133,7 @@ export function TrainingDetailPage() {
     switch (name) {
       case 'training_detail': return `/training/${encodeURIComponent(id)}`
       case 'training_edit': return `/training/${encodeURIComponent(id)}/edit`
-      case 'training_files': return `/training/${encodeURIComponent(id)}/files`
+      case 'training_files': return `/training/${encodeURIComponent(id)}/file`
       case 'problem_detail': return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
       case 'record_detail': return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
       case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`

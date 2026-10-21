@@ -134,7 +134,7 @@ export function HomeworkDetailPage() {
     switch (name) {
       case 'homework_detail': return `/homework/${encodeURIComponent(id)}`
       case 'homework_edit': return `/homework/${encodeURIComponent(id)}/edit`
-      case 'homework_files': return `/homework/${encodeURIComponent(id)}/files`
+      case 'homework_files': return `/homework/${encodeURIComponent(id)}/file`
       case 'homework_scoreboard': return `/homework/${encodeURIComponent(id)}/scoreboard`
       case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
       case 'record_detail': return `/record/${encodeURIComponent(String(args.rid ?? ''))}`

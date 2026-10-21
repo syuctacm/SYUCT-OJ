@@ -1,201 +1,281 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+// Page markup is rendered from the pinned Hydro ui-default templates
+// (homework_files.html and training_files.html). Keep this file limited to data
+// mapping and the file interactions those templates expect; do not re-create
+// the DOM in JSX.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import {
-  deleteActivityFiles,
-  getActivityFiles,
-  getContest,
-  getHomework,
-  getTraining,
+  attendHomework, deleteActivityFiles, getActivityFiles, getHomework, getTraining, getUsersByIDs,
   uploadActivityFiles,
-  type ActivityFile,
-  type ActivityFileResource,
+  type ActivityFile, type ActivityFileResource, type Contest, type TrainingDetail, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
 
-type Kind = 'contest' | 'homework' | 'training'
+type Kind = 'homework' | 'training'
 
-const config: Record<Kind, {
-  resource: ActivityFileResource
-  title: string
-  detail: (tid: string) => string
-  loadOwner: (tid: string) => Promise<number>
-}> = {
-  contest: {
-    resource: 'contests',
-    title: '比赛文件',
-    detail: (tid) => `/contest/${encodeURIComponent(tid)}`,
-    loadOwner: (tid) => getContest(tid).then((item) => item.owner),
-  },
-  homework: {
-    resource: 'homeworks',
-    title: '作业文件',
-    detail: (tid) => `/homework/${encodeURIComponent(tid)}`,
-    loadOwner: (tid) => getHomework(tid).then((item) => item.owner),
-  },
-  training: {
-    resource: 'trainings',
-    title: '训练文件',
-    detail: (tid) => `/training/${encodeURIComponent(tid)}`,
-    loadOwner: (tid) => getTraining(tid).then((item) => item.owner),
-  },
+type PageData = {
+  docId: string
+  owner: number
+  tdoc: Record<string, unknown>
+  tsdoc: Record<string, unknown>
 }
 
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MiB`
+const config: Record<Kind, { template: string; resource: ActivityFileResource; pageName: string }> = {
+  homework: { template: 'homework_files.html', resource: 'homeworks', pageName: 'homework_files' },
+  training: { template: 'training_files.html', resource: 'trainings', pageName: 'training_files' },
+}
+
+function toUdoc(item: UserChoice) {
+  return { _id: item.id, uname: item.username, displayName: item.displayName ?? '', avatar: item.avatar ?? '' }
+}
+
+function homeworkPageData(homework: Contest): PageData {
+  return {
+    docId: homework.docId,
+    owner: homework.owner,
+    tdoc: {
+      ...homework,
+      _id: homework.docId,
+      beginAt: new Date(homework.beginAt),
+      endAt: new Date(homework.endAt),
+      penaltySince: new Date(homework.penaltySince ?? homework.endAt),
+      lockAt: homework.lockAt ? new Date(homework.lockAt) : null,
+      pids: homework.pids ?? [],
+      domainId: 'system',
+    },
+    tsdoc: { attend: Boolean(homework.attended) },
+  }
+}
+
+function trainingPageData(training: TrainingDetail): PageData {
+  const dag = training.sections.map((section) => ({
+    _id: section.id,
+    title: section.title,
+    content: section.content ?? '',
+    requireNids: section.requireNids,
+    pids: section.problems.map((problem) => problem.docId),
+  }))
+  return {
+    docId: training.docId,
+    owner: training.owner,
+    tdoc: { ...training, _id: training.id, dag },
+    tsdoc: { enroll: training.enrolled, done: training.completed },
+  }
 }
 
 export function ActivityFilesPage({ kind }: { kind: Kind }) {
   const { tid = '' } = useParams()
   const { user } = useAuth()
   const page = config[kind]
+  const [data, setData] = useState<PageData | null>(null)
   const [files, setFiles] = useState<ActivityFile[]>([])
-  const [ownerID, setOwnerID] = useState<number | null>(null)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
+  const [owner, setOwner] = useState<UserChoice | null>(null)
   const [error, setError] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [actionError, setActionError] = useState('')
+  const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
+
+  const load = useCallback(async () => {
+    const [next, list] = await Promise.all([
+      kind === 'homework' ? getHomework(tid).then(homeworkPageData) : getTraining(tid).then(trainingPageData),
+      getActivityFiles(page.resource, tid),
+    ])
+    setData(next)
+    setFiles(list)
+    const [udoc] = await getUsersByIDs([next.owner]).catch(() => [])
+    setOwner(udoc ?? null)
+  }, [kind, page.resource, tid])
 
   useEffect(() => {
-    setLoading(true)
+    setData(null)
     setError('')
-    Promise.all([getActivityFiles(page.resource, tid), page.loadOwner(tid)])
-      .then(([nextFiles, owner]) => {
-        setFiles(nextFiles)
-        setOwnerID(owner)
+    load().catch((err: unknown) => setError(err instanceof Error ? err.message : '文件加载失败'))
+  }, [load])
+
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    const cleanups: Array<() => void> = []
+    const listen = <K extends keyof HTMLElementEventMap>(
+      element: Element,
+      type: K,
+      listener: (event: HTMLElementEventMap[K]) => void,
+    ) => {
+      element.addEventListener(type, listener as EventListener)
+      cleanups.push(() => element.removeEventListener(type, listener as EventListener))
+    }
+
+    // Mirrors the select-all handling in the upstream files.page.tsx.
+    root.querySelectorAll<HTMLInputElement>('input[data-checkbox-toggle]').forEach((input) => {
+      listen(input, 'change', () => {
+        const group = input.getAttribute('data-checkbox-toggle') ?? 'files'
+        root.querySelectorAll<HTMLInputElement>(`input[data-checkbox-group="${group}"]`).forEach((checkbox) => {
+          checkbox.checked = input.checked
+        })
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : '文件加载失败'))
-      .finally(() => setLoading(false))
-  }, [page, tid])
-
-  const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
-  const canManage = Boolean(user && (isAdmin || user.id === ownerID))
-
-  function toggle(name: string) {
-    setSelected((current) => {
-      const next = new Set(current)
-      if (next.has(name)) next.delete(name)
-      else next.add(name)
-      return next
     })
-  }
 
-  function toggleAll() {
-    setSelected((current) => current.size === files.length ? new Set() : new Set(files.map((file) => file.name)))
-  }
+    root.querySelectorAll<HTMLButtonElement>('[name="upload_file"]').forEach((button) => {
+      listen(button, 'click', () => {
+        const picker = document.createElement('input')
+        picker.type = 'file'
+        picker.multiple = true
+        picker.onchange = async () => {
+          const chosen = Array.from(picker.files ?? [])
+          if (!chosen.length) return
+          setActionError('')
+          try {
+            setFiles(await uploadActivityFiles(page.resource, tid, chosen))
+          } catch (err) {
+            setActionError(err instanceof Error ? err.message : '文件上传失败')
+          }
+        }
+        picker.click()
+      })
+    })
 
-  async function upload(event: ChangeEvent<HTMLInputElement>) {
-    const chosen = Array.from(event.target.files ?? [])
-    event.target.value = ''
-    if (!chosen.length) return
-    setBusy(true)
-    setError('')
+    root.querySelectorAll<HTMLButtonElement>('[name="remove_selected"]').forEach((button) => {
+      listen(button, 'click', async () => {
+        const names = Array.from(root.querySelectorAll<HTMLInputElement>('input[data-checkbox-group]:checked'))
+          .map((checkbox) => checkbox.closest('tr')?.getAttribute('data-filename') ?? '')
+          .filter(Boolean)
+        if (!names.length) {
+          setActionError('请至少选择一个文件。')
+          return
+        }
+        if (!window.confirm(`确认删除选中的 ${names.length} 个文件？`)) return
+        setActionError('')
+        try {
+          await deleteActivityFiles(page.resource, tid, names)
+          setFiles(await getActivityFiles(page.resource, tid))
+        } catch (err) {
+          setActionError(err instanceof Error ? err.message : '文件删除失败')
+        }
+      })
+    })
+
+    // Drag and drop onto the file table, matching the upstream page script.
+    root.querySelectorAll<HTMLElement>('.files').forEach((zone) => {
+      listen(zone, 'dragover', (event) => event.preventDefault())
+      listen(zone, 'drop', (event) => {
+        event.preventDefault()
+        const dropped = Array.from(event.dataTransfer?.files ?? [])
+        if (!dropped.length) return
+        setActionError('')
+        uploadActivityFiles(page.resource, tid, dropped)
+          .then(setFiles)
+          .catch((err: unknown) => setActionError(err instanceof Error ? err.message : '文件上传失败'))
+      })
+    })
+
+    for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
+      const onSubmit = (event: SubmitEvent) => submitRef.current(event)
+      form.addEventListener('submit', onSubmit)
+      cleanups.push(() => form.removeEventListener('submit', onSubmit))
+    }
+
+    return () => cleanups.forEach((cleanup) => cleanup())
+  }, [page.resource, tid])
+
+  async function handleSubmit(event: SubmitEvent) {
+    event.preventDefault()
+    const form = event.target as HTMLFormElement
+    if (new FormData(form).get('operation') !== 'attend') return
+    setActionError('')
     try {
-      setFiles(await uploadActivityFiles(page.resource, tid, chosen))
-      setSelected(new Set())
+      await attendHomework(tid)
+      await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '文件上传失败')
-    } finally {
-      setBusy(false)
+      setActionError(err instanceof Error ? err.message : '认领失败')
     }
   }
+  submitRef.current = (event) => void handleSubmit(event)
 
-  async function removeSelected() {
-    if (!selected.size) return
-    setBusy(true)
-    setError('')
-    try {
-      const names = Array.from(selected)
-      await deleteActivityFiles(page.resource, tid, names)
-      setFiles((current) => current.filter((file) => !selected.has(file.name)))
-      setSelected(new Set())
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '文件删除失败')
-    } finally {
-      setBusy(false)
+  const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
+    const id = String(args.tid ?? data?.docId ?? tid)
+    const query = (args.query ?? {}) as Record<string, unknown>
+    switch (name) {
+      case 'homework_detail': return `/homework/${encodeURIComponent(id)}`
+      case 'homework_edit': return `/homework/${encodeURIComponent(id)}/edit`
+      case 'homework_files': return `/homework/${encodeURIComponent(id)}/file`
+      case 'homework_scoreboard': return `/homework/${encodeURIComponent(id)}/scoreboard`
+      case 'training_detail': return `/training/${encodeURIComponent(id)}`
+      case 'training_edit': return `/training/${encodeURIComponent(id)}/edit`
+      case 'training_files': return `/training/${encodeURIComponent(id)}/file`
+      case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+      case 'record_main': {
+        const params = new URLSearchParams()
+        for (const [key, value] of Object.entries(query)) {
+          if (value !== undefined && value !== null) params.set(key, String(value))
+        }
+        return `/record${params.toString() ? `?${params.toString()}` : ''}`
+      }
+      case 'wiki':
+      case 'wiki_help':
+        return '/discuss'
+      // Export all code is not ported yet.
+      case 'homework_code':
+        return '#'
+      default: return '/'
     }
-  }
+  }, [data?.docId, tid])
 
+  const context = useMemo(() => {
+    if (!data) return {}
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    const canEdit = Boolean(user && (user.id === data.owner || isAdmin))
+    const handler = {
+      user: {
+        _id: user?.id ?? 0,
+        viewLang: 'zh',
+        _dudoc: { join: true },
+        hasPerm: (permission: number) => {
+          if (permission === CONTEST_PERMS.PERM_ATTEND_HOMEWORK) return Boolean(user)
+          if (permission === CONTEST_PERMS.PERM_VIEW_HOMEWORK_SCOREBOARD) return true
+          if (permission === CONTEST_PERMS.PERM_VIEW_HOMEWORK_HIDDEN_SCOREBOARD) return canEdit
+          if (permission === CONTEST_PERMS.PERM_EDIT_HOMEWORK) return canEdit
+          if (permission === CONTEST_PERMS.PERM_EDIT_TRAINING) return canEdit
+          return false
+        },
+        hasPriv: (privilege: number) => privilege === 1 && Boolean(user),
+        own: (doc?: unknown) => Boolean(user && doc && (doc as { owner?: number }).owner === user.id),
+      },
+      args: { domainId: 'system' },
+      request: {
+        query: {},
+        path: `/${kind}/${data.docId}/file`,
+        headers: { 'user-agent': navigator.userAgent },
+      },
+      session: { legacy: false, viewLang: 'zh' },
+      ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+    }
+    return {
+      page_name: page.pageName,
+      tdoc: data.tdoc,
+      tsdoc: data.tsdoc,
+      files: files.map((file) => ({ name: file.name, size: file.size })),
+      udoc: owner ? toUdoc(owner) : null,
+      handler,
+      perm: CONTEST_PERMS,
+      PRIV: { PRIV_USER_PROFILE: 1, PRIV_MOD_BADGE: 2, PRIV_READ_RECORD_CODE: 3 },
+      model: { contest: createContestModel(handler) },
+      avatarUrl: (value?: string) => value || '/logo.png',
+      UiContext: {},
+      UserContext: user,
+    }
+  }, [data, files, kind, owner, page.pageName, user])
+
+  if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  if (!data) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
   return (
-    <div className="row">
-      <div className="medium-9 columns">
-        <div className="section">
-          <div className="section__header">
-            <h1 className="section__title">{page.title}</h1>
-            {canManage ? (
-              <div className="section__tools">
-                <button className="primary rounded button" type="button" onClick={() => inputRef.current?.click()} disabled={busy}>
-                  上传文件
-                </button>
-                <input ref={inputRef} type="file" multiple hidden onChange={upload} />
-              </div>
-            ) : null}
-          </div>
-          <div className="section__body no-padding files">
-            {loading ? <div className="nothing-placeholder">加载中...</div> : null}
-            {error ? <div className="nothing-placeholder error-state">{error}</div> : null}
-            {!loading && !error && files.length === 0 ? <div className="nothing-placeholder">暂无文件</div> : null}
-            {!loading && !error && files.length > 0 ? (
-              <table className="data-table">
-                <colgroup>
-                  {canManage ? <col className="col--checkbox" /> : null}
-                  <col className="col--name" />
-                  <col className="col--size" />
-                  <col className="col--operation" />
-                </colgroup>
-                <thead>
-                  <tr>
-                    {canManage ? (
-                      <th className="col--checkbox">
-                        <label className="compact checkbox">
-                          <input type="checkbox" checked={selected.size === files.length} onChange={toggleAll} />
-                        </label>
-                      </th>
-                    ) : null}
-                    <th className="col--name">文件名</th>
-                    <th className="col--size">大小</th>
-                    <th className="col--operation"><span className="icon icon-wrench" /></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {files.map((file) => (
-                    <tr key={file.name}>
-                      {canManage ? (
-                        <td className="col--checkbox">
-                          <label className="compact checkbox">
-                            <input type="checkbox" checked={selected.has(file.name)} onChange={() => toggle(file.name)} />
-                          </label>
-                        </td>
-                      ) : null}
-                      <td className="col--name"><a href={file.downloadUrl}>{file.name}</a></td>
-                      <td className="col--size">{formatSize(file.size)}</td>
-                      <td className="col--operation"><a href={file.downloadUrl} className="icon icon-download" aria-label="下载" /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : null}
-          </div>
-          {canManage && files.length > 0 ? (
-            <div className="section__body">
-              <button className="rounded button" type="button" onClick={removeSelected} disabled={!selected.size || busy}>
-                删除选中
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-      <div className="medium-3 columns">
-        <div className="section side">
-          <div className="section__body">
-            <ol className="menu">
-              <li className="menu__item"><Link className="menu__link" to={page.detail(tid)}><span className="icon icon-arrow-left" /> 返回详情</Link></li>
-            </ol>
-          </div>
-        </div>
-      </div>
-    </div>
+    <>
+      {actionError ? <div className="row"><div className="columns"><blockquote className="warn"><p>{actionError}</p></blockquote></div></div> : null}
+      <HydroTemplate
+        template={page.template}
+        context={context}
+        url={buildUrl}
+        urlForFile={(name) => `/api/v1/${page.resource}/${encodeURIComponent(tid)}/files/${encodeURIComponent(name)}`}
+        onReady={handleReady}
+      />
+    </>
   )
 }
