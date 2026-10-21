@@ -12,6 +12,8 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"go.mongodb.org/mongo-driver/v2/bson"
+
 	"github.com/syuctacm/syuct-oj/internal/api"
 	"github.com/syuctacm/syuct-oj/internal/api/handler"
 	"github.com/syuctacm/syuct-oj/internal/auth"
@@ -64,6 +66,9 @@ func main() {
 	submissionRepo := submission.NewRepository(db, problemRepo)
 	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions, contestRepo, userRepo)
 	adminHandler := handler.NewAdminHandler(db, userRepo, sessions)
+	submissionRepo.SetAcceptedHook(func(ctx context.Context, contestID bson.ObjectID, uid, pid int64) {
+		_ = contestRepo.AddBalloon(ctx, contestID, uid, pid)
+	})
 	pump := judge.NewTaskPump(db, hub)
 	pump.SetLeaseDuration(cfg.JudgeTaskLease)
 	pump.SetResultHandler(func(payload map[string]any) error {

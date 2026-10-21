@@ -548,6 +548,32 @@ export type ContestAttendee = {
   endAt?: string
 }
 
+export type ContestBalloonColor = { name: string; color: string }
+export type ContestBalloon = {
+  id: string
+  uid: number
+  pid: number
+  first?: boolean
+  sent?: number
+  sentAt?: string
+}
+
+export async function getContestBalloons(tid: string): Promise<{ items: ContestBalloon[]; colors: Record<string, ContestBalloonColor> }> {
+  const result = await request<Envelope<{ items: ContestBalloon[]; colors: Record<string, ContestBalloonColor> }>>(`/api/v1/contests/${encodeURIComponent(tid)}/balloons`)
+  return result.data
+}
+
+export async function setContestBalloonColors(tid: string, colors: Record<string, ContestBalloonColor>): Promise<void> {
+  await request(`/api/v1/contests/${encodeURIComponent(tid)}/balloons/colors`, {
+    method: 'PUT',
+    body: JSON.stringify({ colors }),
+  })
+}
+
+export async function markContestBalloonSent(tid: string, bid: string): Promise<void> {
+  await request(`/api/v1/contests/${encodeURIComponent(tid)}/balloons/${encodeURIComponent(bid)}/sent`, { method: 'POST' })
+}
+
 export async function setContestProblemScore(tid: string, pid: number, score: number): Promise<void> {
   await request(`/api/v1/contests/${encodeURIComponent(tid)}/score`, {
     method: 'POST',

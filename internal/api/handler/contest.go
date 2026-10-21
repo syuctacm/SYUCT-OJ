@@ -4,9 +4,11 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/contest"
@@ -41,6 +43,9 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/contests/:tid/attendees/:uid/resume", h.resumeAttendee)
 	router.GET("/api/v1/contests/:tid/code", h.exportCode)
 	router.POST("/api/v1/contests/:tid/score", h.setScore)
+	router.GET("/api/v1/contests/:tid/balloons", h.balloons)
+	router.PUT("/api/v1/contests/:tid/balloons/colors", h.setBalloonColors)
+	router.POST("/api/v1/contests/:tid/balloons/:bid/sent", h.markBalloonSent)
 	router.GET("/api/v1/contests/:tid/clarifications", h.clarifications)
 	router.POST("/api/v1/contests/:tid/clarifications", h.addClarification)
 	router.POST("/api/v1/contests/:tid/clarifications/broadcast", h.broadcastClarification)
@@ -271,6 +276,82 @@ func (h *ContestHandler) exportCode(c *gin.Context) {
 		return
 	}
 	exportCodeArchive(c, h.repo, item, u.ID, u.Priv&1 != 0)
+}
+
+func (h *ContestHandler) balloons(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	items, err := h.repo.Balloons(c.Request.Context(), item.DocID.Hex())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load balloons"})
+		return
+	}
+	colors := item.Balloon
+	if colors == nil {
+		colors = map[int64]contest.BalloonColor{}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+		"items": items, "colors": colors,
+	}})
+}
+
+func (h *ContestHandler) setBalloonColors(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	var request struct {
+		Colors map[string]contest.BalloonColor `json:"colors"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	colors := make(map[int64]contest.BalloonColor, len(request.Colors))
+	for raw, color := range request.Colors {
+		pid, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || pid <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid pid"})
+			return
+		}
+		if strings.TrimSpace(color.Color) == "" || strings.TrimSpace(color.Name) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "each problem needs a name and color"})
+			return
+		}
+		colors[pid] = color
+	}
+	if err := h.repo.SetBalloonColors(c.Request.Context(), item.DocID.Hex(), colors); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save balloon colors"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *ContestHandler) markBalloonSent(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	u, ok := h.currentUser(c)
+	if !ok {
+		return
+	}
+	bid, err := bson.ObjectIDFromHex(c.Param("bid"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid balloon id"})
+		return
+	}
+	if err := h.repo.MarkBalloonSent(c.Request.Context(), item.DocID.Hex(), bid, u.ID); err != nil {
+		if errors.Is(err, contest.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "balloon not found or already sent"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update balloon"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *ContestHandler) attendees(c *gin.Context) {

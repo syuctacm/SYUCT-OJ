@@ -55,34 +55,35 @@ type EditInput struct {
 }
 
 type Contest struct {
-	ID                   bson.ObjectID      `bson:"_id" json:"id"`
-	DocID                bson.ObjectID      `bson:"docId" json:"docId"`
-	Title                string             `bson:"title" json:"title"`
-	Content              string             `bson:"content" json:"content,omitempty"`
-	BeginAt              time.Time          `bson:"beginAt" json:"beginAt"`
-	EndAt                time.Time          `bson:"endAt" json:"endAt"`
-	Rule                 string             `bson:"rule" json:"rule"`
-	Owner                int64              `bson:"owner" json:"owner"`
-	Attend               int64              `bson:"attend" json:"attend"`
-	PIDs                 []int64            `bson:"pids" json:"pids"`
-	Duration             int                `bson:"duration" json:"duration"`
-	Rated                bool               `bson:"rated" json:"rated"`
-	PenaltySince         *time.Time         `bson:"penaltySince,omitempty" json:"penaltySince,omitempty"`
-	PenaltyRules         map[string]float64 `bson:"penaltyRules,omitempty" json:"penaltyRules,omitempty"`
-	LockAt               *time.Time         `bson:"lockAt,omitempty" json:"lockAt,omitempty"`
-	Unlocked             bool               `bson:"unlocked,omitempty" json:"unlocked,omitempty"`
-	Maintainer           []int64            `bson:"maintainer,omitempty" json:"maintainer,omitempty"`
-	Assign               []string           `bson:"assign,omitempty" json:"assign,omitempty"`
-	Langs                []string           `bson:"langs,omitempty" json:"langs,omitempty"`
-	AutoHide             bool               `bson:"autoHide,omitempty" json:"autoHide"`
-	AllowViewCode        bool               `bson:"allowViewCode,omitempty" json:"allowViewCode"`
-	AllowPrint           bool               `bson:"allowPrint,omitempty" json:"allowPrint"`
-	AllowTeam            bool               `bson:"allowTeam,omitempty" json:"allowTeam"`
-	KeepScoreboardHidden bool               `bson:"keepScoreboardHidden,omitempty" json:"keepScoreboardHidden"`
-	Files                []filemeta.File    `bson:"files,omitempty" json:"files,omitempty"`
-	Score                map[int64]int      `bson:"score,omitempty" json:"score,omitempty"`
-	PrivateFiles         []filemeta.File    `bson:"privateFiles,omitempty" json:"-"`
-	InvitationCode       string             `bson:"_code,omitempty" json:"invitationCode,omitempty"`
+	ID                   bson.ObjectID          `bson:"_id" json:"id"`
+	DocID                bson.ObjectID          `bson:"docId" json:"docId"`
+	Title                string                 `bson:"title" json:"title"`
+	Content              string                 `bson:"content" json:"content,omitempty"`
+	BeginAt              time.Time              `bson:"beginAt" json:"beginAt"`
+	EndAt                time.Time              `bson:"endAt" json:"endAt"`
+	Rule                 string                 `bson:"rule" json:"rule"`
+	Owner                int64                  `bson:"owner" json:"owner"`
+	Attend               int64                  `bson:"attend" json:"attend"`
+	PIDs                 []int64                `bson:"pids" json:"pids"`
+	Duration             int                    `bson:"duration" json:"duration"`
+	Rated                bool                   `bson:"rated" json:"rated"`
+	PenaltySince         *time.Time             `bson:"penaltySince,omitempty" json:"penaltySince,omitempty"`
+	PenaltyRules         map[string]float64     `bson:"penaltyRules,omitempty" json:"penaltyRules,omitempty"`
+	LockAt               *time.Time             `bson:"lockAt,omitempty" json:"lockAt,omitempty"`
+	Unlocked             bool                   `bson:"unlocked,omitempty" json:"unlocked,omitempty"`
+	Maintainer           []int64                `bson:"maintainer,omitempty" json:"maintainer,omitempty"`
+	Assign               []string               `bson:"assign,omitempty" json:"assign,omitempty"`
+	Langs                []string               `bson:"langs,omitempty" json:"langs,omitempty"`
+	AutoHide             bool                   `bson:"autoHide,omitempty" json:"autoHide"`
+	AllowViewCode        bool                   `bson:"allowViewCode,omitempty" json:"allowViewCode"`
+	AllowPrint           bool                   `bson:"allowPrint,omitempty" json:"allowPrint"`
+	AllowTeam            bool                   `bson:"allowTeam,omitempty" json:"allowTeam"`
+	KeepScoreboardHidden bool                   `bson:"keepScoreboardHidden,omitempty" json:"keepScoreboardHidden"`
+	Files                []filemeta.File        `bson:"files,omitempty" json:"files,omitempty"`
+	Score                map[int64]int          `bson:"score,omitempty" json:"score,omitempty"`
+	Balloon              map[int64]BalloonColor `bson:"balloon,omitempty" json:"balloon,omitempty"`
+	PrivateFiles         []filemeta.File        `bson:"privateFiles,omitempty" json:"-"`
+	InvitationCode       string                 `bson:"_code,omitempty" json:"invitationCode,omitempty"`
 }
 
 // AttendeeStatus is the per-user contest status document.
@@ -113,6 +114,7 @@ type Repository struct {
 	coll     *mongo.Collection
 	records  *mongo.Collection
 	statuses *mongo.Collection
+	balloons *mongo.Collection
 	problems *problem.Repository
 }
 
@@ -121,6 +123,7 @@ func NewRepository(db *mongo.Database) *Repository {
 		coll:     db.Collection("document"),
 		records:  db.Collection("record"),
 		statuses: db.Collection("document.status"),
+		balloons: db.Collection("contest.balloon"),
 		problems: problem.NewRepository(db),
 	}
 }
@@ -1104,4 +1107,8 @@ func toInt64(value any) (int64, bool) {
 		return int64(v), true
 	}
 	return 0, false
+}
+
+func formatInt(value int64) string {
+	return strconv.FormatInt(value, 10)
 }
