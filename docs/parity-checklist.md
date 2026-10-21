@@ -132,3 +132,21 @@
 负责人：待定
 后续处理：训练计划的 data-json 编辑器仍待接入；题库批量编辑/删除/复制尚未接入；比赛 / 作业 / 训练列表的团队入口隐藏；判题配置页的 `#ProblemConfig` 编辑器仍是简化版（上游是 Monaco + Redux 表单）；TagRanking 页缺插件源码
 ```
+
+## 8. 尚未迁移的模块（2026-10-21 盘点）
+
+| 模块 | 状态 | 说明 |
+|---|---|---|
+| `/home/messages` | 未迁移 | 上游是 Redux + WebSocket 的 messagepad；账号侧栏和 `/home/settings` 仍有入口 |
+| `/home/security` | 未迁移 | 会话管理、修改密码、修改邮箱、2FA、OAuth 绑定；改邮箱依赖邮件服务 |
+| 题目统计页 | 未迁移 | 上游 `problem_statistics.html` 含两张图表和提交表格；题目侧栏入口暂时隐藏 |
+| FPS 导入 | 未迁移 | 上游 `fps-importer` 插件：XML/zip → 题目 + 测试数据；计划里保留该功能 |
+| 签到 / 倒计时 | 未迁移 | 生产站自定义 addon，上游仓库没有源码，需要先拿到实现或重新设计 |
+| onsite-toolkit | 部分迁移 | 打印站和气球页已实现，其余线下赛工具未迁移 |
+| a11y | 未迁移 | 上游 `a11y` 插件（无障碍增强） |
+
+已完成的对应记录：
+
+- 题解：见 `docs/problems.md` 的“题解”一节
+- 用户主页“题解被赞”：见 `docs/user-profile.md`
+- 标签统计、活跃日历：见 `docs/tag-stat.md`、`docs/activity-calendar.md`
