@@ -252,6 +252,7 @@ func (h *DiscussionHandler) createReply(c *gin.Context) {
 	}
 	var request struct {
 		Content string `json:"content"`
+		ReplyTo string `json:"replyTo"`
 	}
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
@@ -264,6 +265,24 @@ func (h *DiscussionHandler) createReply(c *gin.Context) {
 	if len(request.Content) > discussion.MaxReplyLength {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "reply content is too long"})
 		return
+	}
+	if request.ReplyTo != "" {
+		replyID, err := bson.ObjectIDFromHex(request.ReplyTo)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid replyTo"})
+			return
+		}
+		if _, tail, err := h.repo.AddTailReply(c.Request.Context(), item.ID, replyID, session.UserID, request.Content); err != nil {
+			if err == discussion.ErrNotFound {
+				c.JSON(http.StatusNotFound, gin.H{"error": "reply not found"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to create reply"})
+			return
+		} else {
+			c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": tail})
+			return
+		}
 	}
 	reply, err := h.repo.AddReply(c.Request.Context(), item.ID, session.UserID, request.Content)
 	if err != nil {

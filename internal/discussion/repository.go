@@ -465,3 +465,37 @@ func (r *Repository) AddReply(ctx context.Context, discussionID bson.ObjectID, o
 	}
 	return &item, nil
 }
+
+// AddTailReply appends a nested reply under an existing top-level reply.
+func (r *Repository) AddTailReply(ctx context.Context, discussionID, replyID bson.ObjectID, owner int64, content string) (*Reply, *TailReply, error) {
+	now := time.Now()
+	tail := TailReply{
+		ID:        bson.NewObjectID(),
+		Owner:     owner,
+		Content:   content,
+		CreatedAt: now,
+	}
+	result := r.coll.FindOneAndUpdate(ctx, bson.M{
+		"_id": replyID, "domainId": DomainSystem, "docType": DocumentTypeDiscussionReply,
+		"parentType": DocumentTypeDiscussion, "parentId": discussionID,
+	}, bson.M{"$push": bson.M{"reply": tail}}, options.FindOneAndUpdate().SetReturnDocument(options.After))
+	var reply Reply
+	if err := result.Decode(&reply); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil, ErrNotFound
+		}
+		return nil, nil, err
+	}
+	reply.CreatedAt = reply.ID.Timestamp()
+	for i := range reply.Replies {
+		reply.Replies[i].CreatedAt = reply.Replies[i].ID.Timestamp()
+	}
+	if _, err := r.coll.UpdateOne(ctx, bson.M{
+		"_id":      discussionID,
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeDiscussion,
+	}, bson.M{"$set": bson.M{"updateAt": now}}); err != nil {
+		return nil, nil, err
+	}
+	return &reply, &tail, nil
+}
