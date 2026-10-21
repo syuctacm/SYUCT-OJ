@@ -179,9 +179,14 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     urlForFile: options.urlForFile ?? ((filename: string) => filename),
     size,
     isIE: () => false,
+    // Globals provided by ui-default/backendlib/template.ts.
+    Date,
     Object,
     JSON,
     Math,
+    String,
+    Array,
+    instanceof: (value: unknown, constructor: unknown) => value instanceof (constructor as never),
     paginate,
     typeof: (value: unknown) => typeof value,
     eval: (code: string) => {

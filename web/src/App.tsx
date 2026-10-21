@@ -9,6 +9,7 @@ import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
 import { ContestClarificationPage } from './pages/ContestClarificationPage.tsx'
 import { ContestProblemsPage } from './pages/ContestProblemsPage.tsx'
 import { ContestScoreboardPage } from './pages/ContestScoreboardPage.tsx'
+import { ContestUserPage } from './pages/ContestUserPage.tsx'
 import { RankingPage } from './pages/RankingPage.tsx'
 import { ContestEditPage } from './pages/ContestEditPage.tsx'
 import { ContestsPage } from './pages/ContestsPage.tsx'
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/contest/:tid/files" element={<ContestManagementPage />} />
         <Route path="/contest/:tid/problems" element={<ContestProblemsPage />} />
         <Route path="/contest/:tid/clarification" element={<ContestClarificationPage />} />
+        <Route path="/contest/:tid/user" element={<ContestUserPage />} />
         <Route path="/contest/:tid/scoreboard" element={<ContestScoreboardPage />} />
         <Route path="/contest/:tid" element={<ContestDetailPage />} />
         <Route path="/discuss" element={<DiscussionsPage />} />

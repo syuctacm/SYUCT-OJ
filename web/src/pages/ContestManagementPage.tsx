@@ -152,8 +152,8 @@ export function ContestManagementPage() {
         }
         return `/record${params.toString() ? `?${params.toString()}` : ''}`
       }
-      // Attendee management, code export and balloon status are not ported yet.
-      case 'contest_user':
+      case 'contest_user': return `/contest/${encodeURIComponent(id)}/user`
+      // Code export and balloon status are not ported yet.
       case 'contest_code':
       case 'contest_balloon':
         return '#'
