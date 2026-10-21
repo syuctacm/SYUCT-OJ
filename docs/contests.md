@@ -16,6 +16,7 @@
 | POST | `/api/v1/contests/:tid/clarifications` | 提问（需报名且比赛进行中） |
 | POST | `/api/v1/contests/:tid/clarifications/:cid/reply` | 答疑回复（所有者/维护者/管理员） |
 | POST | `/api/v1/contests/:tid/clarifications/broadcast` | jury 广播（所有者/维护者/管理员） |
+| POST | `/api/v1/contests/:tid/unlock` | 解除封榜（所有者/维护者/管理员，比赛结束后） |
 
 数据直接读取 Hydro `document` 集合中的 `docType=30` 文档。列表支持 `q` 标题搜索和 `rule` 赛制筛选。
 
@@ -63,7 +64,9 @@
 
 编辑页由 `HydroTemplate` 直接渲染上游 `contest_edit.html`，包括原版 section/form 层级、文件侧栏和 Markdown 图片上传。React 只负责数据、提交和交互挂载。
 
-`lockAt` 到达且未设置 `unlocked` 时，封榜后的提交不会计入榜单。
+`lockAt` 到达且未设置 `unlocked` 时，封榜后的提交不会计入榜单。比赛结束后，比赛所有者/维护者/管理员可在榜单页点击「解封」清除封榜限制。
+
+榜单页支持导出：HTML 按钮打开当前榜单页，CSV 按钮在前端生成下载（列：排名、用户、过题数、罚时和每题状态，如 `AC(1)/62` 或 `-2`）。
 
 ## 尚未完成
 
@@ -74,7 +77,7 @@
 - 打印入口
 - 未报名用户访问题目列表时显示提示（上游为错误页）
 - 本场提交表最多展示 100 条
-- 榜单导出（HTML/CSV/Ghost）、解封操作和关注/筛选下拉
+- Ghost 榜单导出和关注/筛选下拉
 - 首次通过高亮
 - 提前结束比赛操作
 - OI 等赛制榜单和封榜后的解封逻辑

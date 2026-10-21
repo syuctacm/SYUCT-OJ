@@ -416,6 +416,13 @@ export async function getContest(tid: string): Promise<Contest> {
   return result.data
 }
 
+export async function unlockContest(tid: string): Promise<Contest> {
+  const result = await request<Envelope<Contest>>(`/api/v1/contests/${encodeURIComponent(tid)}/unlock`, {
+    method: 'POST',
+  })
+  return result.data
+}
+
 export async function attendContest(tid: string): Promise<{ attended: boolean; changed: boolean }> {
   const result = await request<Envelope<{ attended: boolean; changed: boolean }>>(`/api/v1/contests/${encodeURIComponent(tid)}/attend`, {
     method: 'POST',

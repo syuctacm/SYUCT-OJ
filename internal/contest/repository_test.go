@@ -150,6 +150,16 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	if cell := byUID[10].Problems["1"]; cell.Solved || cell.RID == "" || cell.Attempts != 1 {
 		t.Fatalf("expected record id on failed attempt: %+v", cell)
 	}
+	unlocked, err := repo.Unlock(ctx, newID.Hex())
+	if err != nil || !unlocked.Unlocked {
+		t.Fatalf("unlock: %+v err=%v", unlocked, err)
+	}
+	if again, err := repo.Unlock(ctx, newID.Hex()); err != nil || !again.Unlocked {
+		t.Fatalf("second unlock: %+v err=%v", again, err)
+	}
+	if _, err := repo.Unlock(ctx, "invalid"); err != contest.ErrNotFound {
+		t.Fatalf("unlock invalid id error = %v", err)
+	}
 	statuses, err := repo.UserProblemStatus(ctx, 7, []int64{1, 2})
 	if err != nil || statuses[1].Status != 1 || statuses[1].RID == "" || statuses[2].RID == "" {
 		t.Fatalf("unexpected user problem status: %+v err=%v", statuses, err)
