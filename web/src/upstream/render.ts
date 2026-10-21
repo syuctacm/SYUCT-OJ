@@ -153,7 +153,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     ...options.context,
   }
   return env.renderString(
-    `{% import "components/user.html" as user with context %}{% import "components/problem.html" as problem with context %}{% import "components/nothing.html" as nothing with context %}{% import "components/record.html" as record with context %}{% import "components/form.html" as form with context %}{% import "components/noscript_note.html" as noscript_note with context %}{% include "${template}" %}`,
+    `{% import "components/user.html" as user with context %}{% import "components/problem.html" as problem with context %}{% import "components/nothing.html" as nothing with context %}{% import "components/record.html" as record with context %}{% import "components/paginator.html" as paginator with context %}{% import "components/form.html" as form with context %}{% import "components/noscript_note.html" as noscript_note with context %}{% include "${template}" %}`,
     context,
   )
 }
