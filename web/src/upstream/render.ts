@@ -71,6 +71,38 @@ env.addFilter('problemPreview', (value: unknown) => String(value ?? '')
   .replace(/\s+/g, ' ')
   .trim())
 
+
+function paginate(page: number, numPages: number) {
+  const result: Array<[string, number]> = []
+  const radius = 5
+  let first: number
+  let last: number
+  if (page > 1) {
+    if (page > 2) result.push(['first', 1])
+    result.push(['previous', page - 1])
+  }
+  if (page <= radius) {
+    first = 1
+    last = Math.min(1 + radius * 2, numPages)
+  } else if (page >= numPages - radius) {
+    first = Math.max(1, numPages - radius * 2)
+    last = numPages
+  } else {
+    first = page - radius
+    last = page + radius
+  }
+  if (first > 1) result.push(['ellipsis', 0])
+  for (let current = first; current < last + 1; current++) {
+    result.push([current !== page ? 'page' : 'current', current])
+  }
+  if (last < numPages) result.push(['ellipsis', 0])
+  if (page < numPages) {
+    result.push(['next', page + 1])
+    if (page < numPages - 1) result.push(['last', numPages])
+  }
+  return result
+}
+
 function translate(key: string) {
   return String(translations[key] ?? key)
 }
@@ -107,6 +139,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     Object,
     JSON,
     Math,
+    paginate,
     typeof: (value: unknown) => typeof value,
     eval: (code: string) => {
       if (code.replace(/\s/g, '') === 'rdoc=>rdoc._id.toString()') return (rdoc: { _id: unknown }) => String(rdoc._id)

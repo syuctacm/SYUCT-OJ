@@ -33,13 +33,15 @@
 
 ## 前端
 
-题库页结构和类名对应 Hydro `ui-default`：
+题库页由 `HydroTemplate` 直接渲染 Hydro `ui-default`：
 
 - `problem_main.html`：搜索栏、排序、题库表格和侧栏
 - `partials/problem_list.html`：分页、题目标题、标签、状态、AC/Tried 和难度列
+- `components/paginator.html`：原版分页宏
 - `components/problem.html`：题目链接和标签 DOM
 
-搜索、排序、分页、标签筛选和用户提交状态均通过 URL 与 API 参数保持。
+搜索、排序、标签筛选和分页由 React 适配层保持；未实现的批量编辑、隐藏、删除和复制控件会从侧栏移除。
+
 
 题目详情和提交页由 `HydroTemplate` 直接渲染上游模板：
 

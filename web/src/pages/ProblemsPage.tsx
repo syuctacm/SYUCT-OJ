@@ -1,42 +1,46 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { getProblemTags, getProblems, type ProblemPage, type ProblemSummary, type ProblemTagStat } from '../api.ts'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to query state, data mapping and small interactions.
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { getProblems, type ProblemPage } from '../api.ts'
 import { useAuth } from '../auth.tsx'
-import { Pager } from '../components/Pager.tsx'
-import { statusLabel } from '../status.ts'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { statusClass, statusLabels } from '../status.ts'
 
-function problemStatusClass(status: number) {
-  if (status === 1) return 'pass'
-  if ([0, 20, 21, 22].includes(status)) return status === 0 ? 'pending' : 'progress'
-  return 'fail'
-}
+const statusCodes = Object.fromEntries(Object.keys(statusLabels).map((status) => [
+  status,
+  statusClass(Number(status)),
+]))
 
-function problemLink(problem: ProblemSummary) {
-  return `/p/${encodeURIComponent(problem.pid || String(problem.docId))}`
+const statusShortTexts: Record<number, string> = {
+  1: 'AC',
+  2: 'WA',
+  3: 'TLE',
+  4: 'MLE',
+  5: 'OLE',
+  6: 'RE',
+  7: 'CE',
+  8: 'SE',
+  9: 'Canceled',
+  10: 'Unknown',
+  11: 'Hacked',
+  20: 'Running',
+  21: 'Compiling',
+  22: 'Fetched',
+  30: 'Ignored',
 }
 
 export function ProblemsPage() {
   const { user } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const query = searchParams.get('q') ?? ''
   const tag = searchParams.get('tag') ?? ''
   const sort = searchParams.get('sort') === 'recent' ? 'recent' : 'default'
   const pageNumber = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
-  const [input, setInput] = useState(query)
   const [page, setPage] = useState<ProblemPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showTags, setShowTags] = useState(false)
-  const [tagStats, setTagStats] = useState<ProblemTagStat[]>([])
-  const [tagsExpanded, setTagsExpanded] = useState(false)
-
-  useEffect(() => {
-    setInput(query)
-  }, [query])
-
-  useEffect(() => {
-    getProblemTags().then(setTagStats).catch(() => setTagStats([]))
-  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -47,164 +51,149 @@ export function ProblemsPage() {
       .finally(() => setLoading(false))
   }, [query, pageNumber, sort, tag])
 
-  function updateParams(values: { q?: string; tag?: string; sort?: string }) {
-    const params = new URLSearchParams()
-    if (values.q) params.set('q', values.q)
-    if (values.tag) params.set('tag', values.tag)
-    if (values.sort && values.sort !== 'default') params.set('sort', values.sort)
-    setSearchParams(params)
-  }
+  const ppcount = page ? Math.max(1, Math.ceil(page.total / page.limit)) : 0
 
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    updateParams({ q: input.trim(), tag, sort })
-  }
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    root.querySelector('.section.side.nojs--hide')?.remove()
+    const form = root.querySelector<HTMLFormElement>('form#searchForm')
+    const onSubmit = (event: SubmitEvent) => {
+      event.preventDefault()
+      const data = new FormData(form!)
+      const params = new URLSearchParams()
+      const q = String(data.get('q') ?? '').trim()
+      const nextSort = String(data.get('sort') ?? 'default')
+      if (q) params.set('q', q)
+      if (tag) params.set('tag', tag)
+      if (nextSort === 'recent') params.set('sort', 'recent')
+      navigate(`/p${params.toString() ? `?${params.toString()}` : ''}`)
+    }
+    form?.addEventListener('submit', onSubmit)
+    const sortSelect = root.querySelector<HTMLSelectElement>('select[name="sort"]')
+    const onSort = () => form?.requestSubmit()
+    sortSelect?.addEventListener('change', onSort)
 
-  const luckyProblem = page?.items.length ? page.items[Math.floor(Math.random() * page.items.length)] : null
-  const canCreateProblem = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    const toggleTags = () => {
+      const table = root.querySelector<HTMLElement>('table.data-table')
+      if (table) table.classList.toggle('hide-problem-tag')
+    }
+    const tagButtons = Array.from(root.querySelectorAll<HTMLElement>('.toggle-tag'))
+    tagButtons.forEach((button) => button.addEventListener('click', toggleTags))
+
+    const lucky = root.querySelector<HTMLAnchorElement>('[data-fragment-id="problem_lucky"] a')
+    if (lucky && page?.items.length) {
+      const picked = page.items[Math.floor(Math.random() * page.items.length)]
+      lucky.href = `/p/${encodeURIComponent(picked.pid || String(picked.docId))}`
+      lucky.target = '_blank'
+    }
+
+    return () => {
+      form?.removeEventListener('submit', onSubmit)
+      sortSelect?.removeEventListener('change', onSort)
+      tagButtons.forEach((button) => button.removeEventListener('click', toggleTags))
+    }
+  }, [navigate, page, tag])
+
+  const context = useMemo(() => {
+    if (!page) return null
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    const pdocs = page.items.map((problem) => ({
+      ...problem,
+      tag: problem.tags ?? [],
+      domainId: 'system',
+    }))
+    const psdict = Object.fromEntries(page.items.map((problem) => [
+      String(problem.docId),
+      {
+        rid: problem.userStatus?.rid,
+        status: problem.userStatus?.status,
+        star: false,
+      },
+    ]))
+    return {
+      page_name: 'problem_main',
+      qs: query,
+      sort,
+      pdocs,
+      ppcount,
+      page: page.page,
+      psdict,
+      pcount: page.total,
+      pcountRelation: 'eq',
+      handler: {
+        user: {
+          _id: user?.id ?? 0,
+          viewLang: 'zh',
+          _dudoc: { join: true },
+          hasPerm: (permission: number) => permission === 1 && isAdmin,
+          hasPriv: () => Boolean(user),
+          own: () => false,
+        },
+        args: { domainId: 'system' },
+        request: { query: { q: query, sort, tag }, headers: { 'user-agent': navigator.userAgent } },
+        session: { legacy: false, viewLang: 'zh' },
+        ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+      },
+      perm: { PERM_CREATE_PROBLEM: 1, PERM_EDIT_PROBLEM: 2 },
+      PRIV: { PRIV_USER_PROFILE: 1 },
+      model: {
+        builtin: {
+          LEVELS: {},
+          STATUS_CODES: statusCodes,
+          STATUS_TEXTS: statusLabels,
+          STATUS_SHORT_TEXTS: statusShortTexts,
+        },
+        setting: { langs: {} },
+        system: { get: () => false },
+      },
+      lib: { difficulty: () => 0 },
+      ui: {
+        getNodes: (name: string) => name === 'ProblemAdd' ? [{
+          name: 'problem_create',
+          args: { text: 'Create Problem', icon: 'add' },
+        }] : [],
+      },
+      utils: {
+        buildQueryString: (values: Record<string, unknown>) => {
+          const params = new URLSearchParams()
+          for (const [key, value] of Object.entries(values)) {
+            if (value !== undefined && value !== null && value !== '') params.set(key, String(value))
+          }
+          if (tag && !params.has('tag')) params.set('tag', tag)
+          return params.toString()
+        },
+        status: {
+          getScoreColor: (score: number) => score >= 100 ? '#25ad40' : score > 0 ? '#e64c72' : '#999',
+        },
+      },
+      avatarUrl: (value?: string) => value || '/logo.png',
+      UserContext: user,
+    }
+  }, [page, ppcount, query, sort, tag, user])
+
+  if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  if (loading) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
+  if (!context) return null
 
   return (
-    <div className="row">
-      <div className="medium-9 columns">
-        <div className="section display-mode">
-          <div className="section__body no-padding">
-            <form method="get" id="searchForm" onSubmit={handleSearch}>
-              <div className="search">
-                <input name="q" type="text" value={input} onChange={(event) => setInput(event.target.value)} placeholder="搜索" />
-                <div data-fragment-id="problem_stat"><p>{page?.total ?? 0} 道题</p></div>
-                <select name="sort" className="search-sort" value={sort} onChange={(event) => updateParams({ q: input.trim(), tag, sort: event.target.value })}>
-                  <option value="default">默认排序</option>
-                  <option value="recent">最近添加</option>
-                </select>
-                <button type="submit"><span className="icon icon-search" /></button>
-              </div>
-            </form>
-          </div>
-          <div className="section__body no-padding">
-            {loading ? <div className="nothing-placeholder">加载中...</div> : null}
-            {error ? <div className="nothing-placeholder error-state">{error}</div> : null}
-            {!loading && !error && page && page.items.length === 0 ? (
-              <div className="nothing-placeholder"><div className="nothing-icon" />没有找到题目</div>
-            ) : null}
-            {!loading && !error && page && page.items.length > 0 ? (
-              <div data-fragment-id="problem_list">
-                <Pager page={page.page} total={page.total} limit={page.limit} query={query} sort={sort} tag={tag} position="top" />
-                <table className={`data-table${showTags ? '' : ' hide-problem-tag'}`}>
-                  <colgroup>
-                    <col className="col--checkbox display-mode-hide" />
-                    <col className="col--pid display-mode-hide" />
-                    {user ? <col className="col--status edit-mode-hide" /> : null}
-                    <col className="col--name" />
-                    <col className="col--ac-tried" />
-                    <col className="col--difficulty" />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="col--checkbox display-mode-hide"><label className="compact checkbox"><input type="checkbox" name="select_all" disabled /></label></th>
-                      <th className="col--pid display-mode-hide">ID</th>
-                      {user ? <th className="col--status record-status--border edit-mode-hide">状态</th> : null}
-                      <th className="col--name">
-                        题目
-                        <span className="nojs--hide toggle-tag tag--hide" onClick={() => setShowTags(true)}>显示标签</span>
-                        <span className="nojs--hide toggle-tag notag--hide" onClick={() => setShowTags(false)}>隐藏标签</span>
-                      </th>
-                      <th className="col--ac-tried">通过 / 尝试</th>
-                      <th className="col--difficulty">难度</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {page.items.map((problem) => {
-                      const statusClass = problem.userStatus ? problemStatusClass(problem.userStatus.status) : ''
-                      return (
-                        <tr data-pid={problem.docId} key={problem.id}>
-                          <td className="col--checkbox display-mode-hide"><label className="compact checkbox"><input type="checkbox" disabled /></label></td>
-                          <td className="col--pid display-mode-hide">{problem.docId}</td>
-                          {user ? (
-                            <td className={`col--status record-status--border edit-mode-hide ${statusClass}`}>
-                              {problem.userStatus ? (
-                                <div className="col--status__text">
-                                  <span className={`icon record-status--icon ${statusClass}`} />
-                                  <Link className={`record-status--text ${statusClass}`} to={`/record/${problem.userStatus.rid}`}>{statusLabel(problem.userStatus.status)}</Link>
-                                </div>
-                              ) : null}
-                            </td>
-                          ) : null}
-                          <td className="col--name col--problem-name">
-                            <Link to={problemLink(problem)}><b>{problem.pid || problem.docId}</b>&nbsp;&nbsp;{problem.title}</Link>
-                            {(problem.tags?.length ?? 0) > 0 ? (
-                              <ul className="problem__tags">
-                                {problem.tags?.map((value) => (
-                                  <li className="problem__tag" key={value}>
-                                    <Link className="problem__tag-link" to={`/p?tag=${encodeURIComponent(value)}`}>{value}</Link>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : null}
-                          </td>
-                          <td className="col--ac-tried">{problem.nAccept} / {problem.nSubmit}</td>
-                          <td className="col--difficulty">{problem.difficulty || '(None)'}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                <Pager page={page.page} total={page.total} limit={page.limit} query={query} sort={sort} tag={tag} position="bottom" />
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-      <div className="medium-3 columns">
-        {canCreateProblem ? (
-          <div className="section side">
-            <div className="section__header"><h1 className="section__title">创建题目</h1></div>
-            <ol className="menu">
-              <li className="menu__item">
-                <Link className="menu__link" to="/p/new"><span className="icon icon-add" /> 新建题目</Link>
-              </li>
-            </ol>
-            <div className="section__body">
-              <div className="typo supplementary"><p>你有权限为本站创建题目。</p></div>
-            </div>
-          </div>
-        ) : null}
-        <div className="section side">
-          <div className="section__header edit-mode-hide"><h1 className="section__title">标签统计</h1></div>
-          <div className="section__body">
-            <table className="data-table tag-stat-table">
-              <tbody>
-                {tagStats.map((item, index) => (
-                  <tr className={index >= 12 && !tagsExpanded ? 'tag-stat-row tag-stat-extra' : 'tag-stat-row'} key={item.tag} style={index >= 12 && !tagsExpanded ? { display: 'none' } : undefined}>
-                    <td>
-                      <Link className="typo-a" to={`/p?tag=${encodeURIComponent(item.tag)}`}>{item.tag}</Link>
-                      {item.isSource ? <span className="supplementary"> (来源)</span> : null}
-                    </td>
-                    <td className="supplementary text-right">{item.count} 题</td>
-                    <td className="text-right"><Link className="typo-a" to={`/p/tag/${encodeURIComponent(item.tag)}`}>榜单</Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {tagStats.length > 12 ? (
-              <p style={{ paddingTop: 8 }}>
-                <button type="button" className="button expanded" onClick={() => setTagsExpanded((value) => !value)}>
-                  {tagsExpanded ? '收起部分标签' : `展开全部标签 (${tagStats.length})`}
-                </button>
-              </p>
-            ) : null}
-          </div>
-          <div className="section__body edit-mode-hide">
-            {luckyProblem ? (
-              <p>
-                <Link to={problemLink(luckyProblem)} className="expanded button" target="_blank">
-                  <span className="icon icon-feeling-lucky" /> Lucky
-                </Link>
-              </p>
-            ) : null}
-            <div className="typo supplementary"><p>根据当前筛选随机选择一道题。</p></div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <HydroTemplate
+      template="problem_main.html"
+      context={context}
+      onReady={handleReady}
+      url={(name, args = {}) => {
+        const queryArgs = (args.query ?? {}) as Record<string, unknown>
+        if (name === 'problem_main') {
+          const q = String(queryArgs.q ?? '')
+          if (q.startsWith('category:')) return `/p?tag=${encodeURIComponent(q.slice('category:'.length))}`
+          const params = new URLSearchParams()
+          for (const [key, value] of Object.entries(queryArgs)) if (value !== undefined && value !== '') params.set(key, String(value))
+          return `/p${params.toString() ? `?${params.toString()}` : ''}`
+        }
+        if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
+        if (name === 'problem_create') return '/p/new'
+        if (name === 'problem_random') return '/p'
+        if (name === 'record_detail') return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
+        return '/'
+      }}
+    />
   )
 }
