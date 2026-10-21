@@ -122,24 +122,29 @@ export type ActivityFile = {
 }
 
 export type ActivityFileResource = 'contests' | 'homeworks' | 'trainings'
+export type ActivityFileType = 'public' | 'private'
 
-export async function getActivityFiles(resource: ActivityFileResource, tid: string): Promise<ActivityFile[]> {
-  const result = await request<Envelope<{ items: ActivityFile[]; total: number }>>(`/api/v1/${resource}/${encodeURIComponent(tid)}/files`)
+function activityFileQuery(fileType: ActivityFileType) {
+  return fileType === 'private' ? '?type=private' : ''
+}
+
+export async function getActivityFiles(resource: ActivityFileResource, tid: string, fileType: ActivityFileType = 'public'): Promise<ActivityFile[]> {
+  const result = await request<Envelope<{ items: ActivityFile[]; total: number }>>(`/api/v1/${resource}/${encodeURIComponent(tid)}/files${activityFileQuery(fileType)}`)
   return result.data.items
 }
 
-export async function uploadActivityFiles(resource: ActivityFileResource, tid: string, files: File[]): Promise<ActivityFile[]> {
+export async function uploadActivityFiles(resource: ActivityFileResource, tid: string, files: File[], fileType: ActivityFileType = 'public'): Promise<ActivityFile[]> {
   const body = new FormData()
   for (const file of files) body.append('files', file)
-  const result = await request<Envelope<{ items: ActivityFile[]; total: number }>>(`/api/v1/${resource}/${encodeURIComponent(tid)}/files`, {
+  const result = await request<Envelope<{ items: ActivityFile[]; total: number }>>(`/api/v1/${resource}/${encodeURIComponent(tid)}/files${activityFileQuery(fileType)}`, {
     method: 'POST',
     body,
   })
   return result.data.items
 }
 
-export async function deleteActivityFiles(resource: ActivityFileResource, tid: string, names: string[]): Promise<void> {
-  await request<void>(`/api/v1/${resource}/${encodeURIComponent(tid)}/files`, {
+export async function deleteActivityFiles(resource: ActivityFileResource, tid: string, names: string[], fileType: ActivityFileType = 'public'): Promise<void> {
+  await request(`/api/v1/${resource}/${encodeURIComponent(tid)}/files${activityFileQuery(fileType)}`, {
     method: 'DELETE',
     body: JSON.stringify({ names }),
   })
@@ -396,6 +401,7 @@ export type Contest = {
   allowTeam?: boolean
   keepScoreboardHidden?: boolean
   invitationCode?: string
+  privateFiles?: ActivityFile[]
 }
 
 export type ListPage<T> = {

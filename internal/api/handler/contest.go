@@ -9,6 +9,7 @@ import (
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/contest"
+	"github.com/syuctacm/syuct-oj/internal/filemeta"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
@@ -144,6 +145,9 @@ func (h *ContestHandler) scoreboard(c *gin.Context) {
 type contestDetailResponse struct {
 	*contest.Contest
 	Attended bool `json:"attended"`
+	// PrivateFiles holds contest materials, only filled in for owners,
+	// administrators and participants after the contest started.
+	PrivateFiles []filemeta.File `json:"privateFiles,omitempty"`
 }
 
 func (h *ContestHandler) unlock(c *gin.Context) {
@@ -179,17 +183,22 @@ func (h *ContestHandler) get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
 		return
 	}
-	attended := false
+	response := contestDetailResponse{Contest: item}
 	if u, ok := h.currentUser(c); ok {
-		attended, err = h.repo.Attended(c.Request.Context(), c.Param("tid"), u.ID)
+		response.Attended, err = h.repo.Attended(c.Request.Context(), c.Param("tid"), u.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest attendance"})
 			return
 		}
+		if allowed, err := h.repo.CanReadPrivateFiles(c.Request.Context(), c.Param("tid"), u.ID); err == nil && (allowed || u.Priv&1 != 0) {
+			if files, err := h.repo.PrivateFiles(c.Request.Context(), c.Param("tid")); err == nil {
+				response.PrivateFiles = files
+			}
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
-		"data": contestDetailResponse{Contest: item, Attended: attended},
+		"data": response,
 	})
 }
 

@@ -58,7 +58,7 @@
 - Rated、Markdown 比赛说明和提交语言限制
 - 比赛管理员、公开/邀请码/指定分组访问方式
 - 自动隐藏题目、赛后查看代码、打印和组队开关
-- `/contest/:tid/files` 公开文件上传、下载和删除
+- 比赛管理页 `/contest/:tid/management` 上传、下载和删除公开文件与参赛者资料
 - 管理员创建；管理员或比赛所有者编辑
 - 时间窗口、题目存在性和赛制校验
 
@@ -68,9 +68,21 @@
 
 榜单页支持导出：HTML 按钮打开当前榜单页，CSV 按钮在前端生成下载（列：排名、用户、过题数、罚时和每题状态，如 `AC(1)/62` 或 `-2`）。
 
+## 比赛管理页
+
+`/contest/:tid/management`（旧路径 `/contest/:tid/files` 保留为别名）由 `HydroTemplate` 渲染上游 `contest_manage.html`：
+
+- 题目分值表：列出 `tdoc.pids` 与 `tdoc.score[pid]`（默认 100）
+- 公开文件区：`partials/files.html` + `type=public`
+- 参赛者资料区：`partials/files.html` + `type=private`，只有已报名且比赛已开始的参赛者能下载
+- 侧栏：`partials/contest_sidebar_management.html`
+
+资料存放于 `contest/system/<tid>/private/<name>`，元数据写入比赛文档的 `privateFiles`。下载接口按上游规则鉴权：所有者、系统管理员或已报名的参赛者（比赛开始后）。比赛详情页按上游逻辑展示参赛者可下载的资料。
+
 ## 尚未完成
 
-- 比赛私有文件
+- 比赛题目分值编辑（`name="set_score"` 目前是占位）
+- 参赛者管理页、导出所有代码和气球状态页
 - 比赛题目的时间/权限访问控制
 - 组队和参赛状态（个人报名已实现，提交暂未强制要求报名）
 - 比赛管理中的气球、参赛者管理和导出代码入口（当前为占位）

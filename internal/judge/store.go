@@ -105,7 +105,15 @@ func (s *FileStore) DeleteAdditionalFile(domainID, pid, name string) error {
 }
 
 func (s *FileStore) PutContestFile(domainID, tid, name string, reader io.Reader) (StoredFile, error) {
-	path, err := s.path("contest", domainID, tid, "public", name)
+	return s.putContestFile("public", domainID, tid, name, reader)
+}
+
+func (s *FileStore) PutContestPrivateFile(domainID, tid, name string, reader io.Reader) (StoredFile, error) {
+	return s.putContestFile("private", domainID, tid, name, reader)
+}
+
+func (s *FileStore) putContestFile(fileType, domainID, tid, name string, reader io.Reader) (StoredFile, error) {
+	path, err := s.path("contest", domainID, tid, fileType, name)
 	if err != nil {
 		return StoredFile{}, err
 	}
@@ -113,7 +121,15 @@ func (s *FileStore) PutContestFile(domainID, tid, name string, reader io.Reader)
 }
 
 func (s *FileStore) OpenContestFile(domainID, tid, name string) (io.ReadCloser, error) {
-	path, err := s.path("contest", domainID, tid, "public", name)
+	return s.openContestFile("public", domainID, tid, name)
+}
+
+func (s *FileStore) OpenContestPrivateFile(domainID, tid, name string) (io.ReadCloser, error) {
+	return s.openContestFile("private", domainID, tid, name)
+}
+
+func (s *FileStore) openContestFile(fileType, domainID, tid, name string) (io.ReadCloser, error) {
+	path, err := s.path("contest", domainID, tid, fileType, name)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +137,15 @@ func (s *FileStore) OpenContestFile(domainID, tid, name string) (io.ReadCloser, 
 }
 
 func (s *FileStore) DeleteContestFile(domainID, tid, name string) error {
-	path, err := s.path("contest", domainID, tid, "public", name)
+	return s.deleteContestFile("public", domainID, tid, name)
+}
+
+func (s *FileStore) DeleteContestPrivateFile(domainID, tid, name string) error {
+	return s.deleteContestFile("private", domainID, tid, name)
+}
+
+func (s *FileStore) deleteContestFile(fileType, domainID, tid, name string) error {
+	path, err := s.path("contest", domainID, tid, fileType, name)
 	if err != nil {
 		return err
 	}
