@@ -7,6 +7,7 @@ export type ContestDocLike = {
   endAt: Date
   duration?: number
   lockAt?: Date | null
+  penaltySince?: Date | null
   unlocked?: boolean
   keepScoreboardHidden?: boolean
   rule: string
@@ -84,6 +85,12 @@ export function isDone(tdoc: ContestDocLike, tsdoc?: ContestStatusLike) {
 export function isLocked(tdoc: ContestDocLike, time = new Date()) {
   if (!tdoc.lockAt) return false
   return tdoc.lockAt < time && !tdoc.unlocked
+}
+
+export function isExtended(tdoc: ContestDocLike) {
+  if (!tdoc.penaltySince) return false
+  const now = Date.now()
+  return tdoc.penaltySince.getTime() <= now && now < tdoc.endAt.getTime()
 }
 
 export const RULES: Record<string, ContestRule> = {
@@ -193,10 +200,13 @@ export function createContestModel(handler: HandlerLike) {
   return {
     RULES,
     statusText,
+    isNew,
+    isUpcoming,
     isNotStarted,
     isOngoing,
     isDone,
     isLocked,
+    isExtended,
     canShowRecord,
     canShowSelfRecord,
     canShowScoreboard,

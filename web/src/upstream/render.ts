@@ -165,6 +165,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     STATUS,
     datetimeSpan,
     findSubModule: () => [],
+    templateExists: (name: string) => sources.has(name),
     model: { builtin: { STATUS_CODES, STATUS_TEXTS, STATUS_SHORT_TEXTS } },
     utils: {
       status: { getScoreColor },
