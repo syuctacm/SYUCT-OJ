@@ -18,11 +18,17 @@ import (
 )
 
 const (
-	DocumentTypeContest = 30
-	DomainSystem        = "system"
+	DocumentTypeContest       = 30
+	DocumentTypeClarification = 31
+	DomainSystem              = "system"
 )
 
-var ErrNotFound = fmt.Errorf("contest not found")
+var (
+	ErrNotFound                    = fmt.Errorf("contest not found")
+	ErrClarificationNotFound       = fmt.Errorf("clarification not found")
+	ErrInvalidClarificationSubject = fmt.Errorf("invalid clarification subject")
+	ErrEmptyClarificationContent   = fmt.Errorf("empty clarification content")
+)
 
 type EditInput struct {
 	Title                string             `json:"title"`
@@ -443,6 +449,129 @@ func (r *Repository) UserProblemStatus(ctx context.Context, uid int64, pids []in
 		result[item.PID] = ProblemStatus{RID: item.ID.Hex(), Status: item.Status, Score: item.Score}
 	}
 	return result, nil
+}
+
+// ClarificationReply is a jury reply under a contest clarification.
+type ClarificationReply struct {
+	ID      bson.ObjectID `bson:"_id" json:"id"`
+	Owner   int64         `bson:"owner" json:"owner"`
+	Content string        `bson:"content" json:"content"`
+}
+
+// Clarification is a contest question or jury announcement. It follows the
+// Hydro `document` layout: docType=31, parentType=30, parentId=contest docId.
+type Clarification struct {
+	ID       bson.ObjectID        `bson:"_id" json:"id"`
+	DocID    bson.ObjectID        `bson:"docId" json:"docId"`
+	ParentID bson.ObjectID        `bson:"parentId" json:"parentId"`
+	Owner    int64                `bson:"owner" json:"owner"`
+	Subject  int64                `bson:"subject" json:"subject"`
+	Content  string               `bson:"content" json:"content"`
+	Reply    []ClarificationReply `bson:"reply" json:"reply"`
+}
+
+// ListClarifications returns the clarifications visible to the user. When all
+// is true (contest owner, maintainer or admin) every clarification is returned,
+// otherwise only jury announcements and the user's own questions.
+func (r *Repository) ListClarifications(ctx context.Context, tid string, uid int64, all bool) ([]Clarification, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, err
+	}
+	filter := bson.M{
+		"domainId":   DomainSystem,
+		"docType":    DocumentTypeClarification,
+		"parentType": DocumentTypeContest,
+		"parentId":   item.DocID,
+	}
+	if !all {
+		filter["owner"] = bson.M{"$in": []int64{0, uid}}
+	}
+	cursor, err := r.coll.Find(ctx, filter, options.Find().SetSort(bson.D{{Key: "_id", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]Clarification, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// AddClarification records a question from an attendee.
+func (r *Repository) AddClarification(ctx context.Context, tid string, uid, subject int64, content string) (*Clarification, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, err
+	}
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil, ErrEmptyClarificationContent
+	}
+	if subject != 0 && subject != -1 {
+		valid := false
+		for _, pid := range item.PIDs {
+			if pid == subject {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return nil, ErrInvalidClarificationSubject
+		}
+	}
+	id := bson.NewObjectID()
+	clarification := Clarification{
+		ID:       id,
+		DocID:    id,
+		ParentID: item.DocID,
+		Owner:    uid,
+		Subject:  subject,
+		Content:  content,
+		Reply:    []ClarificationReply{},
+	}
+	if _, err := r.coll.InsertOne(ctx, bson.M{
+		"_id":        id,
+		"docId":      id,
+		"domainId":   DomainSystem,
+		"docType":    DocumentTypeClarification,
+		"parentType": DocumentTypeContest,
+		"parentId":   item.DocID,
+		"owner":      uid,
+		"subject":    subject,
+		"content":    content,
+		"reply":      []ClarificationReply{},
+	}); err != nil {
+		return nil, err
+	}
+	return &clarification, nil
+}
+
+// AddClarificationReply appends a jury reply to a clarification.
+func (r *Repository) AddClarificationReply(ctx context.Context, cid string, uid int64, content string) (*Clarification, error) {
+	oid, err := bson.ObjectIDFromHex(cid)
+	if err != nil {
+		return nil, ErrClarificationNotFound
+	}
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil, ErrEmptyClarificationContent
+	}
+	reply := ClarificationReply{ID: bson.NewObjectID(), Owner: uid, Content: content}
+	result := r.coll.FindOneAndUpdate(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeClarification,
+		"$or":      []bson.M{{"_id": oid}, {"docId": oid}},
+	}, bson.M{"$push": bson.M{"reply": reply}}, options.FindOneAndUpdate().SetReturnDocument(options.After))
+	var clarification Clarification
+	if err := result.Decode(&clarification); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, ErrClarificationNotFound
+		}
+		return nil, err
+	}
+	return &clarification, nil
 }
 
 func (r *Repository) Problems(ctx context.Context, tid string) (*Contest, []problem.Problem, error) {
