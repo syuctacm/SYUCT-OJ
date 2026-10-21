@@ -31,6 +31,7 @@ func (h *DiscussionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.PATCH("/api/v1/discussions/:did", h.update)
 	router.DELETE("/api/v1/discussions/:did", h.delete)
 	router.PATCH("/api/v1/discussions/:did/lock", h.setLock)
+	router.POST("/api/v1/discussions/:did/star", h.star)
 	router.GET("/api/v1/discussions/:did", h.get)
 	router.GET("/api/v1/discussions/:did/replies", h.replies)
 	router.POST("/api/v1/discussions/:did/replies", h.createReply)
@@ -218,7 +219,53 @@ func (h *DiscussionHandler) get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "discussion not found"})
 		return
 	}
+	if h.sessions != nil {
+		if session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c)); ok && session.Kind == "user" && session.UserID > 0 {
+			starred, err := h.repo.Starred(c.Request.Context(), item.DocID, session.UserID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load discussion status"})
+				return
+			}
+			item.Starred = starred
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": item})
+}
+
+func (h *DiscussionHandler) star(c *gin.Context) {
+	if h.sessions == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
+	if !ok || session.Kind != "user" || session.UserID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	item, err := h.repo.Get(c.Request.Context(), c.Param("did"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "discussion not found"})
+		return
+	}
+	var request struct {
+		Star bool `json:"star"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if err := h.repo.SetStar(c.Request.Context(), item.DocID, session.UserID, request.Star); err != nil {
+		if err == discussion.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "discussion not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update discussion status"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"starred": request.Star},
+	})
 }
 
 func (h *DiscussionHandler) replies(c *gin.Context) {

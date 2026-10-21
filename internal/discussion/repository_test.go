@@ -101,4 +101,29 @@ func TestDiscussionRepositoryIntegration(t *testing.T) {
 	if _, _, err := repo.AddTailReply(ctx, secondID, bson.NewObjectID(), 1, "x"); err != discussion.ErrNotFound {
 		t.Fatalf("invalid reply id error = %v", err)
 	}
+
+	if starred, err := repo.Starred(ctx, secondID, 7); err != nil || starred {
+		t.Fatalf("initial star: %v err=%v", starred, err)
+	}
+	if err := repo.SetStar(ctx, secondID, 7, true); err != nil {
+		t.Fatalf("set star: %v", err)
+	}
+	if starred, err := repo.Starred(ctx, secondID, 7); err != nil || !starred {
+		t.Fatalf("star after set: %v err=%v", starred, err)
+	}
+	if starred, err := repo.Starred(ctx, secondID, 8); err != nil || starred {
+		t.Fatalf("other user star: %v err=%v", starred, err)
+	}
+	if err := repo.SetStar(ctx, secondID, 7, false); err != nil {
+		t.Fatalf("unset star: %v", err)
+	}
+	if starred, err := repo.Starred(ctx, secondID, 7); err != nil || starred {
+		t.Fatalf("star after unset: %v err=%v", starred, err)
+	}
+	if starred, err := repo.Starred(ctx, secondID, 0); err != nil || starred {
+		t.Fatalf("anonymous star: %v err=%v", starred, err)
+	}
+	if err := repo.SetStar(ctx, secondID, 0, true); err != discussion.ErrNotFound {
+		t.Fatalf("anonymous set star error = %v", err)
+	}
 }

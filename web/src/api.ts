@@ -686,6 +686,7 @@ export type Discussion = {
   id: string
   docId: string
   title: string
+  starred?: boolean
   content?: string
   owner: number
   updateAt: string
@@ -752,6 +753,14 @@ export async function createDiscussion(input: {
   const result = await request<Envelope<Discussion>>('/api/v1/discussions', {
     method: 'POST',
     body: JSON.stringify(input),
+  })
+  return result.data
+}
+
+export async function setDiscussionStar(did: string, star: boolean): Promise<{ starred: boolean }> {
+  const result = await request<Envelope<{ starred: boolean }>>(`/api/v1/discussions/${encodeURIComponent(did)}/star`, {
+    method: 'POST',
+    body: JSON.stringify({ star }),
   })
   return result.data
 }

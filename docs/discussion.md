@@ -10,6 +10,7 @@
 | PATCH | `/api/v1/discussions/:did` | 编辑讨论主题 |
 | DELETE | `/api/v1/discussions/:did` | 删除讨论主题及回复 |
 | PATCH | `/api/v1/discussions/:did/lock` | 锁定/解锁讨论 |
+| POST | `/api/v1/discussions/:did/star` | 收藏/取消收藏主题 |
 | GET | `/api/v1/discussions/:did` | 讨论详情 |
 | GET | `/api/v1/discussions/:did/replies` | 讨论回复列表 |
 | POST | `/api/v1/discussions/:did/replies` | 发布讨论回复（带 `replyTo` 时为楼中楼回复） |
@@ -72,14 +73,14 @@
 
 讨论列表由 `HydroTemplate` 直接渲染上游 `discussion_main_or_node.html`：列表项显示回复数、节点标签、浏览量和作者，右侧是创建入口和节点分组侧栏。节点页只显示该节点下的讨论，节点标签和创建入口都指向上游路由。
 
-讨论详情由 `HydroTemplate` 直接渲染上游 `discussion_detail.html` 和 `components/comments_discussion.html`：话题头部（节点标签、标题、作者、时间）、正文、操作区（编辑/锁定/举报/查看数）、回复列表和作者侧栏都来自上游模板。适配层接管主回复、楼中楼回复（`replyTo`）、回复编辑/删除和锁定切换；楼中楼回复只更新话题时间，不增加 `nReply`，与上游一致。
+讨论详情由 `HydroTemplate` 直接渲染上游 `discussion_detail.html` 和 `components/comments_discussion.html`：话题头部（节点标签、标题、作者、时间）、正文、操作区（编辑/锁定/举报/查看数）、回复列表和作者侧栏都来自上游模板。适配层接管主回复、楼中楼回复（`replyTo`）、回复编辑/删除、锁定切换和主题收藏（`document.status` docType=21）；楼中楼回复只更新话题时间，不增加 `nReply`，与上游一致。
 
 登录用户可在详情页回复，支持 `Ctrl+Enter` 提交。讨论创建/编辑页由 `HydroTemplate` 直接渲染上游 `discussion_create.html`、`discussion_edit.html` 和 `partials/discussion_edit_form.html`，React 只负责加载数据、提交/删除和快捷键挂载；原版删除按钮会调用现有 DELETE API。创建入口只在该讨论节点页面出现，与原站一致。
 
 ## 尚未完成
 
 - 问题/比赛/训练维度的讨论节点路由尚未接入
-- 反应（emoji）、收藏/关注、历史版本和行内 raw 查看
+- 反应（emoji）、历史版本和行内 raw 查看
 - 浏览量暂时不会随访问自增
 - 回复通知和提及
 - 节点管理

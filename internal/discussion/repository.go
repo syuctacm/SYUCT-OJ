@@ -42,6 +42,7 @@ type Discussion struct {
 	ParentType  int64         `bson:"parentType" json:"parentType"`
 	ParentID    any           `bson:"parentId" json:"parentId,omitempty"`
 	ParentTitle string        `bson:"-" json:"parentTitle,omitempty"`
+	Starred     bool          `bson:"-" json:"starred"`
 }
 
 type Node struct {
@@ -71,11 +72,47 @@ type Reply struct {
 }
 
 type Repository struct {
-	coll *mongo.Collection
+	coll     *mongo.Collection
+	statuses *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
-	return &Repository{coll: db.Collection("document")}
+	return &Repository{
+		coll:     db.Collection("document"),
+		statuses: db.Collection("document.status"),
+	}
+}
+
+// Starred reports whether the user starred the discussion.
+func (r *Repository) Starred(ctx context.Context, did bson.ObjectID, uid int64) (bool, error) {
+	if uid <= 0 {
+		return false, nil
+	}
+	count, err := r.statuses.CountDocuments(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeDiscussion,
+		"docId":    did,
+		"uid":      uid,
+		"star":     true,
+	})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// SetStar stores the star flag on the user's discussion status document.
+func (r *Repository) SetStar(ctx context.Context, did bson.ObjectID, uid int64, star bool) error {
+	if uid <= 0 {
+		return ErrNotFound
+	}
+	_, err := r.statuses.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeDiscussion,
+		"docId":    did,
+		"uid":      uid,
+	}, bson.M{"$set": bson.M{"star": star}}, options.UpdateOne().SetUpsert(true))
+	return err
 }
 
 func (r *Repository) List(ctx context.Context) ([]Discussion, error) {
