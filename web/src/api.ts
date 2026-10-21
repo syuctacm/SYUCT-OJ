@@ -862,7 +862,26 @@ export type PublicUser = {
   bio?: string
   nSubmit: number
   nAccept: number
+  rp?: number
+  level?: number
+  rank?: number
   acceptedProblems?: Array<{ docId: number; pid: string; title: string }>
+}
+
+export type RankingUser = {
+  id: number
+  username: string
+  displayName?: string
+  avatar?: string
+  bio?: string
+  rp: number
+  level: number
+  nAccept: number
+}
+
+export async function getRanking(page = 1, limit = 20): Promise<ListPage<RankingUser>> {
+  const result = await request<Envelope<ListPage<RankingUser>>>(`/api/v1/ranking?page=${page}&limit=${limit}`)
+  return result.data
 }
 
 export async function getPublicUser(uid: string): Promise<PublicUser> {

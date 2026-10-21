@@ -3,8 +3,8 @@
 // this backend (bulletin/ranking/hitokoto/starred have no data source yet).
 import { useEffect, useMemo, useState } from 'react'
 import {
-  getContests, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getTrainings, getUsersByIDs,
-  type Contest, type Discussion, type DiscussionNode, type ProblemSummary, type Training, type UserChoice,
+  getContests, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getRanking, getTrainings, getUsersByIDs,
+  type Contest, type Discussion, type DiscussionNode, type ProblemSummary, type RankingUser, type Training, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -24,6 +24,7 @@ type HomeData = {
   discussions: Discussion[]
   problems: ProblemSummary[]
   nodes: DiscussionNode[]
+  ranking: RankingUser[]
 }
 
 function withDates<T extends { beginAt: string; endAt: string; lockAt?: string; penaltySince?: string }>(item: T) {
@@ -59,8 +60,9 @@ export function HomePage() {
       getDiscussions(),
       getProblems('', 1, 'recent'),
       getDiscussionNodes(),
+      getRanking(1, 10),
     ])
-      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes]) => {
+      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes, ranking]) => {
         setData({
           contests: contestPage.items,
           homeworks: homeworkPage.items,
@@ -68,6 +70,7 @@ export function HomePage() {
           discussions: discussionPage.items,
           problems: problems.items,
           nodes,
+          ranking: ranking.items,
         })
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '首页加载失败'))
@@ -130,12 +133,26 @@ export function HomePage() {
       title: problem.title,
       hidden: false,
     }))
-    const udict = Object.fromEntries(users.map((item) => [String(item.id), {
+    const udict: Record<string, Record<string, unknown>> = Object.fromEntries(users.map((item) => [String(item.id), {
       _id: item.id,
       uname: item.username,
       displayName: item.displayName ?? '',
       avatar: item.avatar ?? '',
     }]))
+    for (const item of data.ranking) {
+      udict[String(item.id)] = {
+        _id: item.id,
+        uname: item.username,
+        displayName: item.displayName ?? '',
+        avatar: item.avatar ?? '',
+        bio: item.bio ?? '',
+        rp: item.rp,
+        level: item.level,
+        nAccept: item.nAccept,
+        hasPriv: () => false,
+        hasPerm: () => false,
+      }
+    }
     return {
       page_name: 'homepage',
       contents: [
@@ -145,6 +162,7 @@ export function HomePage() {
             ['contest', [contests, {}]],
             ['homework', [homeworks, {}]],
             ['training', [trainings, {}]],
+            ['ranking', data.ranking.map((item) => item.id)],
             ['discussion', [discussions, vndict]],
           ],
         },
@@ -190,6 +208,7 @@ export function HomePage() {
       case 'discussion_node': return `/discuss/node/${encodeURIComponent(String(args.name ?? ''))}`
       case 'problem_detail': return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
       case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+      case 'ranking': return '/ranking'
       default: return '/'
     }
   }, [])

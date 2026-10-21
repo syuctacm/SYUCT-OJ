@@ -8,6 +8,7 @@ import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
 import { ContestClarificationPage } from './pages/ContestClarificationPage.tsx'
 import { ContestProblemsPage } from './pages/ContestProblemsPage.tsx'
 import { ContestScoreboardPage } from './pages/ContestScoreboardPage.tsx'
+import { RankingPage } from './pages/RankingPage.tsx'
 import { ContestEditPage } from './pages/ContestEditPage.tsx'
 import { ContestsPage } from './pages/ContestsPage.tsx'
 import { DiscussionCreatePage } from './pages/DiscussionCreatePage.tsx'
@@ -76,6 +77,7 @@ export default function App() {
         <Route path="/record" element={<RecordsPage />} />
         <Route path="/record/:rid" element={<SubmissionPage />} />
         <Route path="/user/:uid" element={<UserProfilePage />} />
+        <Route path="/ranking" element={<RankingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/d/:domainId/*" element={<LegacyDomainRedirect />} />
         <Route path="*" element={<Navigate to="/p" replace />} />

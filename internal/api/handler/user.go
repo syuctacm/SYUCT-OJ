@@ -23,6 +23,7 @@ func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/groups", h.groups)
 	router.GET("/api/v1/users/:uid", h.get)
 	router.GET("/api/v1/users/:uid/activity", h.activity)
+	router.GET("/api/v1/ranking", h.ranking)
 }
 
 type userChoice struct {
@@ -124,13 +125,67 @@ func (h *UserHandler) get(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load accepted problems"})
 		return
 	}
+	rp, level, err := h.users.DomainStats(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load user stats"})
+		return
+	}
+	rank, err := h.users.Rank(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load user rank"})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
 		"data": gin.H{
 			"id": u.ID, "username": u.Uname, "displayName": u.DisplayName,
 			"studentId": u.StudentID, "avatar": u.Avatar, "regAt": u.RegAt,
 			"loginAt": u.LoginAt, "bio": u.Bio, "nSubmit": submit, "nAccept": accepted,
+			"rp": rp, "level": level, "rank": rank,
 			"acceptedProblems": acceptedProblems,
 		},
+	})
+}
+
+func (h *UserHandler) ranking(c *gin.Context) {
+	page, limit := parsePaging(c)
+	entries, total, err := h.users.Ranking(c.Request.Context(), page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load ranking"})
+		return
+	}
+	uids := make([]int64, 0, len(entries))
+	for _, entry := range entries {
+		uids = append(uids, entry.UID)
+	}
+	docs, err := h.users.FindByIDs(c.Request.Context(), uids)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load ranking users"})
+		return
+	}
+	byID := make(map[int64]user.User, len(docs))
+	for _, doc := range docs {
+		byID[doc.ID] = doc
+	}
+	items := make([]gin.H, 0, len(entries))
+	for _, entry := range entries {
+		doc, ok := byID[entry.UID]
+		if !ok {
+			continue
+		}
+		_, accepted, err := h.users.Statistics(c.Request.Context(), entry.UID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load ranking statistics"})
+			return
+		}
+		items = append(items, gin.H{
+			"id": doc.ID, "username": doc.Uname, "displayName": doc.DisplayName,
+			"avatar": doc.Avatar, "bio": doc.Bio,
+			"rp": entry.RP, "level": entry.Level, "nAccept": accepted,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"items": items, "total": total, "page": page, "limit": limit},
 	})
 }
