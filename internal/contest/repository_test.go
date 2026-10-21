@@ -139,6 +139,16 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	if cell := byUID[10].Problems["1"]; cell.Solved || cell.RID == "" || cell.Attempts != 1 {
 		t.Fatalf("expected record id on failed attempt: %+v", cell)
 	}
+	statuses, err := repo.UserProblemStatus(ctx, 7, []int64{1, 2})
+	if err != nil || statuses[1].Status != 1 || statuses[1].RID == "" || statuses[2].RID == "" {
+		t.Fatalf("unexpected user problem status: %+v err=%v", statuses, err)
+	}
+	if statuses, err = repo.UserProblemStatus(ctx, 10, []int64{1, 2}); err != nil || statuses[1].Status != 2 || statuses[1].RID == "" || statuses[2].RID != "" {
+		t.Fatalf("unexpected failed attempt status: %+v err=%v", statuses, err)
+	}
+	if statuses, err = repo.UserProblemStatus(ctx, 0, []int64{1}); err != nil || len(statuses) != 0 {
+		t.Fatalf("anonymous problem status: %+v err=%v", statuses, err)
+	}
 	homeworks, err := repo.ListHomework(ctx)
 	if err != nil {
 		t.Fatalf("list homework: %v", err)

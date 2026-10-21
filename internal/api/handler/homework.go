@@ -28,6 +28,7 @@ func (h *HomeworkHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.PATCH("/api/v1/homeworks/:tid", h.update)
 	router.GET("/api/v1/homeworks/:tid", h.get)
 	router.GET("/api/v1/homeworks/:tid/problems", h.problems)
+	router.POST("/api/v1/homeworks/:tid/attend", h.attend)
 }
 
 func (h *HomeworkHandler) list(c *gin.Context) {
@@ -94,7 +95,46 @@ func (h *HomeworkHandler) problems(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "homework not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"homework": item, "problems": problems}})
+	attended := false
+	statuses := map[int64]contest.ProblemStatus{}
+	if u, ok := h.currentUser(c); ok {
+		attended, err = h.repo.Attended(c.Request.Context(), item.DocID.Hex(), u.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load homework claim"})
+			return
+		}
+		statuses, err = h.repo.UserProblemStatus(c.Request.Context(), u.ID, item.PIDs)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load problem status"})
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"homework": item, "problems": problems, "attended": attended, "statuses": statuses},
+	})
+}
+
+func (h *HomeworkHandler) attend(c *gin.Context) {
+	u, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	item, err := h.repo.GetHomework(c.Request.Context(), c.Param("tid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "homework not found"})
+		return
+	}
+	changed, err := h.repo.Attend(c.Request.Context(), item.DocID.Hex(), u.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to claim homework"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"attended": true, "changed": changed},
+	})
 }
 
 func (h *HomeworkHandler) get(c *gin.Context) {

@@ -63,6 +63,7 @@ export default function App() {
         <Route path="/homework/new" element={<HomeworkEditPage mode="create" />} />
         <Route path="/homework/:tid/edit" element={<HomeworkEditPage mode="edit" />} />
         <Route path="/homework/:tid/files" element={<ActivityFilesPage kind="homework" />} />
+        <Route path="/homework/:tid/scoreboard" element={<ContestScoreboardPage />} />
         <Route path="/homework/:tid" element={<HomeworkDetailPage />} />
         <Route path="/training" element={<TrainingsPage />} />
         <Route path="/training/new" element={<TrainingEditPage mode="create" />} />

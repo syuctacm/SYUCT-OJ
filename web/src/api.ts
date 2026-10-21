@@ -596,13 +596,28 @@ export async function getHomework(tid: string): Promise<Contest> {
   return result.data
 }
 
+export type HomeworkProblemStatus = {
+  rid: string
+  status: number
+  score: number
+}
+
 export type HomeworkProblemPage = {
   homework: Contest
   problems: ProblemSummary[]
+  attended: boolean
+  statuses: Record<string, HomeworkProblemStatus>
 }
 
 export async function getHomeworkProblems(tid: string): Promise<HomeworkProblemPage> {
   const result = await request<Envelope<HomeworkProblemPage>>(`/api/v1/homeworks/${encodeURIComponent(tid)}/problems`)
+  return result.data
+}
+
+export async function attendHomework(tid: string): Promise<{ attended: boolean; changed: boolean }> {
+  const result = await request<Envelope<{ attended: boolean; changed: boolean }>>(`/api/v1/homeworks/${encodeURIComponent(tid)}/attend`, {
+    method: 'POST',
+  })
   return result.data
 }
 
