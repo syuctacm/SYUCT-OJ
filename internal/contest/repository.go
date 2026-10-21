@@ -84,6 +84,14 @@ type Contest struct {
 	InvitationCode       string             `bson:"_code,omitempty" json:"invitationCode,omitempty"`
 }
 
+// AttendeeStatus is the per-user contest status document.
+type AttendeeStatus struct {
+	UID     int64      `bson:"uid" json:"uid"`
+	Unrank  bool       `bson:"unrank,omitempty" json:"unrank"`
+	StartAt *time.Time `bson:"startAt,omitempty" json:"startAt,omitempty"`
+	EndAt   *time.Time `bson:"endAt,omitempty" json:"endAt,omitempty"`
+}
+
 type ProblemCell struct {
 	Solved   bool   `json:"solved"`
 	Attempts int    `json:"attempts"`
@@ -648,18 +656,24 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 		"docType":  DocumentTypeContest,
 		"docId":    item.DocID,
 		"attend":   1,
-	}, options.Find().SetProjection(bson.M{"uid": 1}))
+	}, options.Find().SetProjection(bson.M{"uid": 1, "unrank": 1}))
 	if err != nil {
 		return nil, nil, err
 	}
 	defer attendeeCursor.Close(ctx)
 	var attendees []struct {
-		UID int64 `bson:"uid"`
+		UID    int64 `bson:"uid"`
+		Unrank bool  `bson:"unrank"`
 	}
 	if err := attendeeCursor.All(ctx, &attendees); err != nil {
 		return nil, nil, err
 	}
+	unranked := map[int64]bool{}
 	for _, attendee := range attendees {
+		if attendee.Unrank {
+			unranked[attendee.UID] = true
+			continue
+		}
 		if attendee.UID > 0 {
 			users[attendee.UID] = &userState{uid: attendee.UID, cells: make(map[string]ProblemCell), wrong: make(map[int64]int)}
 		}
@@ -671,6 +685,9 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 		}
 		uid, ok := toInt64(record["uid"])
 		if !ok {
+			continue
+		}
+		if unranked[uid] {
 			continue
 		}
 		pid, ok := toInt64(record["pid"])
@@ -839,6 +856,74 @@ func (r *Repository) CanReadPrivateFiles(ctx context.Context, tid string, uid in
 		return false, nil
 	}
 	return r.Attended(ctx, tid, uid)
+}
+
+// Statuses lists the attendees of a contest ordered by uid.
+func (r *Repository) Statuses(ctx context.Context, tid string) ([]AttendeeStatus, error) {
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	cursor, err := r.statuses.Find(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    oid,
+		"attend":   1,
+	}, options.Find().SetSort(bson.D{{Key: "uid", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]AttendeeStatus, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// SetUnrank toggles whether the attendee is excluded from the scoreboard.
+func (r *Repository) SetUnrank(ctx context.Context, tid string, uid int64, unrank bool) error {
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return ErrNotFound
+	}
+	result, err := r.statuses.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    oid,
+		"uid":      uid,
+		"attend":   1,
+	}, bson.M{"$set": bson.M{"unrank": unrank}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// CancelAttend removes the attendee status and keeps the counter in sync.
+func (r *Repository) CancelAttend(ctx context.Context, tid string, uid int64) error {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return err
+	}
+	result, err := r.statuses.DeleteOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    item.DocID,
+		"uid":      uid,
+		"attend":   1,
+	})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return ErrNotFound
+	}
+	_, err = r.coll.UpdateOne(ctx, bson.M{"_id": item.ID, "attend": bson.M{"$gt": 0}}, bson.M{"$inc": bson.M{"attend": -1}})
+	return err
 }
 
 // Unlock marks a locked scoreboard as unlocked so later submissions count.

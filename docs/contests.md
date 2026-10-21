@@ -79,10 +79,21 @@
 
 资料存放于 `contest/system/<tid>/private/<name>`，元数据写入比赛文档的 `privateFiles`。下载接口按上游规则鉴权：所有者、系统管理员或已报名的参赛者（比赛开始后）。比赛详情页按上游逻辑展示参赛者可下载的资料。
 
+## 参赛者管理
+
+`/contest/:tid/user` 渲染上游 `contest_user.html` + `partials/contest_user.html`：
+
+- 表格列出所有报名者（UID、用户名、开始/结束时间、是否计 rank）
+- 「添加用户」按钮打开用户搜索对话框（`UserSelectAutoComplete`），可批量调用 `POST /api/v1/contests/:tid/attendees`
+- `edit_rank` 切换 `unrank`（`PATCH /api/v1/contests/:tid/attendees/:uid`）；`unrank` 的参赛者及其提交不计入榜单
+- 开赛前可 `cancel_registration`（`DELETE`），开赛后接口返回 400
+- 榜单查询已经过滤 `unrank` 的参赛者
+
 ## 尚未完成
 
 - 比赛题目分值编辑（`name="set_score"` 目前是占位）
-- 参赛者管理页、导出所有代码和气球状态页
+- 导出所有代码和气球状态页
+- 弹性时长比赛的 `resume_contest`
 - 比赛题目的时间/权限访问控制
 - 组队和参赛状态（个人报名已实现，提交暂未强制要求报名）
 - 比赛管理中的气球、参赛者管理和导出代码入口（当前为占位）

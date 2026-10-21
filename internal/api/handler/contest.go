@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,10 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/contests/:tid/problems", h.problems)
 	router.GET("/api/v1/contests/:tid/scoreboard", h.scoreboard)
 	router.POST("/api/v1/contests/:tid/unlock", h.unlock)
+	router.GET("/api/v1/contests/:tid/attendees", h.attendees)
+	router.POST("/api/v1/contests/:tid/attendees", h.addAttendees)
+	router.PATCH("/api/v1/contests/:tid/attendees/:uid", h.setAttendeeRank)
+	router.DELETE("/api/v1/contests/:tid/attendees/:uid", h.cancelAttendee)
 	router.GET("/api/v1/contests/:tid/clarifications", h.clarifications)
 	router.POST("/api/v1/contests/:tid/clarifications", h.addClarification)
 	router.POST("/api/v1/contests/:tid/clarifications/broadcast", h.broadcastClarification)
@@ -221,6 +226,120 @@ func (h *ContestHandler) attend(c *gin.Context) {
 		"code": 0, "message": "success",
 		"data": gin.H{"attended": true, "changed": changed},
 	})
+}
+
+func (h *ContestHandler) attendees(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	statuses, err := h.repo.Statuses(c.Request.Context(), item.DocID.Hex())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load attendees"})
+		return
+	}
+	ids := make([]int64, 0, len(statuses))
+	for _, status := range statuses {
+		ids = append(ids, status.UID)
+	}
+	users := []gin.H{}
+	if len(ids) > 0 {
+		items, err := h.users.FindByIDs(c.Request.Context(), ids)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load attendees"})
+			return
+		}
+		for _, u := range items {
+			users = append(users, gin.H{
+				"id": u.ID, "username": u.Uname, "displayName": u.DisplayName, "avatar": u.Avatar,
+			})
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+		"items": statuses, "users": users,
+	}})
+}
+
+func (h *ContestHandler) addAttendees(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	var request struct {
+		UIDs []int64 `json:"uids"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || len(request.UIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "uids are required"})
+		return
+	}
+	for _, uid := range request.UIDs {
+		if uid <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid uid"})
+			return
+		}
+		if _, err := h.users.FindByID(c.Request.Context(), uid); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		if _, err := h.repo.Attend(c.Request.Context(), item.DocID.Hex(), uid); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to add attendee"})
+			return
+		}
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *ContestHandler) setAttendeeRank(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
+	if err != nil || uid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+	var request struct {
+		Unrank bool `json:"unrank"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if err := h.repo.SetUnrank(c.Request.Context(), item.DocID.Hex(), uid, request.Unrank); err != nil {
+		if errors.Is(err, contest.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "attendee not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update attendee"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *ContestHandler) cancelAttendee(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	if !item.BeginAt.After(time.Now()) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "contest already started"})
+		return
+	}
+	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
+	if err != nil || uid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+	if err := h.repo.CancelAttend(c.Request.Context(), item.DocID.Hex(), uid); err != nil {
+		if errors.Is(err, contest.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "attendee not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to cancel registration"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *ContestHandler) clarifications(c *gin.Context) {

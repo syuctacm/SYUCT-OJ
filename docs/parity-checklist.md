@@ -103,6 +103,24 @@
 | 用户主页标签页 / 活跃日历 | #133 |
 | 首页各区块 | #135 |
 
+## 6.1 全站冒烟清单（2026-10-21）
+
+用浏览器逐条切换路由（`history.pushState` + `popstate`，每条等待 900ms），在匿名和 admin 两种状态下检查 `document.body.innerText`、`.main` 是否存在以及是否出现 `Template render error`。本次 42 条路由 × 2 状态全部通过。
+
+路由清单：
+
+```text
+/  /p  /p/tag/:tag  /p/:pid  /p/:pid/submit  /p/:pid/edit  /p/:pid/config  /p/:pid/files
+/contest  /contest/:tid  /contest/:tid/problems  /contest/:tid/scoreboard
+/contest/:tid/management  /contest/:tid/clarification  /contest/:tid/user
+/contest/new  /contest/:tid/edit
+/homework  /homework/:tid  /homework/:tid/scoreboard  /homework/:tid/file  /homework/:tid/edit  /homework/new
+/training  /training/:tid  /training/:tid/file  /training/:tid/edit  /training/new
+/discuss  /discuss/node/:name  /discuss/:did  /discuss/:did/edit  /discuss/node/:name/create
+/user/:uid  /ranking  /record  /record/:rid
+/admin  /admin/users  /home/settings?category=account  /file  /login
+```
+
 ## 7. 当前已知差异
 
 ```text
@@ -112,5 +130,5 @@
 差异级别：中
 是否接受：部分接受
 负责人：待定
-后续处理：语言列表改为服务端配置；训练计划的 data-json 编辑器仍待接入；题库批量编辑/删除/复制尚未接入；比赛 / 作业 / 训练列表的团队入口隐藏；训练详情的他人进度对比和标题导航尚未接入；Ghost 榜单导出和关注/筛选下拉尚未接入；比赛分值编辑、参赛者管理、打印、导出代码入口为占位；讨论历史版本和行内 raw 尚未接入；用户主页的获赞题解尚未接入；首页的公告/一言/收藏区块未接入；其余页面继续从手写 TSX 迁移到 HydroTemplate
+后续处理：语言列表改为服务端配置；训练计划的 data-json 编辑器仍待接入；题库批量编辑/删除/复制尚未接入；比赛 / 作业 / 训练列表的团队入口隐藏；训练详情的他人进度对比和标题导航尚未接入；Ghost 榜单导出和关注/筛选下拉尚未接入；比赛分值编辑、打印、导出代码入口为占位；讨论历史版本和行内 raw 尚未接入；用户主页的获赞题解尚未接入；首页的公告/一言/收藏区块未接入；其余页面继续从手写 TSX 迁移到 HydroTemplate
 ```

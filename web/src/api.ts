@@ -493,6 +493,36 @@ export type ContestProblemPage = {
   statuses: Record<string, ProblemStatus>
 }
 
+export type ContestAttendee = {
+  uid: number
+  unrank?: boolean
+  startAt?: string
+  endAt?: string
+}
+
+export async function getContestAttendees(tid: string): Promise<{ items: ContestAttendee[]; users: UserChoice[] }> {
+  const result = await request<Envelope<{ items: ContestAttendee[]; users: UserChoice[] }>>(`/api/v1/contests/${encodeURIComponent(tid)}/attendees`)
+  return result.data
+}
+
+export async function addContestAttendees(tid: string, uids: number[]): Promise<void> {
+  await request(`/api/v1/contests/${encodeURIComponent(tid)}/attendees`, {
+    method: 'POST',
+    body: JSON.stringify({ uids }),
+  })
+}
+
+export async function setContestAttendeeRank(tid: string, uid: number, unrank: boolean): Promise<void> {
+  await request(`/api/v1/contests/${encodeURIComponent(tid)}/attendees/${uid}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ unrank }),
+  })
+}
+
+export async function cancelContestAttendee(tid: string, uid: number): Promise<void> {
+  await request(`/api/v1/contests/${encodeURIComponent(tid)}/attendees/${uid}`, { method: 'DELETE' })
+}
+
 export async function getContestProblems(tid: string): Promise<ContestProblemPage> {
   const result = await request<Envelope<ContestProblemPage>>(`/api/v1/contests/${encodeURIComponent(tid)}/problems`)
   return result.data
