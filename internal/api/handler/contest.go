@@ -39,6 +39,7 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.PATCH("/api/v1/contests/:tid/attendees/:uid", h.setAttendeeRank)
 	router.DELETE("/api/v1/contests/:tid/attendees/:uid", h.cancelAttendee)
 	router.POST("/api/v1/contests/:tid/attendees/:uid/resume", h.resumeAttendee)
+	router.GET("/api/v1/contests/:tid/code", h.exportCode)
 	router.GET("/api/v1/contests/:tid/clarifications", h.clarifications)
 	router.POST("/api/v1/contests/:tid/clarifications", h.addClarification)
 	router.POST("/api/v1/contests/:tid/clarifications/broadcast", h.broadcastClarification)
@@ -227,6 +228,18 @@ func (h *ContestHandler) attend(c *gin.Context) {
 		"code": 0, "message": "success",
 		"data": gin.H{"attended": true, "changed": changed},
 	})
+}
+
+func (h *ContestHandler) exportCode(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	u, ok := h.currentUser(c)
+	if !ok {
+		return
+	}
+	exportCodeArchive(c, h.repo, item, u.ID, u.Priv&1 != 0)
 }
 
 func (h *ContestHandler) attendees(c *gin.Context) {

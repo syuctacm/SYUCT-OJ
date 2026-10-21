@@ -240,10 +240,10 @@ export function ContestProblemsPage() {
       case 'wiki':
       case 'wiki_help':
         return '/discuss'
-      // Contest management, print and code export are not ported yet.
+      // Contest management and printing are not ported yet.
       case 'contest_manage': return `/contest/${encodeURIComponent(id)}/clarification`
+      case 'contest_code': return `/api/v1/contests/${encodeURIComponent(id)}/code`
       case 'contest_print':
-      case 'contest_code':
       case 'contest_file_download':
         return '#'
       default: return '/'

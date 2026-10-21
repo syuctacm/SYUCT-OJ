@@ -213,9 +213,8 @@ export function ActivityFilesPage({ kind }: { kind: Kind }) {
       case 'wiki':
       case 'wiki_help':
         return '/discuss'
-      // Export all code is not ported yet.
       case 'homework_code':
-        return '#'
+        return `/api/v1/homeworks/${encodeURIComponent(id)}/code`
       default: return '/'
     }
   }, [data?.docId, tid])

@@ -858,6 +858,73 @@ func (r *Repository) CanReadPrivateFiles(ctx context.Context, tid string, uid in
 	return r.Attended(ctx, tid, uid)
 }
 
+// CodeExportRow is one submission included in the code export archive.
+type CodeExportRow struct {
+	UID    int64
+	PID    int64
+	RID    string
+	Status int
+	Score  int
+	Lang   string
+	Code   string
+}
+
+// ExportRecords lists the submissions of a contest. When all is false only the
+// latest submission of each user and problem is kept, mirroring the upstream
+// contest_code handler.
+func (r *Repository) ExportRecords(ctx context.Context, contestID bson.ObjectID, all bool) ([]CodeExportRow, error) {
+	cursor, err := r.records.Find(ctx, bson.M{
+		"domainId": DomainSystem,
+		"contest":  contestID,
+	}, options.Find().
+		SetProjection(bson.M{"uid": 1, "pid": 1, "lang": 1, "status": 1, "score": 1, "code": 1}).
+		SetSort(bson.D{{Key: "_id", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	rows := make([]CodeExportRow, 0)
+	for cursor.Next(ctx) {
+		var doc struct {
+			ID     bson.ObjectID `bson:"_id"`
+			UID    int64         `bson:"uid"`
+			PID    int64         `bson:"pid"`
+			Lang   string        `bson:"lang"`
+			Status int           `bson:"status"`
+			Score  float64       `bson:"score"`
+			Code   string        `bson:"code"`
+		}
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		if doc.UID <= 0 || doc.PID <= 0 || doc.Code == "" {
+			continue
+		}
+		rows = append(rows, CodeExportRow{
+			UID: doc.UID, PID: doc.PID, RID: doc.ID.Hex(),
+			Status: doc.Status, Score: int(doc.Score), Lang: doc.Lang, Code: doc.Code,
+		})
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	if all {
+		return rows, nil
+	}
+	latest := make(map[[2]int64]int, len(rows))
+	kept := make([]CodeExportRow, 0, len(rows))
+	for _, row := range rows {
+		key := [2]int64{row.UID, row.PID}
+		if index, ok := latest[key]; ok {
+			kept[index] = row
+			continue
+		}
+		latest[key] = len(kept)
+		kept = append(kept, row)
+	}
+	return kept, nil
+}
+
 // Statuses lists the attendees of a contest ordered by uid.
 func (r *Repository) Statuses(ctx context.Context, tid string) ([]AttendeeStatus, error) {
 	oid, err := bson.ObjectIDFromHex(tid)

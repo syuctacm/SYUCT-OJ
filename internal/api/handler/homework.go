@@ -29,6 +29,7 @@ func (h *HomeworkHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/homeworks/:tid", h.get)
 	router.GET("/api/v1/homeworks/:tid/problems", h.problems)
 	router.POST("/api/v1/homeworks/:tid/attend", h.attend)
+	router.GET("/api/v1/homeworks/:tid/code", h.exportCode)
 }
 
 func (h *HomeworkHandler) list(c *gin.Context) {
@@ -194,4 +195,17 @@ func (h *HomeworkHandler) currentUser(c *gin.Context) (*user.User, bool) {
 		return nil, false
 	}
 	return u, true
+}
+
+// exportCode mirrors the upstream homework_code handler.
+func (h *HomeworkHandler) exportCode(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	u, ok := h.currentUser(c)
+	if !ok {
+		return
+	}
+	exportCodeArchive(c, h.repo, item, u.ID, u.Priv&1 != 0)
 }
