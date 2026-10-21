@@ -1,18 +1,21 @@
 // Page markup is rendered from the pinned Hydro ui-default template. Keep this
 // file limited to data mapping, request handling and small interactions.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import {
-  enrollTraining, getTraining, getUsersByIDs, type TrainingDetail, type UserChoice,
+  enrollTraining, getTraining, getUsersByIDs, type TrainingDetail, type TrainingDetailResponse, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
+import { mountHeadingMenu } from '../upstream/heading-menu.ts'
 
 export function TrainingDetailPage() {
   const { tid = '' } = useParams()
+  const [searchParams] = useSearchParams()
+  const viewedUid = Number.parseInt(searchParams.get('uid') ?? '', 10) || 0
   const { user } = useAuth()
-  const [training, setTraining] = useState<TrainingDetail | null>(null)
+  const [training, setTraining] = useState<TrainingDetailResponse | null>(null)
   const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
   const [enrollError, setEnrollError] = useState('')
@@ -22,10 +25,10 @@ export function TrainingDetailPage() {
   useEffect(() => {
     setTraining(null)
     setError('')
-    getTraining(tid)
+    getTraining(tid, viewedUid || undefined)
       .then(setTraining)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '训练加载失败'))
-  }, [tid])
+  }, [tid, viewedUid])
 
   useEffect(() => {
     if (!training) return
@@ -50,14 +53,19 @@ export function TrainingDetailPage() {
       nAccept: problem.nAccept,
       hidden: false,
     }]))
-    const psdict = Object.fromEntries(problems
-      .filter((problem) => problem.rid)
-      .map((problem) => [String(problem.docId), {
-        rid: problem.rid,
-        status: problem.status ?? 0,
-        score: problem.score ?? 0,
-        domainId: 'system',
-      }]))
+    const statusDict = (source?: TrainingDetail) => Object.fromEntries(
+      (source?.sections ?? []).flatMap((section) => section.problems)
+        .filter((problem) => problem.rid)
+        .map((problem) => [String(problem.docId), {
+          rid: problem.rid,
+          status: problem.status ?? 0,
+          score: problem.score ?? 0,
+          domainId: 'system',
+        }]),
+    )
+    const psdict = statusDict(training)
+    const compare = training.compare
+    const selfPsdict = compare ? statusDict(compare) : {}
     const nsdict = Object.fromEntries(training.sections.map((section) => [String(section.id), {
       isDone: section.status === 'done',
       isProgress: section.status === 'progress',
@@ -96,7 +104,8 @@ export function TrainingDetailPage() {
       pids,
       pdict,
       psdict,
-      selfPsdict: {},
+      selfPsdict,
+      should_compare: Boolean(compare),
       nsdict,
       ndict,
       missing: problems.filter((problem) => problem.missing).map((problem) => problem.docId),
@@ -114,7 +123,7 @@ export function TrainingDetailPage() {
         },
         args: { domainId: 'system' },
         request: {
-          query: {},
+          query: viewedUid ? { uid: viewedUid } : {},
           path: `/training/${training.docId}`,
           headers: { 'user-agent': navigator.userAgent },
         },
@@ -144,7 +153,7 @@ export function TrainingDetailPage() {
   }, [tid, training?.docId])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
-    const cleanups: Array<() => void> = []
+    const cleanups: Array<() => void> = [mountHeadingMenu(root)]
     const onClick = (event: Event) => {
       const target = event.target as HTMLElement
       const action = target.closest('[name="training__section__expand"]') ? 'expanded'

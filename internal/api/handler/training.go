@@ -3,6 +3,8 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -90,19 +92,49 @@ func (h *TrainingHandler) list(c *gin.Context) {
 	})
 }
 
+// trainingDetailResponse carries the viewed user's detail plus, when another
+// user is being inspected, the caller's own detail for the compare column.
+type trainingDetailResponse struct {
+	*training.Detail
+	ViewedUID int64            `json:"viewedUid"`
+	Compare   *training.Detail `json:"compare,omitempty"`
+}
+
 func (h *TrainingHandler) get(c *gin.Context) {
-	var uid int64
+	var viewer int64
 	if h.sessions != nil {
 		if session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c)); ok && session.Kind == "user" {
-			uid = session.UserID
+			viewer = session.UserID
 		}
 	}
-	item, err := h.repo.Detail(c.Request.Context(), c.Param("tid"), uid)
+	viewedUID := viewer
+	if raw := strings.TrimSpace(c.Query("uid")); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+			return
+		}
+		if viewer <= 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		viewedUID = parsed
+	}
+	item, err := h.repo.Detail(c.Request.Context(), c.Param("tid"), viewedUID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "training not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": item})
+	response := trainingDetailResponse{Detail: item, ViewedUID: viewedUID}
+	if viewer > 0 && viewer != viewedUID {
+		compare, err := h.repo.Detail(c.Request.Context(), c.Param("tid"), viewer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load own progress"})
+			return
+		}
+		response.Compare = compare
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": response})
 }
 
 func (h *TrainingHandler) enroll(c *gin.Context) {

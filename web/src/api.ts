@@ -728,8 +728,14 @@ export async function getTrainings(query = '', page = 1, limit = 20): Promise<Li
   return result.data
 }
 
-export async function getTraining(tid: string): Promise<TrainingDetail> {
-  const result = await request<Envelope<TrainingDetail>>(`/api/v1/trainings/${encodeURIComponent(tid)}`)
+export type TrainingDetailResponse = TrainingDetail & {
+  viewedUid?: number
+  compare?: TrainingDetail
+}
+
+export async function getTraining(tid: string, uid?: number): Promise<TrainingDetailResponse> {
+  const suffix = uid ? `?uid=${uid}` : ''
+  const result = await request<Envelope<TrainingDetailResponse>>(`/api/v1/trainings/${encodeURIComponent(tid)}${suffix}`)
   return result.data
 }
 
