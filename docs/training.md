@@ -57,6 +57,12 @@ enroll=1
 
 未报名或章节未解锁时仍可查看内容，但题目入口不可点击。训练详情由 `HydroTemplate` 直接渲染上游 `training_detail.html` 和 `partials/training_detail.html`，保留原版 `.training__section`、`.training__problems`、状态列和报名用户菜单；章节展开/收缩和报名表单由适配层接管。详情 API 返回每题最近一次提交（rid/status/score）和已报名用户，用于渲染原版状态列与报名用户菜单。训练创建/编辑页由 `HydroTemplate` 直接渲染上游 `training_edit.html`，Markdown 图片上传已接入训练文件接口。训练列表的搜索由 React 适配层保持，章节/题目统计来自列表 API 的聚合字段。
 
+## 进度对比与标题导航
+
+- `GET /api/v1/trainings/:tid?uid=<uid>` 返回被查看用户的进度；查看他人时同时返回自己的进度（`compare`）
+- 详情页左侧的报名者列表点进去即 `?uid=`，当前查看对象会高亮；题目表格多出「My status」一列展示自己的状态
+- 侧栏的章节锚点由 `web/src/upstream/heading-menu.ts`（移植自 `components/menu/menu-heading.page.js`）生成，读取 `data-heading-extract-to` / `data-heading`
+
 ## 尚未完成
 
 - 训练私有文件
