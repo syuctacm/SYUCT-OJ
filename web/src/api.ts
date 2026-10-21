@@ -18,6 +18,11 @@ export type ProblemSummary = {
   hidden?: boolean
   nSubmit: number
   nAccept: number
+  problemType?: string
+  timeMin?: string
+  timeMax?: string
+  memoryMin?: string
+  memoryMax?: string
   userStatus?: {
     status: number
     rid: string
@@ -414,9 +419,17 @@ export async function attendContest(tid: string): Promise<{ attended: boolean; c
   return result.data
 }
 
+export type ProblemStatus = {
+  rid: string
+  status: number
+  score: number
+}
+
 export type ContestProblemPage = {
   contest: Contest
   problems: ProblemSummary[]
+  attended: boolean
+  statuses: Record<string, ProblemStatus>
 }
 
 export async function getContestProblems(tid: string): Promise<ContestProblemPage> {
@@ -446,6 +459,43 @@ export type ContestScoreboard = {
 
 export async function getContestScoreboard(tid: string): Promise<ContestScoreboard> {
   const result = await request<Envelope<ContestScoreboard>>(`/api/v1/contests/${encodeURIComponent(tid)}/scoreboard`)
+  return result.data
+}
+
+export type ClarificationReply = {
+  id: string
+  owner: number
+  content: string
+}
+
+export type Clarification = {
+  id: string
+  docId: string
+  parentId: string
+  owner: number
+  subject: number
+  content: string
+  reply: ClarificationReply[]
+}
+
+export async function getClarifications(tid: string): Promise<Clarification[]> {
+  const result = await request<Envelope<{ items: Clarification[]; total: number }>>(`/api/v1/contests/${encodeURIComponent(tid)}/clarifications`)
+  return result.data.items
+}
+
+export async function createClarification(tid: string, input: { subject: number; content: string }): Promise<Clarification> {
+  const result = await request<Envelope<Clarification>>(`/api/v1/contests/${encodeURIComponent(tid)}/clarifications`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return result.data
+}
+
+export async function replyClarification(tid: string, cid: string, content: string): Promise<Clarification> {
+  const result = await request<Envelope<Clarification>>(`/api/v1/contests/${encodeURIComponent(tid)}/clarifications/${encodeURIComponent(cid)}/reply`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
   return result.data
 }
 
@@ -596,17 +646,11 @@ export async function getHomework(tid: string): Promise<Contest> {
   return result.data
 }
 
-export type HomeworkProblemStatus = {
-  rid: string
-  status: number
-  score: number
-}
-
 export type HomeworkProblemPage = {
   homework: Contest
   problems: ProblemSummary[]
   attended: boolean
-  statuses: Record<string, HomeworkProblemStatus>
+  statuses: Record<string, ProblemStatus>
 }
 
 export async function getHomeworkProblems(tid: string): Promise<HomeworkProblemPage> {

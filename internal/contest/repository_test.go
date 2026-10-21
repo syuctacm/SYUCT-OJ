@@ -60,7 +60,7 @@ func TestContestRepositoryIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = db.Collection("document").InsertMany(ctx, []any{
-		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(1), "pid": "P1", "title": "First"},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(1), "pid": "P1", "title": "First", "config": "type: default\ntime: 1000\nmemory: 256"},
 		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(2), "pid": "P2", "title": "Second"},
 	})
 	if err != nil {
@@ -95,6 +95,9 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	}
 	if len(problems) != 2 || problems[0].DocID != 2 || problems[1].DocID != 1 {
 		t.Fatalf("unexpected contest problem order: %+v", problems)
+	}
+	if p := problems[1]; p.ProblemType != "default" || p.TimeMin != "1000" || p.TimeMax != "1000" || p.MemoryMin != "256" || p.MemoryMax != "256" {
+		t.Fatalf("unexpected config summary: %+v", p)
 	}
 	_, err = db.Collection("record").InsertMany(ctx, []any{
 		bson.M{"_id": bson.NewObjectID(), "contest": newID, "domainId": "system", "uid": int64(7), "pid": int64(2), "status": 1},

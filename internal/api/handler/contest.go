@@ -106,7 +106,24 @@ func (h *ContestHandler) problems(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"contest": item, "problems": problems}})
+	attended := false
+	statuses := map[int64]contest.ProblemStatus{}
+	if u, ok := h.currentUser(c); ok {
+		attended, err = h.repo.Attended(c.Request.Context(), c.Param("tid"), u.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest attendance"})
+			return
+		}
+		statuses, err = h.repo.UserProblemStatus(c.Request.Context(), u.ID, item.PIDs)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load problem status"})
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"contest": item, "problems": problems, "attended": attended, "statuses": statuses},
+	})
 }
 
 func (h *ContestHandler) scoreboard(c *gin.Context) {
