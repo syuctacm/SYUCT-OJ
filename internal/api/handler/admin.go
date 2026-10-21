@@ -60,6 +60,7 @@ type AdminUser struct {
 	Email       string    `bson:"mail" json:"email"`
 	StudentID   string    `bson:"studentId" json:"studentId,omitempty"`
 	Priv        int64     `bson:"priv" json:"priv"`
+	Avatar      string    `bson:"avatar" json:"avatar,omitempty"`
 	RegAt       time.Time `bson:"regat" json:"regAt"`
 	LoginAt     time.Time `bson:"loginat" json:"loginAt"`
 }
@@ -76,8 +77,8 @@ func (h *AdminHandler) userList(c *gin.Context) {
 	if limit < 1 {
 		limit = 20
 	}
-	if limit > 100 {
-		limit = 100
+	if limit > 1000 {
+		limit = 1000
 	}
 	filter := bson.M{}
 	if query := strings.TrimSpace(c.Query("q")); query != "" {
@@ -95,9 +96,13 @@ func (h *AdminHandler) userList(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to count users"})
 		return
 	}
+	sort := bson.D{{Key: "regat", Value: -1}, {Key: "_id", Value: -1}}
+	if c.Query("sort") == "id" {
+		sort = bson.D{{Key: "_id", Value: 1}}
+	}
 	cursor, err := coll.Find(c.Request.Context(), filter, options.Find().
-		SetProjection(bson.M{"uname": 1, "displayName": 1, "mail": 1, "studentId": 1, "priv": 1, "regat": 1, "loginat": 1}).
-		SetSort(bson.D{{Key: "regat", Value: -1}, {Key: "_id", Value: -1}}).
+		SetProjection(bson.M{"uname": 1, "displayName": 1, "avatar": 1, "mail": 1, "studentId": 1, "priv": 1, "regat": 1, "loginat": 1}).
+		SetSort(sort).
 		SetSkip(int64((page-1)*limit)).
 		SetLimit(int64(limit)))
 	if err != nil {
@@ -132,6 +137,18 @@ func (h *AdminHandler) updateUserPriv(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&request); err != nil || request.Priv < 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid privilege value"})
+		return
+	}
+	// Mirrors Hydro's CannotEditSuperAdminError: PRIV_ALL accounts are protected.
+	var target struct {
+		Priv int64 `bson:"priv"`
+	}
+	if err := h.db.Collection("user").FindOne(c.Request.Context(), bson.M{"_id": uid}).Decode(&target); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	if target.Priv < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot edit a super administrator"})
 		return
 	}
 	result, err := h.db.Collection("user").UpdateOne(c.Request.Context(), bson.M{"_id": uid}, bson.M{"$set": bson.M{"priv": request.Priv}})

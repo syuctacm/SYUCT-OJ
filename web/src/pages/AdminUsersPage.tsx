@@ -1,109 +1,176 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+// Page markup is rendered from the pinned Hydro ui-default template
+// (manage_user_priv.html). Keep this file limited to data mapping and the
+// privilege dialog that the template expects.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getAdminUsers, updateAdminUserPriv, type AdminUserPage } from '../api.ts'
 import { useAuth } from '../auth.tsx'
-
-function privilegeDescription(value: number) {
-  if (value === -1) return ['PRIV_ALL']
-  if (value === 0) return ['PRIV_NONE']
-  const values: string[] = []
-  if (value & 1) values.push('+PRIV_EDIT_SYSTEM')
-  if (value & 2) values.push('+PRIV_USER_PROFILE')
-  if (!values.length) values.push(`+${value}`)
-  return values
-}
+import { Dialog } from '../components/Dialog.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { UserSelectAutoComplete } from '../components/autocomplete/UserSelectAutoComplete.tsx'
+import { PRIV_DEFAULT, PRIV_OPTIONS } from '../upstream/priv.ts'
 
 export function AdminUsersPage() {
   const { user } = useAuth()
-  const [query, setQuery] = useState('')
-  const [submittedQuery, setSubmittedQuery] = useState('')
   const [data, setData] = useState<AdminUserPage | null>(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [busyUID, setBusyUID] = useState<number | null>(null)
+  const [actionError, setActionError] = useState('')
+  const [editing, setEditing] = useState<{ uid: number; priv: number } | null>(null)
+  const [dialogBody, setDialogBody] = useState('')
+  const [selecting, setSelecting] = useState(false)
+  const [pickedUID, setPickedUID] = useState(0)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const clickRef = useRef<(event: Event) => void>(() => {})
+
+  const load = useCallback(async () => {
+    setData(await getAdminUsers('', 1000))
+  }, [])
 
   useEffect(() => {
-    if (!user || ((user.priv ?? 0) & 1) === 0) {
-      setLoading(false)
+    setError('')
+    load().catch((err: unknown) => setError(err instanceof Error ? err.message : '用户加载失败'))
+  }, [load])
+
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    // Upstream menu.page.js slides every collapsed menu open after load.
+    root.querySelectorAll('.menu.collapsed').forEach((menu) => menu.classList.remove('collapsed'))
+    // Changing the system default privilege needs a settings page that this
+    // rewrite does not have yet; keep the informational row but drop its link.
+    root.querySelector('tr[data-uid="default"] [name="set_priv"]')?.remove()
+    const onClick = (event: Event) => clickRef.current(event)
+    root.addEventListener('click', onClick)
+    return () => root.removeEventListener('click', onClick)
+  }, [])
+
+  function openPrivDialog(uid: number, priv: number) {
+    const body = document.querySelector('.dialog__body--set-priv > div')
+    if (!body) return
+    setDialogBody(body.outerHTML)
+    setEditing({ uid, priv })
+  }
+
+  function handleClick(event: Event) {
+    const target = (event.target as HTMLElement).closest<HTMLElement>('[name="set_priv"], [name="select_user"]')
+    if (!target) return
+    if (target.getAttribute('name') === 'select_user') {
+      event.preventDefault()
+      setPickedUID(0)
+      setSelecting(true)
       return
     }
-    setLoading(true)
-    getAdminUsers(submittedQuery)
-      .then(setData)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : '用户加载失败'))
-      .finally(() => setLoading(false))
-  }, [submittedQuery, user])
-
-  function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setSubmittedQuery(query)
+    openPrivDialog(Number(target.dataset.uid ?? 0), Number(target.dataset.priv ?? 0))
   }
+  clickRef.current = handleClick
 
-  async function toggleAdmin(uid: number, currentPriv: number) {
-    const nextPriv = (currentPriv & 1) === 1 ? (currentPriv & ~1) : (currentPriv | 1)
-    if (!window.confirm(nextPriv & 1 ? '确认将该用户设为管理员？' : '确认取消该用户的管理员权限？')) return
-    setBusyUID(uid)
-    setError('')
+  useEffect(() => {
+    if (!editing) return
+    bodyRef.current?.querySelectorAll<HTMLInputElement>('input.priv').forEach((input) => {
+      input.checked = (Number(input.value) & editing.priv) !== 0
+    })
+  }, [editing, dialogBody])
+
+  async function submitPriv() {
+    if (!editing) return
+    let priv = 0
+    bodyRef.current?.querySelectorAll<HTMLInputElement>('input.priv').forEach((input) => {
+      if (input.checked) priv |= Number(input.value)
+    })
+    setActionError('')
     try {
-      await updateAdminUserPriv(uid, nextPriv)
-      setData((current) => current ? { ...current, items: current.items.map((item) => item.id === uid ? { ...item, priv: nextPriv } : item) } : current)
+      await updateAdminUserPriv(editing.uid, priv)
+      setEditing(null)
+      await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : '权限更新失败')
-    } finally {
-      setBusyUID(null)
+      setActionError(err instanceof Error ? err.message : '权限更新失败')
     }
   }
 
-  if (!user || ((user.priv ?? 0) & 1) === 0) return <div className="row"><div className="columns"><div className="nothing-placeholder">需要管理员权限</div></div></div>
+  function confirmSelectUser() {
+    const target = data?.items.find((item) => item.id === pickedUID)
+    setSelecting(false)
+    if (!target) {
+      setActionError('未在已加载的用户列表中找到该用户。')
+      return
+    }
+    openPrivDialog(target.id, target.priv)
+  }
+
+  const context = useMemo(() => ({
+    page_name: 'manage_user_priv',
+    udocs: (data?.items ?? []).map((item) => ({
+      _id: item.id,
+      uname: item.username,
+      displayName: item.displayName ?? '',
+      avatar: item.avatar ?? '',
+      priv: item.priv,
+    })),
+    defaultPriv: PRIV_DEFAULT,
+    Priv: PRIV_OPTIONS,
+    handler: {
+      user: {
+        _id: user?.id ?? 0,
+        viewLang: 'zh',
+        hasPriv: (privilege: number) => privilege === 1 && Boolean(user),
+        hasPerm: () => false,
+        own: () => false,
+      },
+      args: { domainId: 'system' },
+      request: { query: {}, path: '/admin/users', headers: { 'user-agent': navigator.userAgent } },
+      session: { legacy: false, viewLang: 'zh' },
+      ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+    },
+    avatarUrl: (value?: string) => value || '/logo.png',
+    UiContext: {},
+    UserContext: user,
+  }), [data, user])
+
+  const buildUrl = useCallback((name: string) => {
+    if (name === 'manage_dashboard') return '/admin'
+    if (name === 'manage_user_priv') return '/admin/users'
+    if (name === 'user_detail') return '/user/'
+    return '/'
+  }, [])
+
+  if (!user || ((user.priv ?? 0) & 1) === 0) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">需要管理员权限</div></div></div>
+  }
+  if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  if (!data) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
 
   return (
-    <div className="row"><div className="columns">
-      <div className="section">
-        <div className="section__header">
-          <h1 className="section__title">用户权限</h1>
-          <div className="section__tools">
-            <form className="form--inline" onSubmit={search}>
-              <input className="inline compact textbox" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="用户名 / 邮箱 / 姓名 / 学号" />
-              <button className="primary rounded button compact" type="submit"><span className="icon icon-search" /> 搜索</button>
-            </form>
-          </div>
-        </div>
-        <div className="section__body no-padding">
-          {loading ? <div className="nothing-placeholder">加载中...</div> : null}
-          {error ? <div className="nothing-placeholder error-state">{error}</div> : null}
-          {!loading && !error ? (
-            <table className="data-table">
-              <colgroup><col className="col--uid" /><col className="col--user" /><col className="col--priv_info" /><col className="col--priv" /><col className="col--actions" /></colgroup>
-              <thead><tr><th className="col--uid">用户 ID</th><th className="col--user">用户名</th><th className="col--priv_info">权限</th><th className="col--priv">值</th><th className="col--actions">操作</th></tr></thead>
-              <tbody>
-                <tr data-uid="default">
-                  <td className="col--uid">#</td>
-                  <td className="col--user">默认权限</td>
-                  <td className="col--priv_info">PRIV_NONE</td>
-                  <td className="col--priv">0</td>
-                  <td className="col--actions">-</td>
-                </tr>
-                {data?.items.map((item) => (
-                  <tr data-uid={item.id} key={item.id}>
-                    <td className="col--uid">{item.id}</td>
-                    <td className="col--user"><Link to={`/user/${item.id}`}>{item.displayName || item.username}</Link></td>
-                    <td className="col--priv_info">
-                      {privilegeDescription(item.priv).map((value) => <p className={value.startsWith('-') ? 'priv_minus' : 'priv_plus'} key={value}>{value}</p>)}
-                    </td>
-                    <td className="col--priv" title={String(item.priv)}>{item.priv}</td>
-                    <td className="col--actions">
-                      <button className="link-button" disabled={busyUID === item.id || item.id === user.id} onClick={() => toggleAdmin(item.id, item.priv)}>
-                        {(item.priv & 1) === 1 ? '取消管理员' : '设为管理员'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : null}
-        </div>
-        <div className="section__footer">共 {data?.total ?? 0} 个用户 · <Link to="/admin">返回后台概览</Link></div>
-      </div>
-    </div></div>
+    <>
+      {actionError ? <div className="row"><div className="columns"><blockquote className="warn"><p>{actionError}</p></blockquote></div></div> : null}
+      <HydroTemplate
+        template="manage_user_priv.html"
+        context={context}
+        url={buildUrl}
+        onReady={handleReady}
+      />
+      {editing ? (
+        <Dialog
+          onOk={() => void submitPriv()}
+          onCancel={() => setEditing(null)}
+          width="900px"
+        >
+          <div ref={bodyRef} dangerouslySetInnerHTML={{ __html: dialogBody }} />
+        </Dialog>
+      ) : null}
+      {selecting ? (
+        <Dialog
+          onOk={confirmSelectUser}
+          onCancel={() => setSelecting(false)}
+          okLabel="选择"
+          cancelLabel="取消"
+        >
+          <h1>选择用户</h1>
+          <UserSelectAutoComplete
+            selectedKeys={[]}
+            multi={false}
+            placeholder="输入用户名搜索"
+            onChange={(value) => setPickedUID(Number(value) || 0)}
+          />
+        </Dialog>
+      ) : null}
+    </>
   )
 }
