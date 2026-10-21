@@ -213,6 +213,20 @@ export async function deleteUserFiles(names: string[]): Promise<void> {
   })
 }
 
+export type LanguageChoice = { id: string; display: string }
+
+export async function getLanguages(): Promise<LanguageChoice[]> {
+  const result = await request<Envelope<{ items: LanguageChoice[] }>>('/api/v1/languages')
+  return result.data.items
+}
+
+export async function getProblemLanguages(pid: string, contestId?: string): Promise<LanguageChoice[]> {
+  const params = new URLSearchParams()
+  if (contestId) params.set('contest', contestId)
+  const result = await request<Envelope<{ items: LanguageChoice[] }>>(`/api/v1/problems/${encodeURIComponent(pid)}/langs${params.toString() ? `?${params.toString()}` : ''}`)
+  return result.data.items
+}
+
 export async function starProblem(pid: string, star: boolean): Promise<boolean> {
   const result = await request<Envelope<{ star: boolean }>>(`/api/v1/problems/${encodeURIComponent(pid)}/star`, {
     method: 'POST',

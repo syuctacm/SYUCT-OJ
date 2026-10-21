@@ -57,6 +57,7 @@ type Problem struct {
 	MemoryMin       string        `bson:"-" json:"memoryMin,omitempty"`
 	MemoryMax       string        `bson:"-" json:"memoryMax,omitempty"`
 	Starred         bool          `bson:"-" json:"starred,omitempty"`
+	Langs           []string      `bson:"-" json:"langs,omitempty"`
 }
 
 type UserStatus struct {
@@ -635,6 +636,18 @@ func applyConfigSummary(p *Problem) {
 		return strings.TrimRightFunc(value, func(r rune) bool {
 			return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
 		})
+	}
+	if value := config["langs"]; value != nil {
+		switch list := value.(type) {
+		case []any:
+			for _, item := range list {
+				if name := strings.TrimSpace(fmt.Sprint(item)); name != "" && name != "<nil>" {
+					p.Langs = append(p.Langs, name)
+				}
+			}
+		case []string:
+			p.Langs = append(p.Langs, list...)
+		}
 	}
 	p.TimeMin = stripTimeUnit(configString("timeMin", "time"))
 	p.TimeMax = stripTimeUnit(configString("timeMax", "time"))

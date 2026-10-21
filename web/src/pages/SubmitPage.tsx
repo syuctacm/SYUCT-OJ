@@ -2,7 +2,7 @@
 // file limited to language selection, submission and error state.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { createSubmission, getProblem, type ProblemDetail } from '../api.ts'
+import { createSubmission, getProblem, getProblemLanguages, type ProblemDetail } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
@@ -25,6 +25,7 @@ export function SubmitPage() {
   const contestId = searchParams.get('contest') ?? searchParams.get('tid') ?? ''
   const { user, loading } = useAuth()
   const [problem, setProblem] = useState<ProblemDetail | null>(null)
+  const [languages, setLanguages] = useState(languageOptions)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
@@ -32,6 +33,16 @@ export function SubmitPage() {
   useEffect(() => {
     getProblem(pid).then(setProblem).catch(() => setProblem(null))
   }, [pid])
+
+  useEffect(() => {
+    getProblemLanguages(pid, contestId)
+      .then((items) => {
+        if (items.length) {
+          setLanguages(items.map((item) => ({ _id: item.id, name: item.display })))
+        }
+      })
+      .catch(() => setLanguages(languageOptions))
+  }, [contestId, pid])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const form = root.querySelector('form')
@@ -54,13 +65,13 @@ export function SubmitPage() {
       const select = document.createElement('select')
       select.name = 'lang'
       select.className = 'select'
-      for (const language of languageOptions) {
+      for (const language of languages) {
         const option = document.createElement('option')
         option.value = language._id
         option.textContent = language.name
         select.appendChild(option)
       }
-      select.value = 'cpp'
+      select.value = languages[0]?._id ?? 'cpp'
       container.appendChild(select)
       label.appendChild(container)
       field.appendChild(label)
@@ -81,7 +92,7 @@ export function SubmitPage() {
       form?.removeEventListener('keydown', onKeyDown)
       selector?.replaceChildren()
     }
-  }, [])
+  }, [languages])
 
   const context = useMemo(() => {
     if (!problem) return null
@@ -90,7 +101,7 @@ export function SubmitPage() {
       page_name: 'problem_submit',
       pdoc: { ...problem, tag: problem.tags ?? [], config: configSummary(problem) },
       tdoc: null,
-      langRange: Object.fromEntries(languageOptions.map((language) => [language._id, language.name])),
+      langRange: Object.fromEntries(languages.map((language) => [language._id, language.name])),
       handler: {
         user: {
           _id: user?.id ?? 0,
@@ -134,14 +145,14 @@ export function SubmitPage() {
       utils: { getAlphabeticId: () => '' },
       UserContext: user,
     }
-  }, [problem, user])
+  }, [languages, problem, user])
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!user) return
     const form = event.target as HTMLFormElement
     const data = new FormData(form)
-    const lang = String(data.get('lang') ?? 'cpp')
+    const lang = String(data.get('lang') ?? languages[0]?._id ?? 'cpp')
     const code = String(data.get('code') ?? '')
     setSubmitting(true)
     setError('')
