@@ -33,6 +33,7 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/contests/:tid/scoreboard", h.scoreboard)
 	router.GET("/api/v1/contests/:tid/clarifications", h.clarifications)
 	router.POST("/api/v1/contests/:tid/clarifications", h.addClarification)
+	router.POST("/api/v1/contests/:tid/clarifications/broadcast", h.broadcastClarification)
 	router.POST("/api/v1/contests/:tid/clarifications/:cid/reply", h.replyClarification)
 }
 
@@ -256,6 +257,45 @@ func (h *ContestHandler) addClarification(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to add clarification"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": created})
+}
+
+func (h *ContestHandler) broadcastClarification(c *gin.Context) {
+	u, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	item, err := h.repo.Get(c.Request.Context(), c.Param("tid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+		return
+	}
+	if u.ID != item.Owner && u.Priv&1 == 0 && !containsInt64(item.Maintainer, u.ID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	var request struct {
+		Subject int64  `json:"subject"`
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	created, err := h.repo.AddClarification(c.Request.Context(), c.Param("tid"), 0, request.Subject, request.Content)
+	if err != nil {
+		if errors.Is(err, contest.ErrInvalidClarificationSubject) || errors.Is(err, contest.ErrEmptyClarificationContent) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, contest.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to broadcast clarification"})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": created})

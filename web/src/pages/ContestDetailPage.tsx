@@ -124,7 +124,7 @@ export function ContestDetailPage() {
         return '/discuss'
       // Contest management, print and code export are not ported yet; keep the
       // upstream entries but make them inert instead of pointing at missing pages.
-      case 'contest_manage':
+      case 'contest_manage': return `/contest/${encodeURIComponent(id)}/clarification`
       case 'contest_print':
       case 'contest_code':
         return '#'
