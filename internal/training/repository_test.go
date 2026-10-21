@@ -58,4 +58,68 @@ func TestTrainingRepositoryIntegration(t *testing.T) {
 	if found.Title != "置顶训练" || found.Content != "# 内容" {
 		t.Fatalf("unexpected training: %+v", found)
 	}
+
+	detailID := bson.NewObjectID()
+	if _, err = db.Collection("document").InsertOne(ctx, bson.M{
+		"_id": bson.NewObjectID(), "domainId": "system", "docType": 40, "docId": detailID,
+		"title": "详情训练", "owner": int64(1), "attend": int64(1), "pin": int32(0),
+		"content": "# 训练内容", "description": "**描述**",
+		"dag": []any{
+			bson.M{
+				"_id": int64(1), "title": "第一节", "content": "章节内容",
+				"requireNids": []any{}, "pids": []any{int64(201), int64(202)},
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Collection("document").InsertMany(ctx, []any{
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(201), "pid": "A1", "title": "题目一", "difficulty": 3, "nSubmit": int64(10), "nAccept": int64(5)},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(202), "pid": "A2", "title": "题目二", "difficulty": 0, "nSubmit": int64(4), "nAccept": int64(1)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	olderRID := bson.NewObjectID()
+	newerRID := bson.NewObjectID()
+	if _, err = db.Collection("record").InsertMany(ctx, []any{
+		bson.M{"_id": olderRID, "uid": int64(7), "pid": int64(201), "status": 2, "score": 0},
+		bson.M{"_id": newerRID, "uid": int64(7), "pid": int64(201), "status": 1, "score": 100},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Collection("document.status").InsertOne(ctx, bson.M{
+		"domainId": "system", "docType": 40, "docId": detailID, "uid": int64(7), "enroll": 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := repo.Detail(ctx, detailID.Hex(), 7)
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if !detail.Enrolled || detail.DoneProblems != 1 || detail.TotalProblems != 2 {
+		t.Fatalf("unexpected detail: %+v", detail)
+	}
+	if len(detail.EnrolledUsers) != 1 || detail.EnrolledUsers[0] != 7 {
+		t.Fatalf("unexpected enrolled users: %+v", detail.EnrolledUsers)
+	}
+	if len(detail.Sections) != 1 || detail.Sections[0].Status != "progress" {
+		t.Fatalf("unexpected sections: %+v", detail.Sections)
+	}
+	problems := detail.Sections[0].Problems
+	if len(problems) != 2 {
+		t.Fatalf("unexpected problems: %+v", problems)
+	}
+	if problems[0].RID != newerRID.Hex() || problems[0].Status != 1 || !problems[0].Solved || !problems[0].Tried {
+		t.Fatalf("unexpected latest record mapping: %+v", problems[0])
+	}
+	if problems[1].RID != "" || problems[1].Tried || problems[1].Solved {
+		t.Fatalf("unexpected problem without record: %+v", problems[1])
+	}
+	anonymous, err := repo.Detail(ctx, detailID.Hex(), 0)
+	if err != nil {
+		t.Fatalf("anonymous detail: %v", err)
+	}
+	if anonymous.Enrolled || anonymous.Sections[0].Problems[0].RID != "" {
+		t.Fatalf("unexpected anonymous detail: %+v", anonymous)
+	}
 }

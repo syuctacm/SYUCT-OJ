@@ -488,6 +488,9 @@ export type TrainingProblem = {
   tried: boolean
   solved: boolean
   missing: boolean
+  rid?: string
+  status?: number
+  score?: number
 }
 
 export type TrainingSection = {
@@ -505,6 +508,7 @@ export type TrainingDetail = Training & {
   completed: boolean
   doneProblems: number
   totalProblems: number
+  enrolledUsers: number[]
   sections: TrainingSection[]
 }
 
