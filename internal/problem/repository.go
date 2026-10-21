@@ -52,6 +52,10 @@ type Problem struct {
 	ProblemType     string        `bson:"-" json:"problemType,omitempty"`
 	TimeLimit       string        `bson:"-" json:"timeLimit,omitempty"`
 	MemoryLimit     string        `bson:"-" json:"memoryLimit,omitempty"`
+	TimeMin         string        `bson:"-" json:"timeMin,omitempty"`
+	TimeMax         string        `bson:"-" json:"timeMax,omitempty"`
+	MemoryMin       string        `bson:"-" json:"memoryMin,omitempty"`
+	MemoryMax       string        `bson:"-" json:"memoryMax,omitempty"`
 }
 
 type UserStatus struct {
@@ -389,7 +393,7 @@ func (r *Repository) GetManyByDocIDs(ctx context.Context, ids []int64) ([]Proble
 	}
 	projection := bson.M{
 		"docId": 1, "pid": 1, "title": 1, "tag": 1,
-		"difficulty": 1, "nSubmit": 1, "nAccept": 1, "hidden": 1, "sort": 1,
+		"difficulty": 1, "nSubmit": 1, "nAccept": 1, "hidden": 1, "sort": 1, "config": 1,
 	}
 	cursor, err := r.coll.Find(ctx, bson.M{
 		"domainId": DomainSystem,
@@ -404,6 +408,9 @@ func (r *Repository) GetManyByDocIDs(ctx context.Context, ids []int64) ([]Proble
 	found := make([]Problem, 0, len(ids))
 	if err := cursor.All(ctx, &found); err != nil {
 		return nil, err
+	}
+	for i := range found {
+		applyConfigSummary(&found[i])
 	}
 	byID := make(map[int64]Problem, len(found))
 	for _, p := range found {
@@ -514,6 +521,31 @@ func applyConfigSummary(p *Problem) {
 	if value := config["memory"]; value != nil {
 		p.MemoryLimit = strings.TrimSpace(fmt.Sprint(value))
 	}
+	configString := func(keys ...string) string {
+		for _, key := range keys {
+			if value := config[key]; value != nil {
+				if text := strings.TrimSpace(fmt.Sprint(value)); text != "" && text != "<nil>" {
+					return text
+				}
+			}
+		}
+		return ""
+	}
+	stripTimeUnit := func(value string) string {
+		if strings.HasSuffix(strings.ToLower(value), "ms") {
+			return value[:len(value)-2]
+		}
+		return value
+	}
+	stripMemoryUnit := func(value string) string {
+		return strings.TrimRightFunc(value, func(r rune) bool {
+			return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+		})
+	}
+	p.TimeMin = stripTimeUnit(configString("timeMin", "time"))
+	p.TimeMax = stripTimeUnit(configString("timeMax", "time"))
+	p.MemoryMin = stripMemoryUnit(configString("memoryMin", "memory"))
+	p.MemoryMax = stripMemoryUnit(configString("memoryMax", "memory"))
 }
 
 func normalizeListOptions(opts ListOptions) ListOptions {
