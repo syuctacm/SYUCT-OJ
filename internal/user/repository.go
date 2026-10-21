@@ -42,18 +42,20 @@ type Group struct {
 }
 
 type Repository struct {
-	collection *mongo.Collection
-	records    *mongo.Collection
-	groups     *mongo.Collection
-	documents  *mongo.Collection
+	collection  *mongo.Collection
+	records     *mongo.Collection
+	groups      *mongo.Collection
+	documents   *mongo.Collection
+	domainUsers *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
 	return &Repository{
-		collection: db.Collection("user"),
-		records:    db.Collection("record"),
-		groups:     db.Collection("user.group"),
-		documents:  db.Collection("document"),
+		collection:  db.Collection("user"),
+		records:     db.Collection("record"),
+		groups:      db.Collection("user.group"),
+		documents:   db.Collection("document"),
+		domainUsers: db.Collection("domain.user"),
 	}
 }
 
@@ -283,6 +285,108 @@ func (r *Repository) AcceptedProblems(ctx context.Context, uid int64, limit int6
 		return nil, err
 	}
 	return items, nil
+}
+
+// RankingEntry is one row of the site ranking.
+type RankingEntry struct {
+	UID   int64   `json:"uid"`
+	RP    float64 `json:"rp"`
+	Level int     `json:"level"`
+}
+
+func toInt64(value any) (int64, bool) {
+	switch typed := value.(type) {
+	case int64:
+		return typed, true
+	case int32:
+		return int64(typed), true
+	case int:
+		return int64(typed), true
+	case float64:
+		return int64(typed), true
+	}
+	return 0, false
+}
+
+func toFloat(value any) float64 {
+	switch typed := value.(type) {
+	case float64:
+		return typed
+	case float32:
+		return float64(typed)
+	case int64:
+		return float64(typed)
+	case int32:
+		return float64(typed)
+	case int:
+		return float64(typed)
+	}
+	return 0
+}
+
+// DomainStats returns the per-domain RP and level of a user (zero when absent).
+func (r *Repository) DomainStats(ctx context.Context, uid int64) (float64, int, error) {
+	var doc bson.M
+	err := r.domainUsers.FindOne(ctx, bson.M{"domainId": "system", "uid": uid}).Decode(&doc)
+	if err == mongo.ErrNoDocuments {
+		return 0, 0, nil
+	}
+	if err != nil {
+		return 0, 0, err
+	}
+	level, _ := toInt64(doc["level"])
+	return toFloat(doc["rp"]), int(level), nil
+}
+
+// Rank returns the 1-based ranking position of the user (0 when the user has no RP).
+func (r *Repository) Rank(ctx context.Context, uid int64) (int, error) {
+	rp, _, err := r.DomainStats(ctx, uid)
+	if err != nil || rp <= 0 {
+		return 0, err
+	}
+	higher, err := r.domainUsers.CountDocuments(ctx, bson.M{"domainId": "system", "rp": bson.M{"$gt": rp}})
+	if err != nil {
+		return 0, err
+	}
+	return int(higher) + 1, nil
+}
+
+// Ranking lists users with RP ordered by RP descending.
+func (r *Repository) Ranking(ctx context.Context, page, limit int) ([]RankingEntry, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	filter := bson.M{"domainId": "system", "rp": bson.M{"$gt": 0}}
+	total, err := r.domainUsers.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	cursor, err := r.domainUsers.Find(ctx, filter, options.Find().
+		SetProjection(bson.M{"uid": 1, "rp": 1, "level": 1}).
+		SetSort(bson.D{{Key: "rp", Value: -1}, {Key: "uid", Value: 1}}).
+		SetSkip(int64((page-1)*limit)).
+		SetLimit(int64(limit)))
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+	var docs []bson.M
+	if err := cursor.All(ctx, &docs); err != nil {
+		return nil, 0, err
+	}
+	items := make([]RankingEntry, 0, len(docs))
+	for _, doc := range docs {
+		uid, ok := toInt64(doc["uid"])
+		if !ok {
+			continue
+		}
+		level, _ := toInt64(doc["level"])
+		items = append(items, RankingEntry{UID: uid, RP: toFloat(doc["rp"]), Level: int(level)})
+	}
+	return items, total, nil
 }
 
 type ActivityDay struct {

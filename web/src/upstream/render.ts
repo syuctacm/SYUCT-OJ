@@ -77,6 +77,9 @@ env.addFilter('problemPreview', (value: unknown) => String(value ?? '')
   .replace(/\s+/g, ' ')
   .trim())
 env.addFilter('markdown', (value: unknown) => renderMarkdown(String(value ?? '')))
+env.addFilter('markdownInline', (value: unknown) => renderMarkdown(String(value ?? ''))
+  .replace(/^<p>/, '')
+  .replace(/<\/p>\s*$/, ''))
 
 
 function paginate(page: number, numPages: number) {

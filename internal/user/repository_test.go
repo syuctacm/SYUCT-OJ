@@ -100,6 +100,28 @@ func TestRepositoryIntegration(t *testing.T) {
 	if hidden, err := repo.AcceptedProblems(ctx, 8, 10); err != nil || len(hidden) != 0 {
 		t.Fatalf("hidden problems should be excluded: %+v err=%v", hidden, err)
 	}
+	if _, err := db.Collection("domain.user").InsertMany(ctx, []any{
+		bson.M{"domainId": "system", "uid": int64(7), "rp": int32(1500), "level": int32(3)},
+		bson.M{"domainId": "system", "uid": int64(8), "rp": int64(1600), "level": int32(4)},
+		bson.M{"domainId": "system", "uid": int64(9), "rp": int32(0)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rp, level, err := repo.DomainStats(ctx, 7)
+	if err != nil || rp != 1500 || level != 3 {
+		t.Fatalf("domain stats: rp=%v level=%d err=%v", rp, level, err)
+	}
+	rank, err := repo.Rank(ctx, 7)
+	if err != nil || rank != 2 {
+		t.Fatalf("rank: %d err=%v", rank, err)
+	}
+	if rank, err := repo.Rank(ctx, 999); err != nil || rank != 0 {
+		t.Fatalf("rank without rp: %d err=%v", rank, err)
+	}
+	ranking, total, err := repo.Ranking(ctx, 1, 10)
+	if err != nil || total != 2 || len(ranking) != 2 || ranking[0].UID != 8 || ranking[0].RP != 1600 || ranking[1].UID != 7 {
+		t.Fatalf("ranking: %+v total=%d err=%v", ranking, total, err)
+	}
 	activity, err := repo.Activity(ctx, 9)
 	if err != nil {
 		t.Fatal(err)

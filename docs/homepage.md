@@ -7,6 +7,7 @@
 | 区块 | 数据来源 | 状态 |
 |---|---|---|
 | `contest` | 比赛列表 API | 已接入 |
+| `ranking` | 排行榜 API（前 10 名，More 指向 `/ranking`） | 已接入 |
 | `homework` | 作业列表 API | 已接入 |
 | `training` | 训练列表 API（章节/题目数来自聚合字段） | 已接入 |
 | `discussion` | 讨论列表 API + 节点标题 | 已接入 |
@@ -15,7 +16,6 @@
 | `problem_search` | 静态搜索框（提交到 `/p?q=`） | 已接入 |
 | `suggestion` | 静态推荐链接 | 已接入 |
 | `bulletin` | 需要站点公告设置 | 未接入 |
-| `ranking` | 需要 RP 排名数据 | 未接入 |
 | `hitokoto` | 外部一言 API | 未接入 |
 | `starred_problems` | 需要题目收藏状态 | 未接入 |
 
