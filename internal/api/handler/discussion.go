@@ -32,6 +32,7 @@ func (h *DiscussionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.DELETE("/api/v1/discussions/:did", h.delete)
 	router.PATCH("/api/v1/discussions/:did/lock", h.setLock)
 	router.POST("/api/v1/discussions/:did/star", h.star)
+	router.POST("/api/v1/discussions/:did/reaction", h.react)
 	router.GET("/api/v1/discussions/:did", h.get)
 	router.GET("/api/v1/discussions/:did/replies", h.replies)
 	router.POST("/api/v1/discussions/:did/replies", h.createReply)
@@ -200,6 +201,89 @@ func (h *DiscussionHandler) setLock(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": item})
 }
 
+const (
+	reactionNodeDiscussion = "did"
+	reactionNodeReply      = "drid"
+	maxReactionEmojiLength = 32
+)
+
+func validReactionEmoji(emoji string) bool {
+	if emoji == "" || len(emoji) > maxReactionEmojiLength {
+		return false
+	}
+	for _, char := range emoji {
+		if char == '.' || char == '$' || char < 0x20 {
+			return false
+		}
+	}
+	return true
+}
+
+// react toggles one emoji reaction on a discussion or one of its replies,
+// mirroring the upstream `operation=reaction` request.
+func (h *DiscussionHandler) react(c *gin.Context) {
+	uid, ok := h.requireUser(c)
+	if !ok {
+		return
+	}
+	item, err := h.repo.Get(c.Request.Context(), c.Param("did"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "discussion not found"})
+		return
+	}
+	var request struct {
+		ID       string `json:"id"`
+		NodeType string `json:"nodeType"`
+		Emoji    string `json:"emoji"`
+		Reverse  bool   `json:"reverse"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	emoji := strings.TrimSpace(request.Emoji)
+	if !validReactionEmoji(emoji) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid emoji"})
+		return
+	}
+	target, err := bson.ObjectIDFromHex(request.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid reaction target"})
+		return
+	}
+	docType := int64(discussion.DocumentTypeDiscussion)
+	switch request.NodeType {
+	case reactionNodeDiscussion:
+		if target != item.DocID {
+			c.JSON(http.StatusNotFound, gin.H{"error": "discussion not found"})
+			return
+		}
+	case reactionNodeReply:
+		ok, err := h.repo.ReplyBelongsTo(c.Request.Context(), item.DocID, target)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load reply"})
+			return
+		}
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{"error": "reply not found"})
+			return
+		}
+		docType = discussion.DocumentTypeDiscussionReply
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid node type"})
+		return
+	}
+	doc, self, err := h.repo.React(c.Request.Context(), docType, target, uid, emoji, request.Reverse)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save reaction"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+		"doc":  gin.H{"react": doc},
+		"sdoc": gin.H{"react": self},
+	}})
+}
+
 func (h *DiscussionHandler) requireUser(c *gin.Context) (int64, bool) {
 	if h.sessions == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -227,6 +311,21 @@ func (h *DiscussionHandler) get(c *gin.Context) {
 				return
 			}
 			item.Starred = starred
+			ids := []bson.ObjectID{item.DocID}
+			replies, err := h.repo.ListReplies(c.Request.Context(), item.DocID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load discussion replies"})
+				return
+			}
+			for _, reply := range replies {
+				ids = append(ids, reply.ID)
+			}
+			reactions, err := h.repo.Reactions(c.Request.Context(), session.UserID, ids)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load reactions"})
+				return
+			}
+			item.Reactions = reactions
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": item})

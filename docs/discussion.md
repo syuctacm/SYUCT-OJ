@@ -75,16 +75,32 @@
 
 讨论详情由 `HydroTemplate` 直接渲染上游 `discussion_detail.html` 和 `components/comments_discussion.html`：话题头部（节点标签、标题、作者、时间）、正文、操作区（编辑/锁定/举报/查看数）、回复列表和作者侧栏都来自上游模板。适配层接管主回复、楼中楼回复（`replyTo`）、回复编辑/删除、锁定切换和主题收藏（`document.status` docType=21）；楼中楼回复只更新话题时间，不增加 `nReply`，与上游一致。
 
+话题和每条主回复都带上游 `.reactions` 反应条：点击已有反应可切换，侧栏的 `data-op="react"` 按钮会打开 ui-default 的 Mantine `Popover` emoji 面板（`web/src/components/DiscussionReaction.tsx`，从上游 `components/discussion/reaction.page.tsx` 移植）。未登录点击反应条会跳转登录页。
+
 登录用户可在详情页回复，支持 `Ctrl+Enter` 提交。讨论创建/编辑页由 `HydroTemplate` 直接渲染上游 `discussion_create.html`、`discussion_edit.html` 和 `partials/discussion_edit_form.html`，React 只负责加载数据、提交/删除和快捷键挂载；原版删除按钮会调用现有 DELETE API。创建入口只在该讨论节点页面出现，与原站一致。
 
 ## 尚未完成
 
 - 问题/比赛/训练维度的讨论节点路由尚未接入
-- 反应（emoji）、历史版本和行内 raw 查看
+- 历史版本和行内 raw 查看
 - 浏览量暂时不会随访问自增
 - 回复通知和提及
 - 节点管理
 - 讨论编辑器暂不提供图片上传，只能插入外链图片
+
+## 反应
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| POST | `/api/v1/discussions/:did/reaction` | 添加或取消主题/主回复的 emoji 反应 |
+
+请求体对齐上游 `operation=reaction`：
+
+```json
+{"nodeType": "did", "id": "<docId>", "emoji": "👍", "reverse": false}
+```
+
+`nodeType` 为 `did`（主题）或 `drid`（主回复）。计数写入文档的 `react` 映射，用户自身的反应写入 `document.status` 的 `react.<emoji>`，与 Hydro `discussion.react` 语义一致：重复提交不会重复计数，取消后计数减一，最后一个反应移除时清空 `react` 字段。详情接口返回 `reactions`（当前用户自己的反应映射），模板据此给 emoji 加 `active`。
 
 ## 验证
 
@@ -104,4 +120,6 @@
 - 非所有者编辑被拒绝
 - 置顶/高亮/锁定仅管理员可操作
 - 主回复和楼中楼回复编辑/删除
+- 主题/回复反应的增删、幂等与计数清理
+- 未登录、非法 emoji、非法 nodeType 和跨讨论回复的拒绝
 - 回复删除后的 nReply 与嵌套结构校验

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hydrooj/ui-default": "4.58.5",
+    "@mantine/core": "9.5.2",
     "@vavt/cm-extension": "2.0.0",
     "cssfilter": "^0.0.11",
     "flatpickr": "^4.6.13",

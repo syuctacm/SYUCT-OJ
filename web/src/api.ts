@@ -705,6 +705,26 @@ export type Discussion = {
   parentType: number
   parentId?: string | number
   parentTitle?: string
+  react?: Record<string, number>
+  reactions?: Record<string, Record<string, number>>
+}
+
+export type DiscussionReactionNode = 'did' | 'drid'
+
+export type DiscussionReactionResult = {
+  doc: { react: Record<string, number> }
+  sdoc: { react: Record<string, number> }
+}
+
+export async function reactToDiscussion(
+  did: string,
+  input: { id: string; nodeType: DiscussionReactionNode; emoji: string; reverse?: boolean },
+): Promise<DiscussionReactionResult> {
+  const result = await request<Envelope<DiscussionReactionResult>>(`/api/v1/discussions/${encodeURIComponent(did)}/reaction`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return result.data
 }
 
 export type DiscussionNode = {
@@ -730,6 +750,7 @@ export type DiscussionReply = {
   content: string
   edited: boolean
   replies?: DiscussionTailReply[]
+  react?: Record<string, number>
   createdAt: string
 }
 
