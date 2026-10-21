@@ -15,6 +15,7 @@
 | GET | `/api/v1/contests/:tid/clarifications` | 答疑列表（jury 公告 + 自己的提问） |
 | POST | `/api/v1/contests/:tid/clarifications` | 提问（需报名且比赛进行中） |
 | POST | `/api/v1/contests/:tid/clarifications/:cid/reply` | 答疑回复（所有者/维护者/管理员） |
+| POST | `/api/v1/contests/:tid/clarifications/broadcast` | jury 广播（所有者/维护者/管理员） |
 
 数据直接读取 Hydro `document` 集合中的 `docType=30` 文档。列表支持 `q` 标题搜索和 `rule` 赛制筛选。
 
@@ -25,6 +26,7 @@
 - `/contest/:tid`：比赛详情
 - `/contest/:tid/problems`：比赛题目列表
 - `/contest/:tid/scoreboard`：比赛榜单
+- `/contest/:tid/clarification`：比赛答疑管理（jury 回复/广播）
 - `/contest/:tid/edit`：编辑比赛
 
 页面结构对应 Hydro `ui-default`：
@@ -41,6 +43,8 @@
 比赛报名写入 `document.status`（`docType=30`, `attend=1`），重复报名幂等，首次报名递增 `attend` 人数。详情页返回当前登录用户的 `attended` 状态，未登录显示登录入口，报名后侧栏显示已参加状态、题目列表和我的递交入口。
 
 答疑沿用 Hydro `document` 集合布局：`docType=31`、`parentType=30`、`parentId=比赛 docId`，`owner=0` 表示 jury 公告，`reply` 保存回复数组。普通参赛者只能看到 jury 公告和自己的提问；比赛所有者、维护者和管理员可以看到全部答疑。提问要求已报名且比赛进行中，回复仅限所有者/维护者/管理员。
+
+比赛答疑管理页由 `HydroTemplate` 直接渲染上游 `contest_clarification.html`：所有者/维护者/管理员可以看到全部答疑，点击「回复」填充目标答疑后提交；表单不指定答疑时作为 jury 广播发给全体参赛者。比赛详情、题目列表和榜单页的「Contest Management」入口指向该页。
 
 题目列表页复用上游结构：题目表显示每题状态（最近一次提交）、时间/内存限制标签和带比赛参数的提交入口；「本场提交」表列出当前用户在比赛中的提交（状态、题目、提交者、耗时、内存、语言和提交时间）；「答疑」区块从答疑 API 读取可对本用户展示的问答，并允许已报名且比赛进行中的用户提问。题目列表接口同时返回 `attended` 和每题最近提交，题目配置摘要提供 timeMin/timeMax/memoryMin/memoryMax。
 
@@ -66,13 +70,11 @@
 - 比赛私有文件
 - 比赛题目的时间/权限访问控制
 - 组队和参赛状态（个人报名已实现，提交暂未强制要求报名）
-- 比赛管理、打印、导出代码入口（当前为占位）
+- 比赛管理中的气球、参赛者管理和导出代码入口（当前为占位）
+- 打印入口
 - 未报名用户访问题目列表时显示提示（上游为错误页）
 - 本场提交表最多展示 100 条
-- 答疑回复暂无 UI（接口已提供，待答疑页迁移）
 - 榜单导出（HTML/CSV/Ghost）、解封操作和关注/筛选下拉
 - 首次通过高亮
 - 提前结束比赛操作
 - OI 等赛制榜单和封榜后的解封逻辑
-- 封榜、打印、气球
-- 比赛题目列表页的答疑区块（API 已完成，页面待迁移）

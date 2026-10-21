@@ -495,6 +495,14 @@ export async function createClarification(tid: string, input: { subject: number;
   return result.data
 }
 
+export async function broadcastClarification(tid: string, input: { subject: number; content: string }): Promise<Clarification> {
+  const result = await request<Envelope<Clarification>>(`/api/v1/contests/${encodeURIComponent(tid)}/clarifications/broadcast`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return result.data
+}
+
 export async function replyClarification(tid: string, cid: string, content: string): Promise<Clarification> {
   const result = await request<Envelope<Clarification>>(`/api/v1/contests/${encodeURIComponent(tid)}/clarifications/${encodeURIComponent(cid)}/reply`, {
     method: 'POST',

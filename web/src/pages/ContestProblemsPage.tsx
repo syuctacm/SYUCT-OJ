@@ -240,7 +240,7 @@ export function ContestProblemsPage() {
       case 'wiki_help':
         return '/discuss'
       // Contest management, print and code export are not ported yet.
-      case 'contest_manage':
+      case 'contest_manage': return `/contest/${encodeURIComponent(id)}/clarification`
       case 'contest_print':
       case 'contest_code':
       case 'contest_file_download':
