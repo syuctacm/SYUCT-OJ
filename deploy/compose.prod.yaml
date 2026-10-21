@@ -1,0 +1,41 @@
+name: syuct-oj
+
+# Production-shaped stack: the existing MongoDB stays external (MONGO_URI) and
+# the existing hydrojudge points at the API service directly. Do not run this
+# against production without following docs/release-runbook.md.
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/api.Dockerfile
+    image: syuct-oj-api:latest
+    restart: unless-stopped
+    env_file:
+      - ../.env.prod
+    environment:
+      SERVER_PORT: "8080"
+    expose:
+      - "8080"
+    volumes:
+      - api-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    image: syuct-oj-web:latest
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:80"
+
+volumes:
+  api-data:

@@ -109,6 +109,23 @@ cd web && pnpm build
 
 当前只包含开发脚手架和健康检查，不包含业务功能，也不连接生产环境。
 
+## 生产部署（准备中，需确认后执行）
+
+发布产物：
+
+- `deploy/compose.prod.yaml`：API + Web（nginx）两个服务，MongoDB 使用外部实例
+- `deploy/api.Dockerfile` / `deploy/web.Dockerfile`
+- `deploy/nginx.conf`：同源 `/api` 反代 + SPA fallback
+- `.env.prod.example`：复制为 `.env.prod` 并填写
+
+迁移演练（本地 Docker，合成数据，独立数据库）：
+
+```bash
+./scripts/migration-drill.sh
+```
+
+切换、验证与回滚步骤见 [docs/release-runbook.md](./docs/release-runbook.md)。**在用户确认前不要对生产环境执行任何操作。**
+
 ## 判题机开发接口
 
 本地开发使用以下环境变量（不要用于生产）：
