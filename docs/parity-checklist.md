@@ -110,7 +110,7 @@
 路由清单：
 
 ```text
-/  /p  /p/tag/:tag  /p/:pid  /p/:pid/submit  /p/:pid/edit  /p/:pid/config  /p/:pid/files
+/  /p  /p/tag/:tag  /p/:pid  /p/:pid/submit  /p/:pid/solution  /p/:pid/edit  /p/:pid/config  /p/:pid/files
 /contest  /contest/:tid  /contest/:tid/problems  /contest/:tid/scoreboard
 /contest/:tid/management  /contest/:tid/clarification  /contest/:tid/user
 /contest/new  /contest/:tid/edit
@@ -130,5 +130,5 @@
 差异级别：中
 是否接受：部分接受
 负责人：待定
-后续处理：训练计划的 data-json 编辑器仍待接入；题库批量编辑/删除/复制尚未接入；比赛 / 作业 / 训练列表的团队入口隐藏；用户主页的获赞题解尚未接入；判题配置页的 `#ProblemConfig` 编辑器仍是简化版（上游是 Monaco + Redux 表单）；TagRanking 页缺插件源码
+后续处理：训练计划的 data-json 编辑器仍待接入；题库批量编辑/删除/复制尚未接入；比赛 / 作业 / 训练列表的团队入口隐藏；判题配置页的 `#ProblemConfig` 编辑器仍是简化版（上游是 Monaco + Redux 表单）；TagRanking 页缺插件源码
 ```

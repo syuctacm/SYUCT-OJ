@@ -1122,6 +1122,8 @@ export type PublicUser = {
   bio?: string
   nSubmit: number
   nAccept: number
+  nSolution?: number
+  nLiked?: number
   rp?: number
   level?: number
   rank?: number
@@ -1220,4 +1222,93 @@ export async function updateAdminUserPriv(uid: number, priv: number): Promise<vo
     method: 'PATCH',
     body: JSON.stringify({ priv }),
   })
+}
+
+export type SolutionReply = {
+  id: string
+  owner: number
+  content: string
+  edited?: boolean
+  createdAt: string
+}
+
+export type ProblemSolution = {
+  id: string
+  pid: number
+  owner: number
+  content: string
+  vote: number
+  edited?: boolean
+  replies?: SolutionReply[]
+  createdAt: string
+}
+
+export type ProblemSolutionPage = {
+  items: ProblemSolution[]
+  total: number
+  page: number
+  votes: Record<string, number>
+  users: UserChoice[]
+  problem: { docId: number; pid: string; title: string; owner: number }
+}
+
+export async function getProblemSolutions(pid: string, page = 1, sid = ''): Promise<ProblemSolutionPage> {
+  const params = new URLSearchParams({ page: String(page) })
+  if (sid) params.set('sid', sid)
+  const result = await request<Envelope<ProblemSolutionPage>>(
+    `/api/v1/problems/${encodeURIComponent(pid)}/solutions?${params.toString()}`,
+  )
+  return result.data
+}
+
+export async function createProblemSolution(pid: string, content: string): Promise<ProblemSolution> {
+  const result = await request<Envelope<ProblemSolution>>(`/api/v1/problems/${encodeURIComponent(pid)}/solutions`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
+  return result.data
+}
+
+export async function updateProblemSolution(pid: string, sid: string, content: string): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>(
+    `/api/v1/problems/${encodeURIComponent(pid)}/solutions/${encodeURIComponent(sid)}`,
+    { method: 'PATCH', body: JSON.stringify({ content }) },
+  )
+}
+
+export async function deleteProblemSolution(pid: string, sid: string): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>(
+    `/api/v1/problems/${encodeURIComponent(pid)}/solutions/${encodeURIComponent(sid)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function voteProblemSolution(pid: string, sid: string, value: number): Promise<number> {
+  const result = await request<Envelope<{ vote: number; value: number }>>(
+    `/api/v1/problems/${encodeURIComponent(pid)}/solutions/${encodeURIComponent(sid)}/vote`,
+    { method: 'POST', body: JSON.stringify({ value }) },
+  )
+  return result.data.vote
+}
+
+export async function createSolutionReply(pid: string, sid: string, content: string): Promise<ProblemSolution> {
+  const result = await request<Envelope<ProblemSolution>>(
+    `/api/v1/problems/${encodeURIComponent(pid)}/solutions/${encodeURIComponent(sid)}/replies`,
+    { method: 'POST', body: JSON.stringify({ content }) },
+  )
+  return result.data
+}
+
+export async function updateSolutionReply(pid: string, sid: string, rid: string, content: string): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>(
+    `/api/v1/problems/${encodeURIComponent(pid)}/solutions/${encodeURIComponent(sid)}/replies/${encodeURIComponent(rid)}`,
+    { method: 'PATCH', body: JSON.stringify({ content }) },
+  )
+}
+
+export async function deleteSolutionReply(pid: string, sid: string, rid: string): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>(
+    `/api/v1/problems/${encodeURIComponent(pid)}/solutions/${encodeURIComponent(sid)}/replies/${encodeURIComponent(rid)}`,
+    { method: 'DELETE' },
+  )
 }
