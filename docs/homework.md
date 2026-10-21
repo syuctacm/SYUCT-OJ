@@ -17,7 +17,7 @@ Hydro 中作业是 `document` 集合里 `docType=30`、`rule=homework` 的文档
 
 页面结构对应 Hydro `ui-default`：
 
-- `homework_main.html`：作业列表、搜索和时间信息
+- `homework_main.html`：由 `HydroTemplate` 直接渲染作业列表、搜索、状态和时间信息
 - `homework_detail.html`：作业说明、题目表格和侧栏
 - `homework_edit.html`：作业创建和编辑表单
 
@@ -29,7 +29,7 @@ Hydro 中作业是 `document` 集合里 `docType=30`、`rule=homework` 的文档
 - `/homework/:tid`：作业说明和题目列表
 - `/homework/:tid/files`：作业公开文件
 
-列表读取 `beginAt`、`endAt` 和 `penaltySince`，详情通过作业题目接口读取题目标题、统计和难度。创建/编辑页由 `HydroTemplate` 直接渲染上游 `homework_edit.html`，React 只负责取数、表单提交和交互挂载，不再维护一份手写的等价 DOM。
+列表读取 `beginAt`、`endAt` 和 `penaltySince`，详情通过作业题目接口读取题目标题、统计和难度。创建/编辑页由 `HydroTemplate` 直接渲染上游 `homework_edit.html`，React 只负责取数、表单提交和交互挂载，不再维护一份手写的等价 DOM。作业列表的搜索由 React 适配层保持，日历视图因尚未实现而隐藏；当前 API 一次返回全部作业，列表暂未分页。
 
 ## 尚未完成
 
