@@ -5,6 +5,7 @@ import { AdminPage } from './pages/AdminPage.tsx'
 import { ActivityFilesPage } from './pages/ActivityFilesPage.tsx'
 import { ContestManagementPage } from './pages/ContestManagementPage.tsx'
 import { AdminUsersPage } from './pages/AdminUsersPage.tsx'
+import { AdminSettingsPage } from './pages/AdminSettingsPage.tsx'
 import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
 import { ContestClarificationPage } from './pages/ContestClarificationPage.tsx'
 import { ContestProblemsPage } from './pages/ContestProblemsPage.tsx'
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/settings" element={<AdminSettingsPage />} />
         <Route path="/p" element={<ProblemsPage />} />
         <Route path="/p/new" element={<ProblemEditPage mode="create" />} />
         <Route path="/p/tag/:tag" element={<TagRankingPage />} />

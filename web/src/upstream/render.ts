@@ -62,7 +62,12 @@ sources.set('components/home.html', `{% import "components/sidemenu.html" as sid
 </div>
 {% endmacro %}`)
 
-const translations = yaml.load(zhYaml) as TranslationMap
+// Strings this rewrite adds on top of the pinned ui-default locale.
+const LOCAL_TRANSLATIONS: TranslationMap = {
+  setting_basic: '基本设置',
+  Bulletin: '站点公告',
+}
+const translations = { ...(yaml.load(zhYaml) as TranslationMap), ...LOCAL_TRANSLATIONS }
 
 const loader = {
   async: false,
@@ -202,7 +207,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     // manage_base.html renders whatever getNodes('ControlPanel') returns.
     ui: {
       getNodes: (family: string) => (family === 'ControlPanel'
-        ? [{ name: 'manage_dashboard' }, { name: 'manage_user_priv' }]
+        ? [{ name: 'manage_dashboard' }, { name: 'manage_user_priv' }, { name: 'manage_setting' }]
         : []),
     },
     STATUS,

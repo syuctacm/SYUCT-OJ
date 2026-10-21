@@ -3,7 +3,7 @@
 // this backend (bulletin/ranking/hitokoto/starred have no data source yet).
 import { useEffect, useMemo, useState } from 'react'
 import {
-  getContests, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getRanking, getTrainings, getUsersByIDs,
+  getContests, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getPublicSettings, getRanking, getTrainings, getUsersByIDs,
   type Contest, type Discussion, type DiscussionNode, type ProblemSummary, type RankingUser, type Training, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
@@ -26,6 +26,7 @@ type HomeData = {
   problems: ProblemSummary[]
   nodes: DiscussionNode[]
   ranking: RankingUser[]
+  bulletin: string
 }
 
 function withDates<T extends { beginAt: string; endAt: string; lockAt?: string; penaltySince?: string }>(item: T) {
@@ -62,8 +63,9 @@ export function HomePage() {
       getProblems('', 1, 'recent'),
       getDiscussionNodes(),
       getRanking(1, 10),
+      getPublicSettings(),
     ])
-      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes, ranking]) => {
+      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes, ranking, settings]) => {
         setData({
           contests: contestPage.items,
           homeworks: homeworkPage.items,
@@ -72,6 +74,7 @@ export function HomePage() {
           problems: problems.items,
           nodes,
           ranking: ranking.items,
+          bulletin: settings.bulletin,
         })
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '首页加载失败'))
@@ -160,6 +163,7 @@ export function HomePage() {
         {
           width: 9,
           sections: [
+            ['bulletin', {}],
             ['contest', [contests, {}]],
             ['homework', [homeworks, {}]],
             ['training', [trainings, {}]],
@@ -178,7 +182,7 @@ export function HomePage() {
         },
       ],
       udict,
-      domain: {},
+      domain: { bulletin: data.bulletin },
       handler,
       perm: HOME_PERMS,
       PRIV: { PRIV_USER_PROFILE: 1, PRIV_CREATE_FILE: 2 },

@@ -24,6 +24,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	{
 		v1.GET("/health", handler.NewHealthHandler(db).Get)
 		v1.GET("/info", handler.NewInfoHandler().Get)
+		handler.NewSettingsHandler(db).RegisterRoutes(router.Group("/"))
 	}
 	if authHandler != nil {
 		authHandler.RegisterRoutes(router.Group("/"))

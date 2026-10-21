@@ -15,11 +15,11 @@
 | `discussion_nodes` | 讨论节点 API | 已接入 |
 | `problem_search` | 静态搜索框（提交到 `/p?q=`） | 已接入 |
 | `suggestion` | 静态推荐链接 | 已接入 |
-| `bulletin` | 需要站点公告设置 | 未接入 |
+| `bulletin` | `system` 集合的 `bulletin`（管理员在 `/admin/settings` 编辑） | 已接入 |
 | `hitokoto` | 外部一言 API | 未接入 |
 | `starred_problems` | 需要题目收藏状态 | 未接入 |
 
-未接入的区块不会出现在首页，其余区块为空时自动隐藏。
+未接入的区块不会出现在首页，其余区块为空时自动隐藏（公告为空时 `partials/homepage/bulletin.html` 自身不会渲染）。
 
 ## 已知差异
 
