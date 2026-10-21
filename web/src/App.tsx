@@ -19,6 +19,7 @@ import { DiscussionsPage } from './pages/DiscussionsPage.tsx'
 import { HomeworkDetailPage } from './pages/HomeworkDetailPage.tsx'
 import { HomeworkEditPage } from './pages/HomeworkEditPage.tsx'
 import { HomePage } from './pages/HomePage.tsx'
+import { HomeSettingsPage } from './pages/HomeSettingsPage.tsx'
 import { HomeworksPage } from './pages/HomeworksPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
 import { ProblemConfigPage } from './pages/ProblemConfigPage.tsx'
@@ -82,6 +83,7 @@ export default function App() {
         <Route path="/record/:rid" element={<SubmissionPage />} />
         <Route path="/user/:uid" element={<UserProfilePage />} />
         <Route path="/ranking" element={<RankingPage />} />
+        <Route path="/home/settings" element={<HomeSettingsPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/d/:domainId/*" element={<LegacyDomainRedirect />} />
         <Route path="*" element={<Navigate to="/p" replace />} />

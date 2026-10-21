@@ -6,6 +6,28 @@ export type User = {
   studentId?: string
   avatar?: string
   priv?: number
+  bio?: string
+  qq?: string
+  gender?: number
+  school?: string
+  backgroundImage?: string
+}
+
+export type UserSettingsInput = {
+  avatar?: string
+  qq?: string
+  gender?: number
+  bio?: string
+  school?: string
+  studentId?: string
+  backgroundImage?: string
+}
+
+export async function updateUserSettings(input: UserSettingsInput): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>('/api/v1/user/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
 }
 
 export type ProblemSummary = {
@@ -902,6 +924,10 @@ export type PublicUser = {
   level?: number
   rank?: number
   acceptedProblems?: Array<{ docId: number; pid: string; title: string }>
+  qq?: string
+  gender?: number
+  backgroundImage?: string
+  school?: string
 }
 
 export type RankingUser = {

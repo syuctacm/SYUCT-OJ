@@ -111,12 +111,17 @@ func Token(c *gin.Context) string {
 
 func publicUser(u *user.User) gin.H {
 	return gin.H{
-		"id":          u.ID,
-		"username":    u.Uname,
-		"email":       u.Mail,
-		"displayName": u.DisplayName,
-		"studentId":   u.StudentID,
-		"avatar":      u.Avatar,
-		"priv":        u.Priv,
+		"id":              u.ID,
+		"username":        u.Uname,
+		"email":           u.Mail,
+		"displayName":     u.DisplayName,
+		"studentId":       u.StudentID,
+		"avatar":          u.Avatar,
+		"priv":            u.Priv,
+		"bio":             u.Bio,
+		"qq":              u.QQ,
+		"gender":          u.Gender,
+		"school":          u.School,
+		"backgroundImage": u.BackgroundImage,
 	}
 }

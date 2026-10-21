@@ -2,20 +2,24 @@ package handler
 
 import (
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
+	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
 type UserHandler struct {
-	users *user.Repository
+	users    *user.Repository
+	sessions *auth.SessionManager
 }
 
-func NewUserHandler(users *user.Repository) *UserHandler {
-	return &UserHandler{users: users}
+func NewUserHandler(users *user.Repository, sessions *auth.SessionManager) *UserHandler {
+	return &UserHandler{users: users, sessions: sessions}
 }
 
 func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -24,6 +28,7 @@ func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/users/:uid", h.get)
 	router.GET("/api/v1/users/:uid/activity", h.activity)
 	router.GET("/api/v1/ranking", h.ranking)
+	router.PATCH("/api/v1/user/settings", h.updateSettings)
 }
 
 type userChoice struct {
@@ -125,6 +130,13 @@ func (h *UserHandler) get(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load accepted problems"})
 		return
 	}
+	viewer, isViewer := h.currentUser(c)
+	canSeePrivate := isViewer && viewer == uid
+	if isViewer && !canSeePrivate {
+		if account, err := h.users.FindByID(c.Request.Context(), viewer); err == nil && account.Priv&1 != 0 {
+			canSeePrivate = true
+		}
+	}
 	rp, level, err := h.users.DomainStats(c.Request.Context(), uid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load user stats"})
@@ -137,14 +149,163 @@ func (h *UserHandler) get(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
-		"data": gin.H{
-			"id": u.ID, "username": u.Uname, "displayName": u.DisplayName,
-			"studentId": u.StudentID, "avatar": u.Avatar, "regAt": u.RegAt,
-			"loginAt": u.LoginAt, "bio": u.Bio, "nSubmit": submit, "nAccept": accepted,
-			"rp": rp, "level": level, "rank": rank,
-			"acceptedProblems": acceptedProblems,
-		},
+		"data": profilePayload(u, canSeePrivate, submit, accepted, rp, level, rank, acceptedProblems),
 	})
+}
+
+// profilePayload keeps upstream privacy flags: school and student id are only
+// exposed to the owner and to system administrators.
+func profilePayload(u *user.User, canSeePrivate bool, submit, accepted int64, rp float64, level, rank int, acceptedProblems []user.ProblemBrief) gin.H {
+	payload := gin.H{
+		"id": u.ID, "username": u.Uname, "displayName": u.DisplayName,
+		"avatar": u.Avatar, "regAt": u.RegAt, "loginAt": u.LoginAt,
+		"bio": u.Bio, "qq": u.QQ, "gender": u.Gender, "backgroundImage": u.BackgroundImage,
+		"nSubmit": submit, "nAccept": accepted, "rp": rp, "level": level, "rank": rank,
+		"acceptedProblems": acceptedProblems,
+	}
+	if canSeePrivate {
+		payload["school"] = u.School
+		payload["studentId"] = u.StudentID
+	}
+	return payload
+}
+
+var (
+	avatarGitHubPattern = regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
+	avatarQQPattern     = regexp.MustCompile(`^[1-9][0-9]{4,}$`)
+	avatarEmailPattern  = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
+	backgroundPattern   = regexp.MustCompile(`^[^\s"'();]+$`)
+)
+
+// validAvatar mirrors the upstream avatar.validate() provider checks.
+func validAvatar(value string) bool {
+	if value == "" {
+		return true
+	}
+	switch {
+	case strings.HasPrefix(value, "url:"):
+		return true
+	case strings.HasPrefix(value, "github:"):
+		return avatarGitHubPattern.MatchString(value[len("github:"):])
+	case strings.HasPrefix(value, "qq:"):
+		return avatarQQPattern.MatchString(value[len("qq:"):])
+	case strings.HasPrefix(value, "gravatar:"):
+		return avatarEmailPattern.MatchString(value[len("gravatar:"):])
+	default:
+		return false
+	}
+}
+
+func validBackground(value string) bool {
+	if value == "" {
+		return true
+	}
+	if !backgroundPattern.MatchString(value) {
+		return false
+	}
+	return strings.HasPrefix(value, "/") || strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")
+}
+
+func (h *UserHandler) updateSettings(c *gin.Context) {
+	uid, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var input struct {
+		Avatar          *string `json:"avatar"`
+		QQ              *string `json:"qq"`
+		Gender          *int64  `json:"gender"`
+		Bio             *string `json:"bio"`
+		School          *string `json:"school"`
+		StudentID       *string `json:"studentId"`
+		BackgroundImage *string `json:"backgroundImage"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	set := bson.M{}
+	if input.Avatar != nil {
+		value := strings.TrimSpace(*input.Avatar)
+		if !validAvatar(value) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid avatar"})
+			return
+		}
+		set["avatar"] = value
+	}
+	if input.QQ != nil {
+		value := strings.TrimSpace(*input.QQ)
+		if len(value) > 32 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "qq is too long"})
+			return
+		}
+		set["qq"] = value
+	}
+	if input.Gender != nil {
+		if *input.Gender < 0 || *input.Gender > 2 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid gender"})
+			return
+		}
+		set["gender"] = *input.Gender
+	}
+	if input.Bio != nil {
+		if len(*input.Bio) > 10000 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bio is too long"})
+			return
+		}
+		set["bio"] = *input.Bio
+	}
+	if input.School != nil {
+		value := strings.TrimSpace(*input.School)
+		if len(value) > 100 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "school is too long"})
+			return
+		}
+		set["school"] = value
+	}
+	if input.StudentID != nil {
+		value := strings.TrimSpace(*input.StudentID)
+		if len(value) > 64 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "student id is too long"})
+			return
+		}
+		set["studentId"] = value
+	}
+	if input.BackgroundImage != nil {
+		value := strings.TrimSpace(*input.BackgroundImage)
+		if len(value) > 512 || !validBackground(value) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid background image"})
+			return
+		}
+		set["backgroundImage"] = value
+	}
+	if err := h.users.UpdateSettings(c.Request.Context(), uid, set); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update settings"})
+		return
+	}
+	updated, err := h.users.FindByID(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to reload user"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+		"id": updated.ID, "username": updated.Uname, "displayName": updated.DisplayName,
+		"avatar": updated.Avatar, "bio": updated.Bio, "qq": updated.QQ,
+		"gender": updated.Gender, "school": updated.School,
+		"studentId": updated.StudentID, "backgroundImage": updated.BackgroundImage,
+	}})
+}
+
+func (h *UserHandler) currentUser(c *gin.Context) (int64, bool) {
+	if h.sessions == nil {
+		return 0, false
+	}
+	session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
+	if !ok || session.Kind != "user" || session.UserID <= 0 {
+		return 0, false
+	}
+	return session.UserID, true
 }
 
 func (h *UserHandler) ranking(c *gin.Context) {

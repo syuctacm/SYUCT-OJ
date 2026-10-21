@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
@@ -17,21 +18,26 @@ import (
 var ErrNotFound = errors.New("user not found")
 
 type User struct {
-	ID          int64     `bson:"_id" json:"id"`
-	Mail        string    `bson:"mail" json:"email"`
-	MailLower   string    `bson:"mailLower" json:"-"`
-	Uname       string    `bson:"uname" json:"username"`
-	UnameLower  string    `bson:"unameLower" json:"-"`
-	Salt        string    `bson:"salt" json:"-"`
-	Hash        string    `bson:"hash" json:"-"`
-	HashType    string    `bson:"hashType" json:"-"`
-	Priv        int64     `bson:"priv" json:"priv"`
-	RegAt       time.Time `bson:"regat" json:"regAt"`
-	LoginAt     time.Time `bson:"loginat" json:"loginAt"`
-	DisplayName string    `bson:"displayName" json:"displayName,omitempty"`
-	StudentID   string    `bson:"studentId" json:"studentId,omitempty"`
-	Avatar      string    `bson:"avatar" json:"avatar,omitempty"`
-	Bio         string    `bson:"bio" json:"bio,omitempty"`
+	ID              int64     `bson:"_id" json:"id"`
+	Mail            string    `bson:"mail" json:"email"`
+	MailLower       string    `bson:"mailLower" json:"-"`
+	Uname           string    `bson:"uname" json:"username"`
+	UnameLower      string    `bson:"unameLower" json:"-"`
+	Salt            string    `bson:"salt" json:"-"`
+	Hash            string    `bson:"hash" json:"-"`
+	HashType        string    `bson:"hashType" json:"-"`
+	Priv            int64     `bson:"priv" json:"priv"`
+	RegAt           time.Time `bson:"regat" json:"regAt"`
+	LoginAt         time.Time `bson:"loginat" json:"loginAt"`
+	DisplayName     string    `bson:"displayName" json:"displayName,omitempty"`
+	StudentID       string    `bson:"studentId" json:"studentId,omitempty"`
+	Avatar          string    `bson:"avatar" json:"avatar,omitempty"`
+	Bio             string    `bson:"bio" json:"bio,omitempty"`
+	QQ              string    `bson:"qq,omitempty" json:"qq,omitempty"`
+	Wechat          string    `bson:"wechat,omitempty" json:"wechat,omitempty"`
+	Gender          *int64    `bson:"gender,omitempty" json:"gender,omitempty"`
+	School          string    `bson:"school,omitempty" json:"school,omitempty"`
+	BackgroundImage string    `bson:"backgroundImage,omitempty" json:"backgroundImage,omitempty"`
 }
 
 type Group struct {
@@ -225,6 +231,24 @@ func (r *Repository) FindByID(ctx context.Context, id int64) (*User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+// UpdateSettings applies a validated $set document to the user profile.
+func (r *Repository) UpdateSettings(ctx context.Context, uid int64, set bson.M) error {
+	if uid <= 0 {
+		return fmt.Errorf("invalid user id")
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	result, err := r.collection.UpdateOne(ctx, bson.M{"_id": uid}, bson.M{"$set": set})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("user not found")
+	}
+	return nil
 }
 
 func (r *Repository) Statistics(ctx context.Context, uid int64) (int64, int64, error) {

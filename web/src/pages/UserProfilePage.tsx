@@ -44,7 +44,10 @@ export function UserProfilePage() {
       rp: profile.rp ?? 0,
       level: profile.level ?? 0,
       rank: profile.rank && profile.rank > 0 ? profile.rank : '?',
-      gender: 0,
+      gender: profile.gender ?? 2,
+      qq: profile.qq ?? '',
+      school: profile.school ?? '',
+      backgroundImage: profile.backgroundImage ?? '',
       hasPriv: (privilege: number) => privilege === 1,
       hasPerm: () => false,
     }
@@ -60,8 +63,7 @@ export function UserProfilePage() {
       sdoc: null,
       pdocs,
       tags: [],
-      // The account sidebar (messages/settings/files) is not ported yet.
-      isSelfProfile: false,
+      isSelfProfile: Boolean(viewer && viewer.id === profile.id),
       handler: {
         user: {
           _id: viewer?.id ?? 0,
@@ -94,6 +96,14 @@ export function UserProfilePage() {
   const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
     switch (name) {
       case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? uid))}`
+      case 'home_settings': return `/home/settings?category=${encodeURIComponent(String(args.category ?? 'account'))}`
+      // Messages, files and security pages are not ported yet.
+      case 'home_messages':
+      case 'home_files':
+      case 'home_security':
+      case 'home_domain':
+      case 'homepage':
+        return '#'
       case 'problem_detail': return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
       case 'contest_detail': return `/contest/${encodeURIComponent(String(args.tid ?? ''))}`
       case 'homework_detail': return `/homework/${encodeURIComponent(String(args.tid ?? ''))}`

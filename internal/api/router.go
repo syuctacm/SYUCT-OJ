@@ -58,7 +58,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		handler.NewDiscussionHandler(discussionRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
 	}
 	if userRepo != nil {
-		handler.NewUserHandler(userRepo).RegisterRoutes(router.Group("/"))
+		handler.NewUserHandler(userRepo, sessions).RegisterRoutes(router.Group("/"))
 	}
 	if adminHandler != nil {
 		adminHandler.RegisterRoutes(router.Group("/"))
