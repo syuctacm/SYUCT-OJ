@@ -40,6 +40,7 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.DELETE("/api/v1/contests/:tid/attendees/:uid", h.cancelAttendee)
 	router.POST("/api/v1/contests/:tid/attendees/:uid/resume", h.resumeAttendee)
 	router.GET("/api/v1/contests/:tid/code", h.exportCode)
+	router.POST("/api/v1/contests/:tid/score", h.setScore)
 	router.GET("/api/v1/contests/:tid/clarifications", h.clarifications)
 	router.POST("/api/v1/contests/:tid/clarifications", h.addClarification)
 	router.POST("/api/v1/contests/:tid/clarifications/broadcast", h.broadcastClarification)
@@ -228,6 +229,36 @@ func (h *ContestHandler) attend(c *gin.Context) {
 		"code": 0, "message": "success",
 		"data": gin.H{"attended": true, "changed": changed},
 	})
+}
+
+// setScore stores the per-problem score, mirroring the upstream set_score
+// operation on the contest management page.
+func (h *ContestHandler) setScore(c *gin.Context) {
+	item, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	var request struct {
+		PID   int64 `json:"pid"`
+		Score int   `json:"score"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if request.PID <= 0 || request.Score < 0 || request.Score > 10000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid score"})
+		return
+	}
+	if err := h.repo.SetScore(c.Request.Context(), item.DocID.Hex(), request.PID, request.Score); err != nil {
+		if errors.Is(err, contest.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "problem is not part of this contest"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update score"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *ContestHandler) exportCode(c *gin.Context) {

@@ -5,10 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   deleteActivityFiles, getActivityFiles, getContest, getContestProblems, getUsersByIDs,
-  uploadActivityFiles,
+  setContestProblemScore, uploadActivityFiles,
   type ActivityFile, type ActivityFileType, type Contest, type ProblemSummary, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
+import { Dialog } from '../components/Dialog.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
@@ -23,6 +24,8 @@ export function ContestManagementPage() {
   const [privateFiles, setPrivateFiles] = useState<ActivityFile[]>([])
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
+  const [scoring, setScoring] = useState<{ pid: number } | null>(null)
+  const [scoreValue, setScoreValue] = useState('100')
 
   const load = useCallback(async () => {
     const [detail, problemPage] = await Promise.all([
@@ -166,6 +169,23 @@ export function ContestManagementPage() {
     return `/api/v1/contests/${encodeURIComponent(tid)}/files/${encodeURIComponent(name)}${type}`
   }, [tid])
 
+  async function submitScore() {
+    if (!scoring) return
+    const score = Number.parseInt(scoreValue, 10)
+    if (Number.isNaN(score) || score < 0 || score > 10000) {
+      setActionError('分值需要是 0-10000 之间的整数。')
+      return
+    }
+    setActionError('')
+    try {
+      await setContestProblemScore(tid, scoring.pid, score)
+      setScoring(null)
+      await load()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : '分值更新失败')
+    }
+  }
+
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = []
     const listen = <K extends keyof HTMLElementEventMap>(
@@ -187,6 +207,16 @@ export function ContestManagementPage() {
         root.querySelectorAll<HTMLInputElement>(`input[data-checkbox-group="${group}"]`).forEach((checkbox) => {
           checkbox.checked = input.checked
         })
+      })
+    })
+
+    root.querySelectorAll<HTMLElement>('[name="set_score"]').forEach((link) => {
+      listen(link, 'click', (event) => {
+        event.preventDefault()
+        const pid = Number(link.getAttribute('data-pid') ?? 0)
+        if (!pid) return
+        setScoreValue(String(link.getAttribute('data-score') ?? '100'))
+        setScoring({ pid })
       })
     })
 
@@ -270,6 +300,27 @@ export function ContestManagementPage() {
         urlForFile={urlForFile}
         onReady={handleReady}
       />
+      {scoring ? (
+        <Dialog
+          onOk={() => void submitScore()}
+          onCancel={() => setScoring(null)}
+          okLabel="保存"
+          cancelLabel="取消"
+        >
+          <h1>设置题目分值</h1>
+          <label>
+            分值
+            <input
+              className="textbox"
+              type="number"
+              min={0}
+              max={10000}
+              value={scoreValue}
+              onChange={(event) => setScoreValue(event.target.value)}
+            />
+          </label>
+        </Dialog>
+      ) : null}
     </>
   )
 }
