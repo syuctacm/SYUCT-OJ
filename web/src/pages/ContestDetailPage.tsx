@@ -124,10 +124,9 @@ export function ContestDetailPage() {
       case 'wiki_help':
         return '/discuss'
       case 'contest_manage': return `/contest/${encodeURIComponent(id)}/management`
-      // Contest printing and code export are not ported yet; keep the upstream
-      // entries but make them inert instead of pointing at missing pages.
+      case 'contest_code': return `/api/v1/contests/${encodeURIComponent(id)}/code`
+      // Contest printing is not ported yet; keep the upstream entry inert.
       case 'contest_print':
-      case 'contest_code':
         return '#'
       default: return '/'
     }

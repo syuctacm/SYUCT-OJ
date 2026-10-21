@@ -153,8 +153,8 @@ export function ContestManagementPage() {
         return `/record${params.toString() ? `?${params.toString()}` : ''}`
       }
       case 'contest_user': return `/contest/${encodeURIComponent(id)}/user`
-      // Code export and balloon status are not ported yet.
-      case 'contest_code':
+      case 'contest_code': return `/api/v1/contests/${encodeURIComponent(id)}/code`
+      // Balloon status is not ported yet.
       case 'contest_balloon':
         return '#'
       default: return '/'
