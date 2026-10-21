@@ -79,12 +79,22 @@ func NewRepository(db *mongo.Database) *Repository {
 }
 
 func (r *Repository) List(ctx context.Context) ([]Discussion, error) {
-	return r.ListFiltered(ctx, 0, "")
+	items, _, err := r.ListFiltered(ctx, 0, "", 1, 1000)
+	return items, err
 }
 
 // ListFiltered lists discussions, optionally limited to one parent
 // (parentType/parentId), which is how the node pages scope their list.
-func (r *Repository) ListFiltered(ctx context.Context, parentType int64, parentID string) ([]Discussion, error) {
+func (r *Repository) ListFiltered(ctx context.Context, parentType int64, parentID string, page, pageSize int) ([]Discussion, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 1000 {
+		pageSize = 1000
+	}
 	filter := bson.M{
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeDiscussion,
@@ -95,20 +105,26 @@ func (r *Repository) ListFiltered(ctx context.Context, parentType int64, parentI
 	if parentID = strings.TrimSpace(parentID); parentID != "" {
 		filter["parentId"] = parentID
 	}
+	total, err := r.coll.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
 	cursor, err := r.coll.Find(ctx, filter, options.Find().
 		SetProjection(bson.M{"docId": 1, "title": 1, "owner": 1, "updateAt": 1, "nReply": 1, "views": 1, "pin": 1, "highlight": 1, "lock": 1, "edited": 1, "parentType": 1, "parentId": 1}).
-		SetSort(bson.D{{Key: "pin", Value: -1}, {Key: "updateAt", Value: -1}, {Key: "docId", Value: -1}}))
+		SetSort(bson.D{{Key: "pin", Value: -1}, {Key: "updateAt", Value: -1}, {Key: "docId", Value: -1}}).
+		SetSkip(int64((page-1)*pageSize)).
+		SetLimit(int64(pageSize)))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer cursor.Close(ctx)
 	items := make([]Discussion, 0)
 	if err := cursor.All(ctx, &items); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	nodes, err := r.ListNodes(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	titles := make(map[string]string, len(nodes))
 	for _, node := range nodes {
@@ -121,7 +137,7 @@ func (r *Repository) ListFiltered(ctx context.Context, parentType int64, parentI
 			}
 		}
 	}
-	return items, nil
+	return items, total, nil
 }
 
 func (r *Repository) ListNodes(ctx context.Context) ([]Node, error) {

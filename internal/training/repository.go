@@ -353,10 +353,20 @@ func (r *Repository) DeleteFiles(ctx context.Context, tid string, names []string
 }
 
 func (r *Repository) List(ctx context.Context) ([]Training, error) {
-	return r.ListFiltered(ctx, "")
+	items, _, err := r.ListFiltered(ctx, "", 1, 1000)
+	return items, err
 }
 
-func (r *Repository) ListFiltered(ctx context.Context, query string) ([]Training, error) {
+func (r *Repository) ListFiltered(ctx context.Context, query string, page, pageSize int) ([]Training, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 1000 {
+		pageSize = 1000
+	}
 	filter := bson.M{
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeTraining,
@@ -364,16 +374,22 @@ func (r *Repository) ListFiltered(ctx context.Context, query string) ([]Training
 	if query = strings.TrimSpace(query); query != "" {
 		filter["title"] = bson.M{"$regex": regexp.QuoteMeta(query), "$options": "i"}
 	}
+	total, err := r.documents.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
 	cursor, err := r.documents.Find(ctx, filter, options.Find().
 		SetProjection(bson.M{"docId": 1, "title": 1, "content": 1, "description": 1, "owner": 1, "attend": 1, "pin": 1, "dag": 1}).
-		SetSort(bson.D{{Key: "pin", Value: -1}, {Key: "_id", Value: -1}}))
+		SetSort(bson.D{{Key: "pin", Value: -1}, {Key: "_id", Value: -1}}).
+		SetSkip(int64((page-1)*pageSize)).
+		SetLimit(int64(pageSize)))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer cursor.Close(ctx)
 	var rawItems []rawTraining
 	if err := cursor.All(ctx, &rawItems); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	items := make([]Training, 0, len(rawItems))
 	for _, raw := range rawItems {
@@ -383,7 +399,7 @@ func (r *Repository) ListFiltered(ctx context.Context, query string) ([]Training
 		item.DAG = nil
 		items = append(items, item)
 	}
-	return items, nil
+	return items, total, nil
 }
 
 func (r *Repository) Get(ctx context.Context, tid string) (*Training, error) {

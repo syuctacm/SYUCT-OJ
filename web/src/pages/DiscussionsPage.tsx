@@ -16,7 +16,9 @@ export function DiscussionsPage() {
   const legacyNode = searchParams.get('node') ?? ''
   const { user } = useAuth()
   const isNode = Boolean(nodeName)
+  const page = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
   const [items, setItems] = useState<Discussion[]>([])
+  const [total, setTotal] = useState(0)
   const [nodes, setNodes] = useState<DiscussionNode[]>([])
   const [users, setUsers] = useState<UserChoice[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -32,16 +34,17 @@ export function DiscussionsPage() {
     setLoaded(false)
     setError('')
     Promise.all([
-      getDiscussions(isNode ? { parentType: 20, parentId: nodeName } : {}),
+      getDiscussions(isNode ? { parentType: 20, parentId: nodeName, page } : { page }),
       getDiscussionNodes(),
     ])
-      .then(([discussions, nextNodes]) => {
-        setItems(discussions)
+      .then(([discussionPage, nextNodes]) => {
+        setItems(discussionPage.items)
+        setTotal(discussionPage.total)
         setNodes(nextNodes)
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '讨论加载失败'))
       .finally(() => setLoaded(true))
-  }, [isNode, nodeName])
+  }, [isNode, nodeName, page])
 
   useEffect(() => {
     const ids = [...new Set(items.map((item) => item.owner))].filter((id) => id > 0)
@@ -83,6 +86,8 @@ export function DiscussionsPage() {
       udict,
       vndict,
       vnodes,
+      page,
+      dpcount: Math.max(1, Math.ceil(total / 20)),
       vnode: vnode ? {
         _id: vnode.docId,
         id: vnode.docId,

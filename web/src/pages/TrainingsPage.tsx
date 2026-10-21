@@ -11,18 +11,20 @@ export function TrainingsPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const query = searchParams.get('q') ?? ''
+  const page = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
   const [items, setItems] = useState<Training[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     setLoading(true)
     setError('')
-    getTrainings(query)
-      .then(setItems)
+    getTrainings(query, page)
+      .then((data) => { setItems(data.items); setTotal(data.total) })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '训练加载失败'))
       .finally(() => setLoading(false))
-  }, [query])
+  }, [query, page])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const form = root.querySelector<HTMLFormElement>('form[name="filter-form"]')
@@ -57,8 +59,8 @@ export function TrainingsPage() {
       tdict,
       tsdict,
       q: query,
-      page: 1,
-      tpcount: 1,
+      page,
+      tpcount: Math.max(1, Math.ceil(total / 20)),
       qs: query ? `q=${encodeURIComponent(query)}` : '',
       handler: {
         user: {

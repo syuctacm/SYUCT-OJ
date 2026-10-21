@@ -78,12 +78,16 @@ func (h *TrainingHandler) update(c *gin.Context) {
 }
 
 func (h *TrainingHandler) list(c *gin.Context) {
-	items, err := h.repo.ListFiltered(c.Request.Context(), c.Query("q"))
+	page, limit := parsePaging(c)
+	items, total, err := h.repo.ListFiltered(c.Request.Context(), c.Query("q"), page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list trainings"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"items": items, "total": len(items)}})
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"items": items, "total": total, "page": page, "limit": limit},
+	})
 }
 
 func (h *TrainingHandler) get(c *gin.Context) {

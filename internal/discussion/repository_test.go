@@ -47,18 +47,26 @@ func TestDiscussionRepositoryIntegration(t *testing.T) {
 	if len(items) != 2 || items[0].Title != "置顶讨论" {
 		t.Fatalf("unexpected discussions: %+v", items)
 	}
-	qa, err := repo.ListFiltered(ctx, 20, "qa")
+	qa, _, err := repo.ListFiltered(ctx, 20, "qa", 1, 20)
 	if err != nil || len(qa) != 1 || qa[0].Title != "普通讨论" {
 		t.Fatalf("filter by node: %+v err=%v", qa, err)
 	}
-	advice, err := repo.ListFiltered(ctx, 20, "advice")
+	advice, _, err := repo.ListFiltered(ctx, 20, "advice", 1, 20)
 	if err != nil || len(advice) != 1 || advice[0].Title != "置顶讨论" {
 		t.Fatalf("filter by advice node: %+v err=%v", advice, err)
 	}
-	if all, err := repo.ListFiltered(ctx, 20, ""); err != nil || len(all) != 2 {
+	if all, _, err := repo.ListFiltered(ctx, 20, "", 1, 20); err != nil || len(all) != 2 {
 		t.Fatalf("filter by parent type only: %+v err=%v", all, err)
 	}
-	if none, err := repo.ListFiltered(ctx, 30, ""); err != nil || len(none) != 0 {
+	discussionPage1, discussionTotal, err := repo.ListFiltered(ctx, 20, "", 1, 1)
+	if err != nil || discussionTotal != 2 || len(discussionPage1) != 1 || discussionPage1[0].Title != "置顶讨论" {
+		t.Fatalf("discussion page 1: items=%+v total=%d err=%v", discussionPage1, discussionTotal, err)
+	}
+	discussionPage2, discussionTotal, err := repo.ListFiltered(ctx, 20, "", 2, 1)
+	if err != nil || discussionTotal != 2 || len(discussionPage2) != 1 || discussionPage2[0].Title != "普通讨论" {
+		t.Fatalf("discussion page 2: items=%+v total=%d err=%v", discussionPage2, discussionTotal, err)
+	}
+	if none, _, err := repo.ListFiltered(ctx, 30, "", 1, 20); err != nil || len(none) != 0 {
 		t.Fatalf("unexpected contests discussions: %+v err=%v", none, err)
 	}
 	found, err := repo.Get(ctx, secondID.Hex())
