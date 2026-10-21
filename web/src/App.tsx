@@ -30,6 +30,7 @@ import { MessagesPage } from './pages/MessagesPage.tsx'
 import { ProblemConfigPage } from './pages/ProblemConfigPage.tsx'
 import { ProblemDetailPage } from './pages/ProblemDetailPage.tsx'
 import { ProblemEditPage } from './pages/ProblemEditPage.tsx'
+import { ProblemImportFpsPage } from './pages/ProblemImportFpsPage.tsx'
 import { ProblemFilesPage } from './pages/ProblemFilesPage.tsx'
 import { ProblemSolutionPage } from './pages/ProblemSolutionPage.tsx'
 import { ProblemsPage } from './pages/ProblemsPage.tsx'
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
         <Route path="/p" element={<ProblemsPage />} />
         <Route path="/p/new" element={<ProblemEditPage mode="create" />} />
+        <Route path="/problem/import/fps" element={<ProblemImportFpsPage />} />
         <Route path="/p/tag/:tag" element={<TagRankingPage />} />
         <Route path="/p/:pid/edit" element={<ProblemEditPage mode="edit" />} />
         <Route path="/p/:pid/config" element={<ProblemConfigPage />} />

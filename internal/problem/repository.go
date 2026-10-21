@@ -38,6 +38,7 @@ type Problem struct {
 	PID             string        `bson:"pid" json:"pid"`
 	Title           string        `bson:"title" json:"title"`
 	Content         string        `bson:"content" json:"content,omitempty"`
+	Html            bool          `bson:"html" json:"html,omitempty"`
 	Tags            []string      `bson:"tag" json:"tags"`
 	Difficulty      int           `bson:"difficulty" json:"difficulty,omitempty"`
 	NSubmit         int64         `bson:"nSubmit" json:"nSubmit"`
@@ -73,6 +74,9 @@ type EditInput struct {
 	Difficulty int
 	Hidden     bool
 	Config     string
+	// Html marks the content as pre-rendered HTML; the FPS importer sets it,
+	// the edit form never does.
+	Html bool
 }
 
 type ListOptions struct {
@@ -135,19 +139,26 @@ func NewRepository(db *mongo.Database) *Repository {
 func (r *Repository) Create(ctx context.Context, owner int64, input EditInput) (*Problem, error) {
 	pid := strings.TrimSpace(input.PID)
 	title := strings.TrimSpace(input.Title)
-	if pid == "" || title == "" {
-		return nil, fmt.Errorf("pid and title are required")
+	if title == "" {
+		return nil, fmt.Errorf("title is required")
 	}
-	count, err := r.coll.CountDocuments(ctx, bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "pid": pid})
-	if err != nil {
-		return nil, err
-	}
-	if count > 0 {
-		return nil, ErrDuplicatePID
+	if pid != "" {
+		count, err := r.coll.CountDocuments(ctx, bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "pid": pid})
+		if err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			return nil, ErrDuplicatePID
+		}
 	}
 	docID, err := r.nextDocID(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if pid == "" {
+		// Hydro leaves the pid empty and falls back to the docId; the rewrite
+		// keeps a readable pid of the same shape as the upstream `sort` value.
+		pid = fmt.Sprintf("P%d", docID)
 	}
 	tags := input.Tags
 	if tags == nil {
@@ -155,7 +166,7 @@ func (r *Repository) Create(ctx context.Context, owner int64, input EditInput) (
 	}
 	document := bson.M{
 		"_id": bson.NewObjectID(), "domainId": DomainSystem, "docType": DocumentTypeProblem,
-		"docId": docID, "pid": pid, "title": title, "content": input.Content,
+		"docId": docID, "pid": pid, "title": title, "content": input.Content, "html": input.Html,
 		"owner": owner, "tag": tags, "difficulty": input.Difficulty, "hidden": input.Hidden,
 		"nSubmit": int64(0), "nAccept": int64(0), "config": input.Config,
 		"data": []ProblemFile{}, "additional_file": []ProblemFile{},
@@ -424,6 +435,22 @@ func (r *Repository) UpdateConfig(ctx context.Context, docID int64, config strin
 	result, err := r.coll.UpdateOne(ctx,
 		bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "docId": docID},
 		bson.M{"$set": bson.M{"config": config}},
+	)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UpdateContent rewrites the statement, used by the FPS importer after inline
+// images have been moved into the problem's additional files.
+func (r *Repository) UpdateContent(ctx context.Context, docID int64, content string) error {
+	result, err := r.coll.UpdateOne(ctx,
+		bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "docId": docID},
+		bson.M{"$set": bson.M{"content": content}},
 	)
 	if err != nil {
 		return err

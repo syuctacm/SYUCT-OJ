@@ -48,6 +48,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/problem-tags", h.tags)
 	router.GET("/api/v1/problem-tags/:tag/ranking", h.tagRanking)
 	router.POST("/api/v1/problems", h.create)
+	router.POST("/api/v1/problems/import/fps", h.importFPS)
 	router.GET("/api/v1/problems/:pid/edit", h.editData)
 	router.PATCH("/api/v1/problems/:pid", h.update)
 	router.GET("/api/v1/problems/:pid/assets", h.listAssets)

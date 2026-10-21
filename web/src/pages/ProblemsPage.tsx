@@ -148,10 +148,10 @@ export function ProblemsPage() {
       },
       lib: { difficulty: () => 0 },
       ui: {
-        getNodes: (name: string) => name === 'ProblemAdd' ? [{
-          name: 'problem_create',
-          args: { text: 'Create Problem', icon: 'add' },
-        }] : [],
+        getNodes: (name: string) => name === 'ProblemAdd' ? [
+          { name: 'problem_create', args: { text: 'Create Problem', icon: 'add' } },
+          { name: 'problem_import_fps', args: { text: 'From FPS File', icon: 'copy' } },
+        ] : [],
       },
       utils: {
         buildQueryString: (values: Record<string, unknown>) => {
@@ -191,6 +191,7 @@ export function ProblemsPage() {
         }
         if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
         if (name === 'problem_create') return '/p/new'
+        if (name === 'problem_import_fps') return '/problem/import/fps'
         if (name === 'problem_random') return '/p'
         if (name === 'record_detail') return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
         return '/'
