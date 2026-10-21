@@ -90,6 +90,12 @@
 - 弹性时长比赛里参赛者个人 `endAt` 提前结束时，可点 `resume_contest`（`POST .../attendees/:uid/resume`）清空个人结束时间，比赛结束后接口返回 400
 - 榜单查询已经过滤 `unrank` 的参赛者
 
+## 题目分值
+
+- 比赛文档新增 `score` 映射（`{pid: 分值}`），管理页的分值单元格可点击编辑
+- `POST /api/v1/contests/:tid/score`（owner/管理员，pid 必须在题目列表内，0-10000）
+- 榜单的 `ProblemCell` 带上记录得分（`record.score`），OI/IOI/StrictIOI 赛制按分数展示并按分值着色；XCPC 仍用通过/罚时
+
 ## 导出代码
 
 侧栏的「导出所有代码」指向 `GET /api/v1/contests/:tid/code`，流式返回 zip：
@@ -101,7 +107,6 @@
 
 ## 尚未完成
 
-- 比赛题目分值编辑（`name="set_score"` 目前是占位）
 - 气球状态页
 - 比赛题目的时间/权限访问控制
 - 组队和参赛状态（个人报名已实现，提交暂未强制要求报名）

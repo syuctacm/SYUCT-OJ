@@ -103,6 +103,7 @@ export function ContestScoreboardPage() {
         raw: String(pid),
       })),
     ]
+    const scoreBased = ['oi', 'ioi', 'strictioi'].includes(contest?.rule ?? '')
     const body = rows.map((row) => {
       const columns: ScoreboardColumn[] = [
         { type: 'rank', value: String(row.rank) },
@@ -117,6 +118,19 @@ export function ContestScoreboardPage() {
         const cell = row.problems[String(pid)]
         if (!cell) {
           columns.push({ type: 'record', value: '' })
+          continue
+        }
+        // Score based rules show the score itself, XCPC keeps the solved/penalty cell.
+        if (scoreBased) {
+          const configured = contest?.score?.[String(pid)]
+          const score = cell.score > 0 ? cell.score : (cell.solved ? (configured ?? 100) : 0)
+          columns.push({
+            type: 'record',
+            score,
+            value: String(score),
+            hover: cell.solved ? formatSeconds(cell.time * 60) : '',
+            raw: cell.rid ?? '',
+          })
           continue
         }
         const attempts = cell.attempts

@@ -80,6 +80,7 @@ type Contest struct {
 	AllowTeam            bool               `bson:"allowTeam,omitempty" json:"allowTeam"`
 	KeepScoreboardHidden bool               `bson:"keepScoreboardHidden,omitempty" json:"keepScoreboardHidden"`
 	Files                []filemeta.File    `bson:"files,omitempty" json:"files,omitempty"`
+	Score                map[int64]int      `bson:"score,omitempty" json:"score,omitempty"`
 	PrivateFiles         []filemeta.File    `bson:"privateFiles,omitempty" json:"-"`
 	InvitationCode       string             `bson:"_code,omitempty" json:"invitationCode,omitempty"`
 }
@@ -97,6 +98,7 @@ type ProblemCell struct {
 	Attempts int    `json:"attempts"`
 	Time     int    `json:"time"`
 	RID      string `json:"rid,omitempty"`
+	Score    int    `json:"score"`
 }
 
 type ScoreboardRow struct {
@@ -712,6 +714,7 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 		if cell.Solved {
 			continue
 		}
+		recordScore, _ := toInt64(record["score"])
 		if status == 1 {
 			minutes := int(rid.Timestamp().Sub(item.BeginAt).Minutes())
 			if minutes < 0 {
@@ -721,10 +724,16 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 			cell.Attempts = state.wrong[pid]
 			cell.Time = minutes
 			cell.RID = rid.Hex()
+			if int(recordScore) > cell.Score {
+				cell.Score = int(recordScore)
+			}
 			state.cells[key] = cell
 			state.solved++
 			state.penalty += minutes + 20*state.wrong[pid]
 			continue
+		}
+		if int(recordScore) > cell.Score {
+			cell.Score = int(recordScore)
 		}
 		if status >= 2 && status <= 8 {
 			state.wrong[pid]++
@@ -923,6 +932,40 @@ func (r *Repository) ExportRecords(ctx context.Context, contestID bson.ObjectID,
 		kept = append(kept, row)
 	}
 	return kept, nil
+}
+
+// SetScore stores the per-problem score used by score based contests.
+func (r *Repository) SetScore(ctx context.Context, tid string, pid int64, score int) error {
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return ErrNotFound
+	}
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return err
+	}
+	allowed := false
+	for _, candidate := range item.PIDs {
+		if candidate == pid {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return ErrNotFound
+	}
+	result, err := r.coll.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"$or":      []bson.M{{"docId": oid}, {"_id": oid}},
+	}, bson.M{"$set": bson.M{"score." + strconv.FormatInt(pid, 10): score}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // Statuses lists the attendees of a contest ordered by uid.

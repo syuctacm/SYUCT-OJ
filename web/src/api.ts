@@ -493,6 +493,7 @@ export type Contest = {
   keepScoreboardHidden?: boolean
   invitationCode?: string
   privateFiles?: ActivityFile[]
+  score?: Record<string, number>
 }
 
 export type ListPage<T> = {
@@ -547,6 +548,13 @@ export type ContestAttendee = {
   endAt?: string
 }
 
+export async function setContestProblemScore(tid: string, pid: number, score: number): Promise<void> {
+  await request(`/api/v1/contests/${encodeURIComponent(tid)}/score`, {
+    method: 'POST',
+    body: JSON.stringify({ pid, score }),
+  })
+}
+
 export async function getContestAttendees(tid: string): Promise<{ items: ContestAttendee[]; users: UserChoice[] }> {
   const result = await request<Envelope<{ items: ContestAttendee[]; users: UserChoice[] }>>(`/api/v1/contests/${encodeURIComponent(tid)}/attendees`)
   return result.data
@@ -584,6 +592,7 @@ export type ScoreboardCell = {
   attempts: number
   time: number
   rid?: string
+  score: number
 }
 
 export type ScoreboardRow = {
