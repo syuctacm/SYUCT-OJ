@@ -33,8 +33,8 @@ func TestDiscussionRepositoryIntegration(t *testing.T) {
 	firstID := bson.NewObjectID()
 	secondID := bson.NewObjectID()
 	_, err = db.Collection("document").InsertMany(ctx, []any{
-		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 21, "docId": firstID, "title": "普通讨论", "owner": int64(1), "updateAt": time.Now().Add(-time.Hour), "nReply": int64(2), "views": int64(3), "parentType": int64(20), "parentId": "qa"},
-		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 21, "docId": secondID, "title": "置顶讨论", "owner": int64(2), "updateAt": time.Now().Add(-2 * time.Hour), "nReply": int64(4), "views": int64(5), "pin": true, "content": "# 内容", "parentType": int64(20), "parentId": "advice"},
+		bson.M{"_id": firstID, "domainId": "system", "docType": 21, "docId": firstID, "title": "普通讨论", "owner": int64(1), "updateAt": time.Now().Add(-time.Hour), "nReply": int64(2), "views": int64(3), "parentType": int64(20), "parentId": "qa"},
+		bson.M{"_id": secondID, "domainId": "system", "docType": 21, "docId": secondID, "title": "置顶讨论", "owner": int64(2), "updateAt": time.Now().Add(-2 * time.Hour), "nReply": int64(4), "views": int64(5), "pin": true, "content": "# 内容", "parentType": int64(20), "parentId": "advice"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -67,5 +67,30 @@ func TestDiscussionRepositoryIntegration(t *testing.T) {
 	}
 	if found.Title != "置顶讨论" || found.Content != "# 内容" {
 		t.Fatalf("unexpected discussion: %+v", found)
+	}
+
+	reply, err := repo.AddReply(ctx, secondID, 2, "主回复")
+	if err != nil {
+		t.Fatalf("add reply: %v", err)
+	}
+	updated, tail, err := repo.AddTailReply(ctx, secondID, reply.ID, 1, "楼中楼回复")
+	if err != nil || tail == nil || tail.Content != "楼中楼回复" || tail.Owner != 1 {
+		t.Fatalf("add tail reply: tail=%+v err=%v", tail, err)
+	}
+	if len(updated.Replies) != 1 || updated.Replies[0].ID != tail.ID {
+		t.Fatalf("unexpected reply tree: %+v", updated.Replies)
+	}
+	if updated.Replies[0].CreatedAt.IsZero() {
+		t.Fatalf("tail reply createdAt should be derived from its id: %+v", updated.Replies[0])
+	}
+	after, err := repo.Get(ctx, secondID.Hex())
+	if err != nil || !after.UpdateAt.After(found.UpdateAt) {
+		t.Fatalf("discussion updateAt should be refreshed: %+v err=%v", after, err)
+	}
+	if after.NReply != found.NReply+1 {
+		t.Fatalf("tail reply should not change nReply: %d -> %d", found.NReply, after.NReply)
+	}
+	if _, _, err := repo.AddTailReply(ctx, secondID, bson.NewObjectID(), 1, "x"); err != discussion.ErrNotFound {
+		t.Fatalf("invalid reply id error = %v", err)
 	}
 }

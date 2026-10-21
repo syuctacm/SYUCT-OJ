@@ -774,10 +774,10 @@ export async function getDiscussionReplies(did: string): Promise<DiscussionReply
   return result.data.items
 }
 
-export async function createDiscussionReply(did: string, content: string): Promise<DiscussionReply> {
-  const result = await request<Envelope<DiscussionReply>>(`/api/v1/discussions/${encodeURIComponent(did)}/replies`, {
+export async function createDiscussionReply(did: string, content: string, replyTo?: string): Promise<DiscussionReply | DiscussionTailReply> {
+  const result = await request<Envelope<DiscussionReply | DiscussionTailReply>>(`/api/v1/discussions/${encodeURIComponent(did)}/replies`, {
     method: 'POST',
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(replyTo ? { content, replyTo } : { content }),
   })
   return result.data
 }

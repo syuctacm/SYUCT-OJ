@@ -1,413 +1,324 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import { Link, useParams } from 'react-router-dom'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to data mapping and the reply/lock interactions.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import {
-  createDiscussionReply,
-  deleteDiscussionReply,
-  getDiscussion,
-  getDiscussionReplies,
-  getPublicUser,
-  setDiscussionLock,
-  updateDiscussionReply,
-  type Discussion,
-  type DiscussionReply,
-  type PublicUser,
+  createDiscussionReply, deleteDiscussionReply, getDiscussion, getDiscussionNodes, getDiscussionReplies,
+  getUsersByIDs, setDiscussionLock, updateDiscussionReply,
+  type Discussion, type DiscussionNode, type DiscussionReply, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 
-function formatTime(value: string) {
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
-}
-
-function Time({ value }: { value: string }) {
-  return <span className="time" data-timestamp={Math.floor(new Date(value).getTime() / 1000)}>{formatTime(value)}</span>
-}
+const DIS_PERMS = {
+  PERM_EDIT_DISCUSSION: 1,
+  PERM_EDIT_DISCUSSION_SELF: 2,
+  PERM_LOCK_DISCUSSION: 3,
+  PERM_REPLY_DISCUSSION: 4,
+  PERM_DELETE_DISCUSSION_REPLY_SELF_DISCUSSION: 5,
+  PERM_DELETE_DISCUSSION_REPLY: 6,
+  PERM_EDIT_DISCUSSION_REPLY_SELF: 7,
+  PERM_DELETE_DISCUSSION_REPLY_SELF: 8,
+  PERM_ADD_REACTION: 9,
+} as const
 
 export function DiscussionDetailPage() {
   const { did = '' } = useParams()
-  const { user, loading: authLoading } = useAuth()
+  const { user } = useAuth()
   const [discussion, setDiscussion] = useState<Discussion | null>(null)
-  const [owner, setOwner] = useState<PublicUser | null>(null)
   const [replies, setReplies] = useState<DiscussionReply[]>([])
-  const [content, setContent] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
+  const [nodes, setNodes] = useState<DiscussionNode[]>([])
+  const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
-  const [replyError, setReplyError] = useState('')
   const [actionError, setActionError] = useState('')
-  const [locking, setLocking] = useState(false)
-  const [editingReplyID, setEditingReplyID] = useState('')
-  const [editingReplyContent, setEditingReplyContent] = useState('')
-  const [replyActionBusy, setReplyActionBusy] = useState('')
-  const [replyActionError, setReplyActionError] = useState('')
+  const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
+  const clickRef = useRef<(event: Event) => void>(() => {})
+
+  const load = useCallback(async () => {
+    const [ddoc, drdocs, vnodes] = await Promise.all([
+      getDiscussion(did),
+      getDiscussionReplies(did),
+      getDiscussionNodes(),
+    ])
+    setDiscussion(ddoc)
+    setReplies(drdocs)
+    setNodes(vnodes)
+  }, [did])
 
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    Promise.all([getDiscussion(did), getDiscussionReplies(did)])
-      .then(([nextDiscussion, nextReplies]) => {
-        if (cancelled) return
-        setDiscussion(nextDiscussion)
-        setReplies(nextReplies)
-        setError('')
-        getPublicUser(String(nextDiscussion.owner)).then((profile) => {
-          if (!cancelled) setOwner(profile)
-        }).catch(() => {
-          if (!cancelled) setOwner(null)
-        })
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : '讨论加载失败')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
+    setDiscussion(null)
+    setError('')
+    load().catch((err: unknown) => setError(err instanceof Error ? err.message : '讨论加载失败'))
+  }, [load])
+
+  useEffect(() => {
+    const ids = new Set<number>()
+    if (discussion) ids.add(discussion.owner)
+    for (const reply of replies) {
+      ids.add(reply.owner)
+      for (const tail of reply.replies ?? []) ids.add(tail.owner)
+    }
+    getUsersByIDs([...ids].filter((id) => id > 0)).then(setUsers).catch(() => setUsers([]))
+  }, [discussion, replies])
+
+  const context = useMemo(() => {
+    if (!discussion) return {}
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    const isOwner = Boolean(user && user.id === discussion.owner)
+    const node = discussion.parentType === 20
+      ? nodes.find((item) => item.docId === String(discussion.parentId)) ?? null
+      : null
+    const ddoc = {
+      ...discussion,
+      _id: discussion.docId,
+      docId: discussion.docId,
+      react: {},
+    }
+    const drdocs = replies.map((reply) => ({
+      ...reply,
+      _id: reply.id,
+      docId: reply.docId || reply.id,
+      parentId: reply.parentId || did,
+      react: {},
+      reply: (reply.replies ?? []).map((tail) => ({ ...tail, _id: tail.id, react: {} })),
+    }))
+    const udict = Object.fromEntries(users.map((item) => [String(item.id), {
+      _id: item.id,
+      uname: item.username,
+      displayName: item.displayName ?? '',
+      avatar: item.avatar ?? '',
+      hasPriv: () => false,
+      hasPerm: () => false,
+    }]))
+    const handler = {
+      user: {
+        _id: user?.id ?? 0,
+        uname: user?.username ?? '',
+        avatar: user?.avatar ?? '',
+        viewLang: 'zh',
+        _dudoc: { join: true },
+        hasPerm: (permission: number) => {
+          if (permission === DIS_PERMS.PERM_EDIT_DISCUSSION) return isAdmin
+          if (permission === DIS_PERMS.PERM_EDIT_DISCUSSION_SELF) return Boolean(user)
+          if (permission === DIS_PERMS.PERM_LOCK_DISCUSSION) return isAdmin
+          if (permission === DIS_PERMS.PERM_REPLY_DISCUSSION) return Boolean(user)
+          if (permission === DIS_PERMS.PERM_DELETE_DISCUSSION_REPLY_SELF_DISCUSSION) return isOwner || isAdmin
+          if (permission === DIS_PERMS.PERM_DELETE_DISCUSSION_REPLY) return isAdmin
+          if (permission === DIS_PERMS.PERM_EDIT_DISCUSSION_REPLY_SELF) return Boolean(user)
+          if (permission === DIS_PERMS.PERM_DELETE_DISCUSSION_REPLY_SELF) return Boolean(user)
+          return false
+        },
+        hasPriv: () => false,
+        own: (doc?: unknown) => Boolean(user && doc && (doc as { owner?: number }).owner === user.id),
+      },
+      args: { domainId: 'system' },
+      request: {
+        query: {},
+        path: `/discuss/${discussion.docId}`,
+        headers: { 'user-agent': navigator.userAgent },
+      },
+      session: { legacy: false, viewLang: 'zh' },
+      ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+    }
+    return {
+      page_name: 'discussion_detail',
+      ddoc,
+      dsdoc: { star: false },
+      drdocs,
+      drcount: discussion.nReply,
+      udict,
+      vnode: node ? {
+        _id: node.docId,
+        id: node.docId,
+        docId: node.docId,
+        type: 20,
+        title: node.title || node.docId,
+      } : { type: discussion.parentType, id: discussion.parentId },
+      reactions: {},
+      handler,
+      perm: DIS_PERMS,
+      PRIV: { PRIV_USER_PROFILE: 1 },
+      model: {
+        document: { TYPE_PROBLEM: 10, TYPE_CONTEST: 30, TYPE_DISCUSSION_NODE: 20, TYPE_TRAINING: 40 },
+        discussion: { typeDisplay: { 10: 'problem', 20: 'node', 30: 'contest', 40: 'training' } },
+      },
+      avatarUrl: (value?: string) => value || '/logo.png',
+      UiContext: {},
+      UserContext: user,
+    }
+  }, [did, discussion, nodes, replies, user, users])
+
+  const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
+    switch (name) {
+      case 'discussion_main': return '/discuss'
+      case 'discussion_detail': return `/discuss/${encodeURIComponent(String(args.did ?? did))}`
+      case 'discussion_edit': return `/discuss/${encodeURIComponent(String(args.did ?? did))}/edit`
+      case 'discussion_node': return `/discuss/node/${encodeURIComponent(String(args.name ?? ''))}`
+      case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+      case 'wiki_help':
+      case 'wiki':
+        return '/discuss'
+      // Raw history and reaction endpoints are not ported yet.
+      case 'discussion_raw':
+      case 'discussion_reply_raw':
+      case 'discussion_tail_reply_raw':
+        return '#'
+      default: return '/'
     }
   }, [did])
 
-  async function handleReply(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!user || !discussion) return
-    if (!content.trim()) {
-      setReplyError('回复内容不能为空')
-      return
-    }
-    setSubmitting(true)
-    setReplyError('')
-    try {
-      const reply = await createDiscussionReply(did, content)
-      setReplies((current) => [reply, ...current])
-      setDiscussion((current) => current ? { ...current, nReply: current.nReply + 1 } : current)
-      setContent('')
-    } catch (err) {
-      setReplyError(err instanceof Error ? err.message : '回复失败')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  async function handleLockToggle() {
-    if (!discussion || !user) return
-    setLocking(true)
+  const run = useCallback(async (action: () => Promise<void>) => {
     setActionError('')
     try {
-      const next = await setDiscussionLock(did, !discussion.lock)
-      setDiscussion(next)
+      await action()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : '讨论状态更新失败')
-    } finally {
-      setLocking(false)
+      setActionError(err instanceof Error ? err.message : '操作失败')
     }
-  }
+  }, [])
 
-  function canEditReply(ownerID: number) {
-    return Boolean(user && (user.id === ownerID || ((user.priv ?? 0) & 1) !== 0))
-  }
-
-  function canDeleteReply(ownerID: number) {
-    return Boolean(user && discussion && (user.id === ownerID || user.id === discussion.owner || ((user.priv ?? 0) & 1) !== 0))
-  }
-
-  function startReplyEdit(id: string, currentContent: string) {
-    setEditingReplyID(id)
-    setEditingReplyContent(currentContent)
-    setReplyActionError('')
-  }
-
-  function cancelReplyEdit() {
-    setEditingReplyID('')
-    setEditingReplyContent('')
-    setReplyActionError('')
-  }
-
-  async function saveReplyEdit(id: string) {
-    if (!editingReplyContent.trim()) {
-      setReplyActionError('回复内容不能为空')
-      return
-    }
-    setReplyActionBusy(id)
-    setReplyActionError('')
-    try {
-      const updated = await updateDiscussionReply(did, id, editingReplyContent)
-      setReplies((current) => current.map((reply) => {
-        if (reply.id === id) return { ...reply, content: updated.content, edited: true }
-        if (reply.replies?.some((tail) => tail.id === id)) {
-          return {
-            ...reply,
-            replies: reply.replies.map((tail) => tail.id === id ? { ...tail, content: updated.content, edited: true } : tail),
-          }
+  const findReplyContent = useCallback((drid: string, drrid: string) => {
+    if (drrid) {
+      for (const reply of replies) {
+        for (const tail of reply.replies ?? []) {
+          if (tail.id === drrid) return tail.content
         }
-        return reply
-      }))
-      cancelReplyEdit()
-    } catch (err) {
-      setReplyActionError(err instanceof Error ? err.message : '回复保存失败')
-    } finally {
-      setReplyActionBusy('')
-    }
-  }
-
-  async function removeReply(id: string) {
-    if (!window.confirm('确认删除这条回复？')) return
-    setReplyActionBusy(id)
-    setReplyActionError('')
-    try {
-      await deleteDiscussionReply(did, id)
-      const wasMain = replies.some((reply) => reply.id === id)
-      setReplies((current) => current
-        .filter((reply) => reply.id !== id)
-        .map((reply) => reply.replies?.some((tail) => tail.id === id)
-          ? { ...reply, replies: reply.replies.filter((tail) => tail.id !== id) }
-          : reply))
-      if (wasMain) {
-        setDiscussion((current) => current ? { ...current, nReply: Math.max(0, current.nReply - 1) } : current)
       }
-    } catch (err) {
-      setReplyActionError(err instanceof Error ? err.message : '回复删除失败')
-    } finally {
-      setReplyActionBusy('')
+    }
+    return replies.find((reply) => reply.id === drid)?.content ?? ''
+  }, [replies])
+
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    const cleanups: Array<() => void> = [hydrateHydroEditForm(root)]
+    for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
+      const onSubmit = (event: SubmitEvent) => submitRef.current(event)
+      form.addEventListener('submit', onSubmit)
+      cleanups.push(() => form.removeEventListener('submit', onSubmit))
+    }
+    const onClick = (event: Event) => clickRef.current(event)
+    root.addEventListener('click', onClick)
+    cleanups.push(() => root.removeEventListener('click', onClick))
+    return () => cleanups.forEach((cleanup) => cleanup())
+  }, [])
+
+  // Inline boxes created for reply/edit follow the same markup the upstream JS
+  // builds at runtime.
+  function buildInlineForm(kind: 'reply' | 'edit', drid: string, drrid: string, initial = '') {
+    const form = document.createElement('form')
+    form.className = 'dczcomments__box'
+    form.method = 'post'
+    form.innerHTML = `
+      <div><textarea class="textbox" name="content" required></textarea></div>
+      <div>
+        <input type="submit" class="rounded primary button" value="${kind === 'reply' ? '回复 (Ctrl+Enter)' : '更新 (Ctrl+Enter)'}">
+        <input type="button" class="rounded button" name="cancel" value="取消 (Esc)">
+      </div>
+      <input type="hidden" name="operation" value="${kind === 'reply' ? 'tail_reply' : 'edit_reply'}">
+      <input type="hidden" name="drid" value="${drid}">
+      <input type="hidden" name="drrid" value="${drrid}">
+    `
+    const textarea = form.querySelector('textarea') as HTMLTextAreaElement
+    textarea.value = initial
+    form.addEventListener('submit', (event) => {
+      event.preventDefault()
+      const content = textarea.value.trim()
+      if (!content) return
+      void run(async () => {
+        if (kind === 'reply') await createDiscussionReply(did, content, drid)
+        else await updateDiscussionReply(did, drrid || drid, content)
+        await load()
+      })
+    })
+    form.querySelector<HTMLInputElement>('input[name="cancel"]')?.addEventListener('click', () => {
+      form.remove()
+    })
+    return form
+  }
+
+  function handleClick(event: Event) {
+    const target = (event.target as HTMLElement).closest<HTMLElement>('[data-op]')
+    if (!target) return
+    event.preventDefault()
+    const operation = target.dataset.op
+    const data = target.dataset.form ? JSON.parse(target.dataset.form) as Record<string, string> : {}
+    if (operation === 'reply') {
+      const item = target.closest('.dczcomments__item')
+      const holder = item?.querySelector('.commentbox-reply-target')
+      if (!holder) return
+      const existing = holder.querySelector('form.dczcomments__box')
+      if (existing) {
+        existing.remove()
+        return
+      }
+      const box = document.createElement('li')
+      box.className = 'dczcomments__reply'
+      box.appendChild(buildInlineForm('reply', String(data.drid ?? ''), ''))
+      holder.appendChild(box)
+    } else if (operation === 'edit') {
+      const mediaBody = target.closest('.media__body')
+      const content = mediaBody?.querySelector('.typo.richmedia')
+      if (!mediaBody || !content) return
+      const existing = mediaBody.querySelector('form.dczcomments__box')
+      if (existing) {
+        existing.remove()
+        return
+      }
+      const drid = String(data.drid ?? '')
+      const drrid = String(data.drrid ?? '')
+      mediaBody.insertBefore(buildInlineForm('edit', drid, drrid, findReplyContent(drid, drrid)), content)
+    } else if (operation === 'delete') {
+      const drid = String(data.drid ?? '')
+      const drrid = String(data.drrid ?? '')
+      if (!window.confirm('确定删除这条回复吗？')) return
+      void run(async () => {
+        await deleteDiscussionReply(did, drrid || drid)
+        await load()
+      })
     }
   }
+  clickRef.current = handleClick
 
-  if (loading) {
-    return (
-      <div className="row"><div className="medium-9 columns"><div className="section"><div className="section__body">
-        <div className="nothing-placeholder"><div className="nothing-icon" />加载中...</div>
-      </div></div></div></div>
-    )
+  async function handleSubmit(event: SubmitEvent) {
+    const form = event.target as HTMLFormElement
+    const data = new FormData(form)
+    const operation = String(data.get('operation') ?? '')
+    if (operation === 'reply') {
+      event.preventDefault()
+      const content = String(data.get('content') ?? '').trim()
+      if (!content) return
+      await run(async () => {
+        await createDiscussionReply(did, content)
+        await load()
+      })
+    } else if (operation === 'set_lock') {
+      event.preventDefault()
+      const lock = Boolean(data.get('lock'))
+      await run(async () => {
+        await setDiscussionLock(did, lock)
+        await load()
+      })
+    } else if (operation === 'star' || operation === 'unstar' || operation === 'reaction') {
+      // Reactions and starring are not ported yet.
+      event.preventDefault()
+    }
   }
-  if (error || !discussion) {
-    return (
-      <div className="row"><div className="medium-9 columns"><div className="section"><div className="section__body">
-        <div className="nothing-placeholder">{error || '讨论不存在'}</div>
-      </div></div></div></div>
-    )
-  }
+  submitRef.current = (event) => void handleSubmit(event)
 
+  if (error) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  }
+  if (!discussion) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
+  }
   return (
-    <div className="row">
-      <div className="medium-9 columns">
-        <div className="section">
-          <div className="section__body">
-            <ul className="supplementary list">
-              <li>
-                <Link className="discussion-node-tag" to={`/discuss?node=${encodeURIComponent(String(discussion.parentId ?? ''))}`}>
-                  <span className="v-center icon icon-flag" />
-                  {discussion.parentTitle || String(discussion.parentId || '讨论')}
-                </Link>
-              </li>
-              <li><h2>{discussion.title}</h2></li>
-              <li>
-                <Link to={`/user/${discussion.owner}`}>{owner?.displayName || owner?.username || `UID ${discussion.owner}`}</Link>
-                {' @ '}
-                <Time value={discussion.updateAt} />
-                {discussion.edited ? '（已编辑）' : ''}
-              </li>
-              {user && (user.id === discussion.owner || ((user.priv ?? 0) & 1) !== 0) ? (
-                <li><Link to={`/discuss/${encodeURIComponent(discussion.docId)}/edit`}><span className="icon icon-edit" /> 编辑</Link></li>
-              ) : null}
-            </ul>
-            <div className="typo topic__content richmedia">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{discussion.content || '暂无内容'}</ReactMarkdown>
-            </div>
-          </div>
-          <ul className="section__footer supplementary dot list">
-            {discussion.lock ? <li>该讨论已锁定</li> : null}
-            {actionError ? <li className="form-error">{actionError}</li> : null}
-            <li>{discussion.views} 浏览</li>
-            {user && ((user.priv ?? 0) & 1) !== 0 ? (
-              <li>
-                <button type="button" className="link-button" onClick={handleLockToggle} disabled={locking}>
-                  {locking ? '处理中...' : discussion.lock ? '解锁讨论' : '锁定讨论'}
-                </button>
-              </li>
-            ) : null}
-            <li><Link to="/discuss"><span className="icon icon-arrow-left" /> 返回讨论区</Link></li>
-          </ul>
-        </div>
-
-        <div className="section">
-          <div className="section__header">
-            <h1 className="section__title">{discussion.nReply} 条评论</h1>
-          </div>
-          <div className="section__body">
-            <ul className="dczcomments__list view--discussion">
-              <li className="dczcomments__item">
-                <div className="media">
-                  <div className="media__left top">
-                    {user?.avatar ? (
-                      <img src={user.avatar} width="60" height="60" className="medium user-profile-avatar" alt="" />
-                    ) : (
-                      <div className="medium user-profile-avatar" aria-hidden="true" />
-                    )}
-                  </div>
-                  <div className="media__body top">
-                    {discussion.lock ? (
-                      <textarea className="textbox" name="dczcomments__dummy-box" readOnly placeholder="该讨论已锁定，不能再回复。" />
-                    ) : authLoading ? (
-                      <div className="nothing-placeholder compact">正在确认登录状态...</div>
-                    ) : user ? (
-                      <form className="dczcomments__box" onSubmit={handleReply}>
-                        <div>
-                          <textarea
-                            name="content"
-                            className="textbox"
-                            value={content}
-                            onChange={(event) => setContent(event.target.value)}
-                            onKeyDown={(event) => {
-                              if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                                event.preventDefault()
-                                event.currentTarget.form?.requestSubmit()
-                              }
-                            }}
-                            placeholder="写下评论"
-                            required
-                          />
-                        </div>
-                        {replyError ? <blockquote className="warn"><p>{replyError}</p></blockquote> : null}
-                        <div>
-                          <input
-                            type="submit"
-                            className="rounded primary button dczcomments__box__submit"
-                            value={submitting ? '发表中...' : '评论 (Ctrl+Enter)'}
-                            disabled={submitting}
-                          />
-                        </div>
-                      </form>
-                    ) : (
-                      <div className="nothing-placeholder compact"><Link to="/login">登录</Link> 后参与讨论。</div>
-                    )}
-                  </div>
-                </div>
-              </li>
-
-              {replyActionError ? <blockquote className="warn"><p>{replyActionError}</p></blockquote> : null}
-              {replies.map((reply) => (
-                <li className="dczcomments__item" key={reply.id}>
-                  <div className="media">
-                    <div className="media__left top">
-                      <div className="medium user-profile-avatar" aria-hidden="true" />
-                    </div>
-                    <div className="media__body top" id={`comment-${reply.docId}`}>
-                      <div className="clearfix">
-                        <div className="supplementary dczcomments__supplementary">
-                          <Link to={`/user/${reply.owner}`}>UID {reply.owner}</Link>
-                          {' @ '}
-                          <Time value={reply.createdAt} />
-                          {reply.edited ? <div className="history"><a>已编辑</a></div> : null}
-                          {canEditReply(reply.owner) ? (
-                            <div className="history"><button type="button" className="link-button" onClick={() => startReplyEdit(reply.id, reply.content)}>编辑</button></div>
-                          ) : null}
-                          {canDeleteReply(reply.owner) ? (
-                            <div className="history"><button type="button" className="link-button" onClick={() => removeReply(reply.id)} disabled={replyActionBusy === reply.id}>{replyActionBusy === reply.id ? '处理中...' : '删除'}</button></div>
-                          ) : null}
-                        </div>
-                      </div>
-                      {editingReplyID === reply.id ? (
-                        <div className="typo richmedia">
-                          <textarea className="textbox" style={{ width: '100%', minHeight: 100 }} value={editingReplyContent} onChange={(event) => setEditingReplyContent(event.target.value)} />
-                          <div>
-                            <button type="button" className="compact primary button" onClick={() => saveReplyEdit(reply.id)} disabled={replyActionBusy === reply.id}>{replyActionBusy === reply.id ? '保存中...' : '保存'}</button>
-                            <button type="button" className="compact button" onClick={cancelReplyEdit}>取消</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="typo richmedia">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{reply.content}</ReactMarkdown>
-                        </div>
-                      )}
-                      {reply.replies?.length ? (
-                        <ul className="dczcomments__replies">
-                          {reply.replies.map((tail) => (
-                            <li className="dczcomments__reply" key={tail.id}>
-                              <div className="media">
-                                <div className="media__left top">
-                                  <div className="medium user-profile-avatar" aria-hidden="true" />
-                                </div>
-                                <div className="media__body top">
-                                  <div className="clearfix">
-                                    <div className="supplementary dczcomments__supplementary">
-                                      <Link to={`/user/${tail.owner}`}>UID {tail.owner}</Link>
-                                      {' @ '}
-                                      <Time value={tail.createdAt} />
-                                      {tail.edited ? <div className="history"><a>已编辑</a></div> : null}
-                                      {canEditReply(tail.owner) ? (
-                                        <div className="history"><button type="button" className="link-button" onClick={() => startReplyEdit(tail.id, tail.content)}>编辑</button></div>
-                                      ) : null}
-                                      {canDeleteReply(tail.owner) ? (
-                                        <div className="history"><button type="button" className="link-button" onClick={() => removeReply(tail.id)} disabled={replyActionBusy === tail.id}>{replyActionBusy === tail.id ? '处理中...' : '删除'}</button></div>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                  {editingReplyID === tail.id ? (
-                                    <div className="typo richmedia">
-                                      <textarea className="textbox" style={{ width: '100%', minHeight: 90 }} value={editingReplyContent} onChange={(event) => setEditingReplyContent(event.target.value)} />
-                                      <div>
-                                        <button type="button" className="compact primary button" onClick={() => saveReplyEdit(tail.id)} disabled={replyActionBusy === tail.id}>{replyActionBusy === tail.id ? '保存中...' : '保存'}</button>
-                                        <button type="button" className="compact button" onClick={cancelReplyEdit}>取消</button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="typo richmedia">
-                                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{tail.content}</ReactMarkdown>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            {replies.length === 0 ? (
-              <div className="nothing-placeholder"><div className="nothing-icon" />还没有评论</div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="medium-3 columns">
-        <div className="section side">
-          <div className="profile__bg user-profile-bg--1" />
-          <div className="section__body">
-            <div className="media sidebar-user-profile">
-              <div className="media__left">
-                {owner?.avatar ? (
-                  <img src={owner.avatar} width="80" height="80" className="medium user-profile-avatar" alt="" />
-                ) : (
-                  <div className="medium user-profile-avatar" aria-hidden="true" />
-                )}
-              </div>
-              <div className="media__body">
-                <p><Link to={`/user/${discussion.owner}`}>{owner?.displayName || owner?.username || `UID ${discussion.owner}`}</Link></p>
-              </div>
-            </div>
-          </div>
-          <div className="section__body">
-            <div className="balancer sidebar-user-stat">
-              <div className="balancer__body">
-                <div className="numbox">
-                  <div className="numbox__num medium">{owner?.nAccept ?? 0}</div>
-                  <div className="numbox__text">通过</div>
-                </div>
-              </div>
-              <div className="balancer__body">
-                <div className="numbox">
-                  <div className="numbox__num medium">0</div>
-                  <div className="numbox__text">获赞题解</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <>
+      {actionError ? <div className="row"><div className="columns"><blockquote className="warn"><p>{actionError}</p></blockquote></div></div> : null}
+      <HydroTemplate
+        template="discussion_detail.html"
+        context={context}
+        url={buildUrl}
+        onReady={handleReady}
+      />
+    </>
   )
 }
