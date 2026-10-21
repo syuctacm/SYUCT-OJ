@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   createDiscussionReply, deleteDiscussionReply, getDiscussion, getDiscussionNodes, getDiscussionReplies,
-  getUsersByIDs, setDiscussionLock, updateDiscussionReply,
+  getUsersByIDs, setDiscussionLock, setDiscussionStar, updateDiscussionReply,
   type Discussion, type DiscussionNode, type DiscussionReply, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
@@ -109,7 +109,7 @@ export function DiscussionDetailPage() {
           if (permission === DIS_PERMS.PERM_DELETE_DISCUSSION_REPLY_SELF) return Boolean(user)
           return false
         },
-        hasPriv: () => false,
+        hasPriv: (privilege: number) => privilege === 1 && Boolean(user),
         own: (doc?: unknown) => Boolean(user && doc && (doc as { owner?: number }).owner === user.id),
       },
       args: { domainId: 'system' },
@@ -124,7 +124,7 @@ export function DiscussionDetailPage() {
     return {
       page_name: 'discussion_detail',
       ddoc,
-      dsdoc: { star: false },
+      dsdoc: { star: Boolean(discussion.starred) },
       drdocs,
       drcount: discussion.nReply,
       udict,
@@ -297,8 +297,14 @@ export function DiscussionDetailPage() {
         await setDiscussionLock(did, lock)
         await load()
       })
-    } else if (operation === 'star' || operation === 'unstar' || operation === 'reaction') {
-      // Reactions and starring are not ported yet.
+    } else if (operation === 'star' || operation === 'unstar') {
+      event.preventDefault()
+      await run(async () => {
+        await setDiscussionStar(did, operation === 'star')
+        await load()
+      })
+    } else if (operation === 'reaction') {
+      // Reactions are not ported yet.
       event.preventDefault()
     }
   }
