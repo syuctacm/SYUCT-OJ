@@ -6,6 +6,7 @@ import yaml from 'js-yaml'
 import zhYaml from '@hydrooj/ui-default/locales/zh.yaml?raw'
 import { size } from './format.ts'
 import { renderMarkdown } from './markdown.ts'
+import { datetimeSpan } from './datetime.ts'
 import { difficulty } from './difficulty.ts'
 import {
   STATUS, STATUS_CODES, STATUS_SHORT_TEXTS, STATUS_TEXTS, getScoreColor,
@@ -162,6 +163,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
       return ''
     },
     STATUS,
+    datetimeSpan,
     model: { builtin: { STATUS_CODES, STATUS_TEXTS, STATUS_SHORT_TEXTS } },
     utils: {
       status: { getScoreColor },

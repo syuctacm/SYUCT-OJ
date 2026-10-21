@@ -94,6 +94,7 @@ type ScoreboardRow struct {
 type Repository struct {
 	coll     *mongo.Collection
 	records  *mongo.Collection
+	statuses *mongo.Collection
 	problems *problem.Repository
 }
 
@@ -101,8 +102,56 @@ func NewRepository(db *mongo.Database) *Repository {
 	return &Repository{
 		coll:     db.Collection("document"),
 		records:  db.Collection("record"),
+		statuses: db.Collection("document.status"),
 		problems: problem.NewRepository(db),
 	}
+}
+
+// Attended reports whether the user has attended the contest.
+func (r *Repository) Attended(ctx context.Context, tid string, uid int64) (bool, error) {
+	if uid <= 0 {
+		return false, nil
+	}
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return false, ErrNotFound
+	}
+	count, err := r.statuses.CountDocuments(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    oid,
+		"uid":      uid,
+		"attend":   1,
+	})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// Attend marks the user as an attendee of the contest. It is idempotent and
+// increments the attendee counter only on the first attendance.
+func (r *Repository) Attend(ctx context.Context, tid string, uid int64) (bool, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return false, err
+	}
+	result, err := r.statuses.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    item.DocID,
+		"uid":      uid,
+	}, bson.M{"$set": bson.M{"attend": 1}}, options.UpdateOne().SetUpsert(true))
+	if err != nil {
+		return false, err
+	}
+	changed := result.UpsertedCount > 0 || result.ModifiedCount > 0
+	if changed {
+		if _, err := r.coll.UpdateOne(ctx, bson.M{"_id": item.ID}, bson.M{"$inc": bson.M{"attend": 1}}); err != nil {
+			return false, err
+		}
+	}
+	return changed, nil
 }
 
 func (r *Repository) Create(ctx context.Context, owner int64, input EditInput) (*Contest, error) {

@@ -129,4 +129,31 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	if _, err := repo.Get(ctx, "invalid"); err != contest.ErrNotFound {
 		t.Fatalf("invalid id error = %v", err)
 	}
+
+	attended, err := repo.Attended(ctx, newID.Hex(), 7)
+	if err != nil || attended {
+		t.Fatalf("unexpected initial attendance: attended=%v err=%v", attended, err)
+	}
+	changed, err := repo.Attend(ctx, newID.Hex(), 7)
+	if err != nil || !changed {
+		t.Fatalf("attend: changed=%v err=%v", changed, err)
+	}
+	changed, err = repo.Attend(ctx, newID.Hex(), 7)
+	if err != nil || changed {
+		t.Fatalf("repeat attend should be idempotent: changed=%v err=%v", changed, err)
+	}
+	attended, err = repo.Attended(ctx, newID.Hex(), 7)
+	if err != nil || !attended {
+		t.Fatalf("attendance after attend: attended=%v err=%v", attended, err)
+	}
+	if attended, err = repo.Attended(ctx, newID.Hex(), 0); err != nil || attended {
+		t.Fatalf("anonymous attendance: attended=%v err=%v", attended, err)
+	}
+	updated, err := repo.Get(ctx, newID.Hex())
+	if err != nil || updated.Attend != 21 {
+		t.Fatalf("attend counter: attend=%d err=%v", updated.Attend, err)
+	}
+	if _, err := repo.Attend(ctx, "invalid", 7); err != contest.ErrNotFound {
+		t.Fatalf("attend invalid id error = %v", err)
+	}
 }

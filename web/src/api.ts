@@ -367,6 +367,7 @@ export async function updateContest(tid: string, input: ContestEditInput): Promi
 export type Contest = {
   id: string
   docId: string
+  attended?: boolean
   title: string
   content?: string
   beginAt: string
@@ -403,6 +404,13 @@ export async function getContests(query = '', rule = ''): Promise<Contest[]> {
 
 export async function getContest(tid: string): Promise<Contest> {
   const result = await request<Envelope<Contest>>(`/api/v1/contests/${encodeURIComponent(tid)}`)
+  return result.data
+}
+
+export async function attendContest(tid: string): Promise<{ attended: boolean; changed: boolean }> {
+  const result = await request<Envelope<{ attended: boolean; changed: boolean }>>(`/api/v1/contests/${encodeURIComponent(tid)}/attend`, {
+    method: 'POST',
+  })
   return result.data
 }
 
