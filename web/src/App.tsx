@@ -3,6 +3,7 @@ import { Layout } from './components/Layout.tsx'
 import { LegacyDomainRedirect } from './components/LegacyDomainRedirect.tsx'
 import { AdminPage } from './pages/AdminPage.tsx'
 import { ActivityFilesPage } from './pages/ActivityFilesPage.tsx'
+import { ContestFilesPage } from './pages/ContestFilesPage.tsx'
 import { AdminUsersPage } from './pages/AdminUsersPage.tsx'
 import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
 import { ContestClarificationPage } from './pages/ContestClarificationPage.tsx'
@@ -52,7 +53,7 @@ export default function App() {
         <Route path="/contest" element={<ContestsPage />} />
         <Route path="/contest/new" element={<ContestEditPage mode="create" />} />
         <Route path="/contest/:tid/edit" element={<ContestEditPage mode="edit" />} />
-        <Route path="/contest/:tid/files" element={<ActivityFilesPage kind="contest" />} />
+        <Route path="/contest/:tid/files" element={<ContestFilesPage />} />
         <Route path="/contest/:tid/problems" element={<ContestProblemsPage />} />
         <Route path="/contest/:tid/clarification" element={<ContestClarificationPage />} />
         <Route path="/contest/:tid/scoreboard" element={<ContestScoreboardPage />} />
@@ -66,12 +67,14 @@ export default function App() {
         <Route path="/homework" element={<HomeworksPage />} />
         <Route path="/homework/new" element={<HomeworkEditPage mode="create" />} />
         <Route path="/homework/:tid/edit" element={<HomeworkEditPage mode="edit" />} />
+        <Route path="/homework/:tid/file" element={<ActivityFilesPage kind="homework" />} />
         <Route path="/homework/:tid/files" element={<ActivityFilesPage kind="homework" />} />
         <Route path="/homework/:tid/scoreboard" element={<ContestScoreboardPage />} />
         <Route path="/homework/:tid" element={<HomeworkDetailPage />} />
         <Route path="/training" element={<TrainingsPage />} />
         <Route path="/training/new" element={<TrainingEditPage mode="create" />} />
         <Route path="/training/:tid/edit" element={<TrainingEditPage mode="edit" />} />
+        <Route path="/training/:tid/file" element={<ActivityFilesPage kind="training" />} />
         <Route path="/training/:tid/files" element={<ActivityFilesPage kind="training" />} />
         <Route path="/training/:tid" element={<TrainingDetailPage />} />
         <Route path="/record" element={<RecordsPage />} />

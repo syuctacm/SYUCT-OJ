@@ -43,11 +43,11 @@ training/system/<tid>/<name>
 
 ## 前端
 
-- `/contest/:tid/files`
-- `/homework/:tid/files`
-- `/training/:tid/files`
+- `/contest/:tid/files`（仍是手写页，后续迁移到 `contest_manage.html`）
+- `/homework/:tid/file`（旧路径 `/homework/:tid/files` 保留为别名）
+- `/training/:tid/file`（旧路径 `/training/:tid/files` 保留为别名）
 
-文件页复用 Hydro `partials/files.html` 的 `.data-table` 结构，支持多文件上传、下载、批量选择和删除。比赛/作业/训练详情页在所有者或管理员可见时显示文件入口。
+作业文件页直接渲染上游 `homework_files.html`，训练文件页直接渲染 `training_files.html`，两页都包含 `partials/files.html`，因此上传、下载、批量选择和删除的 DOM 与旧站一致；React 只负责事件适配。比赛文件页仍是手写实现，等私有资料接口就绪后与 `contest_manage.html` 一起迁移。
 
 比赛、作业、训练的编辑页已把 Markdown 编辑器上传按钮接到对应文件接口：上传成功后插入文件下载 URL，并刷新比赛编辑页的原版文件侧栏。
 

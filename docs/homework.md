@@ -29,7 +29,7 @@ Hydro 中作业是 `document` 集合里 `docType=30`、`rule=homework` 的文档
 - `/homework/:tid/edit`：编辑作业
 - `/homework/:tid`：作业说明和题目列表
 - `/homework/:tid/scoreboard`：作业榜单（复用比赛榜单页）
-- `/homework/:tid/files`：作业公开文件
+- `/homework/:tid/file`：作业公开文件（渲染上游 `homework_files.html`）
 
 列表读取 `beginAt`、`endAt` 和 `penaltySince`，详情通过作业题目接口读取题目标题、统计、难度、认领状态和每题最近提交（rid/status/score）。题目表格沿用上游逻辑：未认领且作业未结束时只显示认领提示，认领后才显示题目和每题状态列（状态图标、分数和最后提交时间）。认领写入 `document.status`（`docType=30`, `attend=1`），重复认领幂等，首次认领递增 `attend` 人数。
 

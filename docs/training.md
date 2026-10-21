@@ -51,7 +51,7 @@ enroll=1
 - `/training/new`：创建训练
 - `/training/:tid/edit`：编辑训练
 - `/training/:tid`：训练说明、总体进度、DAG 章节、题目完成状态和报名入口
-- `/training/:tid/files`：训练公开文件
+- `/training/:tid/file`：训练公开文件（渲染上游 `training_files.html`）
 
 创建和编辑使用管理员权限；编辑还需要训练所有者或管理员。DAG JSON 会校验节点 ID 唯一、前置节点存在、每节至少一道题，并把 PID 或 docId 统一解析为题目 docId。
 

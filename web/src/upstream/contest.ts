@@ -51,6 +51,7 @@ export const CONTEST_PERMS = {
   PERM_EDIT_HOMEWORK: 12,
   PERM_VIEW_HOMEWORK_SCOREBOARD: 13,
   PERM_REJUDGE: 14,
+  PERM_EDIT_TRAINING: 15,
 } as const
 
 export function isNew(tdoc: ContestDocLike, days = 1) {
