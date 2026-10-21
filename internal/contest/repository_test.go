@@ -101,16 +101,43 @@ func TestContestRepositoryIntegration(t *testing.T) {
 		bson.M{"_id": bson.NewObjectID(), "contest": newID, "domainId": "system", "uid": int64(7), "pid": int64(1), "status": 2},
 		bson.M{"_id": bson.NewObjectID(), "contest": newID, "domainId": "system", "uid": int64(7), "pid": int64(1), "status": 1},
 		bson.M{"_id": bson.NewObjectID(), "contest": newID, "domainId": "system", "uid": int64(8), "pid": int64(2), "status": 1},
+		bson.M{"_id": bson.NewObjectID(), "contest": newID, "domainId": "system", "uid": int64(10), "pid": int64(1), "status": 2},
 	})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Collection("document.status").InsertMany(ctx, []any{
+		bson.M{"domainId": "system", "docType": 30, "docId": newID, "uid": int64(7), "attend": 1},
+		bson.M{"domainId": "system", "docType": 30, "docId": newID, "uid": int64(8), "attend": 1},
+		bson.M{"domainId": "system", "docType": 30, "docId": newID, "uid": int64(9), "attend": 1},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	_, rows, err := repo.Scoreboard(ctx, newID.Hex())
 	if err != nil {
 		t.Fatalf("scoreboard: %v", err)
 	}
-	if len(rows) != 2 || rows[0].UID != 7 || rows[0].Solved != 2 || rows[1].UID != 8 {
+	if len(rows) != 4 || rows[0].UID != 7 || rows[0].Solved != 2 || rows[1].UID != 8 {
 		t.Fatalf("unexpected scoreboard: %+v", rows)
+	}
+	byUID := map[int64]contest.ScoreboardRow{}
+	for _, row := range rows {
+		byUID[row.UID] = row
+	}
+	if row, ok := byUID[9]; !ok || row.Solved != 0 || len(row.Problems) != 0 {
+		t.Fatalf("expected attendee without submissions to be listed: %+v", row)
+	}
+	if cell := byUID[7].Problems["2"]; !cell.Solved || cell.RID == "" || cell.Attempts != 0 {
+		t.Fatalf("expected accepted record id on solved cell: %+v", cell)
+	}
+	if cell := byUID[7].Problems["1"]; !cell.Solved || cell.RID == "" || cell.Attempts != 1 {
+		t.Fatalf("expected attempts before accept: %+v", cell)
+	}
+	if cell := byUID[8].Problems["1"]; cell.RID != "" || cell.Attempts != 0 {
+		t.Fatalf("unexpected empty cell: %+v", cell)
+	}
+	if cell := byUID[10].Problems["1"]; cell.Solved || cell.RID == "" || cell.Attempts != 1 {
+		t.Fatalf("expected record id on failed attempt: %+v", cell)
 	}
 	homeworks, err := repo.ListHomework(ctx)
 	if err != nil {
@@ -130,19 +157,19 @@ func TestContestRepositoryIntegration(t *testing.T) {
 		t.Fatalf("invalid id error = %v", err)
 	}
 
-	attended, err := repo.Attended(ctx, newID.Hex(), 7)
+	attended, err := repo.Attended(ctx, newID.Hex(), 10)
 	if err != nil || attended {
 		t.Fatalf("unexpected initial attendance: attended=%v err=%v", attended, err)
 	}
-	changed, err := repo.Attend(ctx, newID.Hex(), 7)
+	changed, err := repo.Attend(ctx, newID.Hex(), 10)
 	if err != nil || !changed {
 		t.Fatalf("attend: changed=%v err=%v", changed, err)
 	}
-	changed, err = repo.Attend(ctx, newID.Hex(), 7)
+	changed, err = repo.Attend(ctx, newID.Hex(), 10)
 	if err != nil || changed {
 		t.Fatalf("repeat attend should be idempotent: changed=%v err=%v", changed, err)
 	}
-	attended, err = repo.Attended(ctx, newID.Hex(), 7)
+	attended, err = repo.Attended(ctx, newID.Hex(), 10)
 	if err != nil || !attended {
 		t.Fatalf("attendance after attend: attended=%v err=%v", attended, err)
 	}

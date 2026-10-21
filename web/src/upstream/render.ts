@@ -110,7 +110,7 @@ function paginate(page: number, numPages: number) {
   return result
 }
 
-function translate(key: string) {
+export function translate(key: string) {
   return String(translations[key] ?? key)
 }
 

@@ -78,9 +78,10 @@ type Contest struct {
 }
 
 type ProblemCell struct {
-	Solved   bool `json:"solved"`
-	Attempts int  `json:"attempts"`
-	Time     int  `json:"time"`
+	Solved   bool   `json:"solved"`
+	Attempts int    `json:"attempts"`
+	Time     int    `json:"time"`
+	RID      string `json:"rid,omitempty"`
 }
 
 type ScoreboardRow struct {
@@ -438,6 +439,28 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 		wrong   map[int64]int
 	}
 	users := make(map[int64]*userState)
+	// Seed attendees so users without submissions still appear on the scoreboard.
+	attendeeCursor, err := r.statuses.Find(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    item.DocID,
+		"attend":   1,
+	}, options.Find().SetProjection(bson.M{"uid": 1}))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer attendeeCursor.Close(ctx)
+	var attendees []struct {
+		UID int64 `bson:"uid"`
+	}
+	if err := attendeeCursor.All(ctx, &attendees); err != nil {
+		return nil, nil, err
+	}
+	for _, attendee := range attendees {
+		if attendee.UID > 0 {
+			users[attendee.UID] = &userState{uid: attendee.UID, cells: make(map[string]ProblemCell), wrong: make(map[int64]int)}
+		}
+	}
 	for cursor.Next(ctx) {
 		var record bson.M
 		if err := cursor.Decode(&record); err != nil {
@@ -454,6 +477,10 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 		if _, ok := allowed[pid]; !ok {
 			continue
 		}
+		rid, _ := record["_id"].(bson.ObjectID)
+		if item.LockAt != nil && !item.Unlocked && rid.Timestamp().After(*item.LockAt) {
+			continue
+		}
 		status, _ := toInt64(record["status"])
 		state := users[uid]
 		if state == nil {
@@ -465,10 +492,6 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 		if cell.Solved {
 			continue
 		}
-		rid, _ := record["_id"].(bson.ObjectID)
-		if item.LockAt != nil && !item.Unlocked && rid.Timestamp().After(*item.LockAt) {
-			continue
-		}
 		if status == 1 {
 			minutes := int(rid.Timestamp().Sub(item.BeginAt).Minutes())
 			if minutes < 0 {
@@ -477,6 +500,7 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 			cell.Solved = true
 			cell.Attempts = state.wrong[pid]
 			cell.Time = minutes
+			cell.RID = rid.Hex()
 			state.cells[key] = cell
 			state.solved++
 			state.penalty += minutes + 20*state.wrong[pid]
@@ -485,6 +509,7 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 		if status >= 2 && status <= 8 {
 			state.wrong[pid]++
 			cell.Attempts = state.wrong[pid]
+			cell.RID = rid.Hex()
 			state.cells[key] = cell
 		}
 	}

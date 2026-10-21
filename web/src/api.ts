@@ -428,6 +428,7 @@ export type ScoreboardCell = {
   solved: boolean
   attempts: number
   time: number
+  rid?: string
 }
 
 export type ScoreboardRow = {

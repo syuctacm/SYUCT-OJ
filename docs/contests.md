@@ -11,7 +11,7 @@
 | GET | `/api/v1/contests/:tid/edit` | 比赛编辑数据 |
 | PATCH | `/api/v1/contests/:tid` | 更新比赛 |
 | GET | `/api/v1/contests/:tid/problems` | 比赛题目列表 |
-| GET | `/api/v1/contests/:tid/scoreboard` | 基础 ACM 榜单 |
+| GET | `/api/v1/contests/:tid/scoreboard` | ACM 榜单（含参赛者、每题 AC 记录 id） |
 
 数据直接读取 Hydro `document` 集合中的 `docType=30` 文档。列表支持 `q` 标题搜索和 `rule` 赛制筛选。
 
@@ -28,12 +28,15 @@
 
 - `contest_main.html`：由 `HydroTemplate` 直接渲染进行中/即将开始卡片、全部比赛列表、搜索和赛制筛选
 - `contest_detail.html`：由 `HydroTemplate` 直接渲染比赛信息、说明、文件、报名入口和比赛侧栏
+- `contest_scoreboard.html`：由 `HydroTemplate` 直接渲染榜单表格、封榜提示和导出按钮位置
 
 比赛列表的搜索和赛制筛选由 React 适配层保持；未实现的团队管理入口会隐藏。当前比赛 API 一次返回全部比赛，列表暂未分页。
 
-比赛详情不再内嵌题目列表和榜单，改为原版结构下的独立路由 `/contest/:tid/problems` 和 `/contest/:tid/scoreboard`（这两个页面目前仍是手写表格，后续 issue 再模板化）。题目行提供带 `contest` 参数的提交入口，提交会写入比赛关联并进入榜单。比赛结束或未开始时后端拒绝比赛提交。
+比赛详情不再内嵌题目列表和榜单，改为原版结构下的独立路由 `/contest/:tid/problems` 和 `/contest/:tid/scoreboard`（题目列表目前仍是手写表格，榜单已迁移到上游模板）。题目行提供带 `contest` 参数的提交入口，提交会写入比赛关联并进入榜单。比赛结束或未开始时后端拒绝比赛提交。
 
 比赛报名写入 `document.status`（`docType=30`, `attend=1`），重复报名幂等，首次报名递增 `attend` 人数。详情页返回当前登录用户的 `attended` 状态，未登录显示登录入口，报名后侧栏显示已参加状态、题目列表和我的递交入口。
+
+榜单页把榜单 API 的数据转换成上游 `partials/scoreboard.html` 需要的行列结构：`rank`/`user`/`solved` 列加上每题 `problem`/`record` 单元，题目表头显示本场比赛的过题/提交数，AC 和失败提交都能链接到对应记录（`rid`）。已报名但没有提交的用户也会以 0 分出现在榜单上。封榜时显示原版提示，封榜后的提交不计入榜单。
 
 比赛创建/编辑支持：
 
@@ -55,8 +58,10 @@
 - 比赛私有文件
 - 比赛题目的时间/权限访问控制
 - 组队和参赛状态（个人报名已实现，提交暂未强制要求报名）
-- 比赛题目列表/榜单仍为手写页面，待迁移到上游模板
+- 比赛题目列表仍为手写页面，待迁移到上游模板
 - 比赛管理、打印、导出代码入口（当前为占位）
+- 榜单导出（HTML/CSV/Ghost）、解封操作和关注/筛选下拉
+- 首次通过高亮
 - 提前结束比赛操作
 - OI 等赛制榜单和封榜后的解封逻辑
 - 封榜、打印、气球、答疑
