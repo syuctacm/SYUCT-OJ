@@ -1,175 +1,197 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+// Page markup is rendered from the pinned Hydro ui-default template. The section
+// list mirrors the upstream `hydrooj.homepage` config for the parts backed by
+// this backend (bulletin/ranking/hitokoto/starred have no data source yet).
+import { useEffect, useMemo, useState } from 'react'
 import {
-  getContests,
-  getDiscussions,
-  getProblems,
-  getTrainings,
-  type Contest,
-  type Discussion,
-  type ProblemSummary,
-  type Training,
+  getContests, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getTrainings, getUsersByIDs,
+  type Contest, type Discussion, type DiscussionNode, type ProblemSummary, type Training, type UserChoice,
 } from '../api.ts'
+import { useAuth } from '../auth.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { createContestModel } from '../upstream/contest.ts'
 
-const ruleNames: Record<string, string> = {
-  acm: 'ACM',
-  oi: 'OI',
-  ioi: 'IOI',
-  ledo: 'Ledo',
-  strictioi: 'Strict IOI',
+const HOME_PERMS = {
+  PERM_VIEW_DISCUSSION: 1,
+  PERM_CREATE_DISCUSSION: 2,
+  PERM_VIEW_PROBLEM_HIDDEN: 3,
+  PERM_EDIT_DISCUSSION: 4,
+} as const
+
+type HomeData = {
+  contests: Contest[]
+  homeworks: Contest[]
+  trainings: Training[]
+  discussions: Discussion[]
+  problems: ProblemSummary[]
+  nodes: DiscussionNode[]
 }
 
-function formatTime(value: string) {
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+function withDates<T extends { beginAt: string; endAt: string; lockAt?: string; penaltySince?: string }>(item: T) {
+  return {
+    ...item,
+    beginAt: new Date(item.beginAt),
+    endAt: new Date(item.endAt),
+    lockAt: item.lockAt ? new Date(item.lockAt) : null,
+    penaltySince: item.penaltySince ? new Date(item.penaltySince) : null,
+  }
 }
 
-function durationOf(contest: Contest) {
-  if (contest.duration) return contest.duration
-  return Math.max(0, Math.round((new Date(contest.endAt).getTime() - new Date(contest.beginAt).getTime()) / 3600000))
+function trainingDag(training: Training) {
+  const dag = Array.from({ length: training.sectionCount }, () => ({ pids: [] as number[] }))
+  for (let index = 0; index < training.problemCount; index++) {
+    dag[index % Math.max(1, dag.length)]?.pids.push(index + 1)
+  }
+  return dag
 }
 
 export function HomePage() {
-  const [contests, setContests] = useState<Contest[]>([])
-  const [discussions, setDiscussions] = useState<Discussion[]>([])
-  const [trainings, setTrainings] = useState<Training[]>([])
-  const [problems, setProblems] = useState<ProblemSummary[]>([])
+  const { user } = useAuth()
+  const [data, setData] = useState<HomeData | null>(null)
+  const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([getContests(), getDiscussions(), getTrainings(), getProblems('', 1, 'recent')])
-      .then(([contestItems, discussionItems, trainingItems, problemPage]) => {
-        setContests(contestItems.slice(0, 5))
-        setDiscussions(discussionItems.slice(0, 5))
-        setTrainings(trainingItems.slice(0, 3))
-        setProblems(problemPage.items.slice(0, 8))
+    setError('')
+    Promise.all([
+      getContests(),
+      getHomeworks(''),
+      getTrainings(''),
+      getDiscussions(),
+      getProblems('', 1, 'recent'),
+      getDiscussionNodes(),
+    ])
+      .then(([contests, homeworks, trainings, discussions, problems, nodes]) => {
+        setData({ contests, homeworks, trainings, discussions, problems: problems.items, nodes })
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '首页加载失败'))
   }, [])
 
-  return (
-    <div className="row">
-      <div className="large-9 columns">
-        {error ? <div className="section"><div className="section__body error-state">{error}</div></div> : null}
-        {contests.length ? (
-          <div className="section page--contest_main">
-            <div className="section__header"><h1 className="section__title">比赛</h1></div>
-            <ol className="section__list contest__list">
-              {contests.map((contest) => (
-                <li className={`section__list__item contest__item contest-type--${contest.rule}`} key={contest.id}>
-                  <div className="media">
-                    <div className="media__left medium">
-                      <div className="contest__date numbox">
-                        <div className="numbox__num large">{new Date(contest.beginAt).getDate()}</div>
-                        <div className="numbox__text">{new Date(contest.beginAt).getFullYear()}-{new Date(contest.beginAt).getMonth() + 1}</div>
-                      </div>
-                    </div>
-                    <div className="media__body medium">
-                      <h1 className="contest__title"><Link to={`/contest/${contest.docId}`}>{contest.title}</Link></h1>
-                      <ul className="supplementary list">
-                        <li><Link to={`/contest?rule=${encodeURIComponent(contest.rule)}`} className="contest-type-tag"><span className="icon icon-award" />{ruleNames[contest.rule] || contest.rule}</Link></li>
-                        {contest.rated ? <li className="contest-tag-rated"><span className="icon icon-star" />Rated</li> : null}
-                        <li><span className="icon icon-schedule--fill text-blue" /> {durationOf(contest)} 小时</li>
-                        <li><span className="icon icon-user--multiple" /> {contest.attend}</li>
-                      </ul>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <ul className="pager pager-bottom"><li><Link className="pager__item next link" to="/contest">更多 &gt;</Link></li></ul>
-          </div>
-        ) : null}
+  useEffect(() => {
+    if (!data) return
+    const ids = [...new Set(data.discussions.map((item) => item.owner))].filter((id) => id > 0)
+    if (!ids.length) {
+      setUsers([])
+      return
+    }
+    getUsersByIDs(ids).then(setUsers).catch(() => setUsers([]))
+  }, [data])
 
-        {discussions.length ? (
-          <div className="section page--discussion_main">
-            <div className="section__header"><h1 className="section__title">讨论</h1></div>
-            <ol className="section__list discussion__list">
-              {discussions.map((discussion) => (
-                <li className={`section__list__item discussion__item${discussion.highlight ? ' highlight' : ''}`} key={discussion.id}>
-                  <div className="media">
-                    <div className="media__left">
-                      <div className="discussion__replies numbox">
-                        <div className="numbox__num large">{discussion.nReply}</div>
-                        <div className="numbox__text">回复</div>
-                      </div>
-                    </div>
-                    <div className="media__body top">
-                      <h1 className="discussion__title"><Link to={`/discuss/${discussion.docId}`}>{discussion.title}</Link></h1>
-                      <ul className="supplementary list">
-                        <li>{discussion.parentTitle || '讨论'}</li>
-                        <li>{discussion.views} 浏览</li>
-                        <li><Link to={`/user/${discussion.owner}`}>UID {discussion.owner}</Link> @ {formatTime(discussion.updateAt)}</li>
-                      </ul>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <ul className="pager pager-bottom"><li><Link className="pager__item next link" to="/discuss">更多 &gt;</Link></li></ul>
-          </div>
-        ) : null}
+  const context = useMemo(() => {
+    if (!data) return {}
+    const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
+    const handler = {
+      user: {
+        _id: user?.id ?? 0,
+        viewLang: 'zh',
+        _dudoc: { join: true },
+        hasPerm: (permission: number) => {
+          if (permission === HOME_PERMS.PERM_VIEW_DISCUSSION) return true
+          if (permission === HOME_PERMS.PERM_CREATE_DISCUSSION) return Boolean(user)
+          if (permission === HOME_PERMS.PERM_VIEW_PROBLEM_HIDDEN) return isAdmin
+          if (permission === HOME_PERMS.PERM_EDIT_DISCUSSION) return isAdmin
+          return false
+        },
+        hasPriv: (privilege: number) => privilege === 1 && Boolean(user),
+        own: (doc?: unknown) => Boolean(user && doc && (doc as { owner?: number }).owner === user.id),
+      },
+      args: { domainId: 'system' },
+      request: { query: {}, path: '/', headers: { 'user-agent': navigator.userAgent } },
+      session: { legacy: false, viewLang: 'zh' },
+      ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+    }
+    const contestModel = createContestModel(handler)
+    const contests = data.contests.slice(0, 5).map((item) => withDates(item))
+    const homeworks = data.homeworks.slice(0, 10).map((item) => withDates(item))
+    const trainings = data.trainings.slice(0, 10).map((item) => ({ ...item, dag: trainingDag(item) }))
+    const discussions = data.discussions.slice(0, 20).map((item) => ({
+      ...item,
+      _id: item.docId,
+      updateAt: new Date(item.updateAt),
+    }))
+    const vndict: Record<string, Record<string, { title: string }>> = { '20': {} }
+    for (const node of data.nodes) vndict['20'][node.docId] = { title: node.title || node.docId }
+    const vnodes = data.nodes.map((node) => ({
+      docId: node.docId,
+      title: node.title,
+      content: node.category,
+      pic: node.pic ?? '',
+    }))
+    const recentProblems = data.problems.slice(0, 10).map((problem) => ({
+      _id: problem.id,
+      docId: problem.docId,
+      pid: problem.pid,
+      title: problem.title,
+      hidden: false,
+    }))
+    const udict = Object.fromEntries(users.map((item) => [String(item.id), {
+      _id: item.id,
+      uname: item.username,
+      displayName: item.displayName ?? '',
+      avatar: item.avatar ?? '',
+    }]))
+    return {
+      page_name: 'homepage',
+      contents: [
+        {
+          width: 9,
+          sections: [
+            ['contest', [contests, {}]],
+            ['homework', [homeworks, {}]],
+            ['training', [trainings, {}]],
+            ['discussion', [discussions, vndict]],
+          ],
+        },
+        {
+          width: 3,
+          sections: [
+            ['recent_problems', [recentProblems, {}]],
+            ['discussion_nodes', vnodes],
+            ['problem_search', true],
+            ['suggestion', true],
+          ],
+        },
+      ],
+      udict,
+      domain: {},
+      handler,
+      perm: HOME_PERMS,
+      PRIV: { PRIV_USER_PROFILE: 1, PRIV_CREATE_FILE: 2 },
+      model: {
+        contest: contestModel,
+        training: {
+          getPids: (dag: Array<{ pids?: Array<number | string> }>) => dag.flatMap((node) => node.pids ?? []),
+        },
+        discussion: { typeDisplay: { 10: 'problem', 20: 'node', 30: 'contest', 40: 'training' } },
+        document: { TYPE_PROBLEM: 10, TYPE_CONTEST: 30, TYPE_DISCUSSION_NODE: 20, TYPE_TRAINING: 40 },
+      },
+      avatarUrl: (value?: string) => value || '/logo.png',
+      UiContext: {},
+      UserContext: user,
+    }
+  }, [data, user, users])
 
-        {trainings.length ? (
-          <div className="section page--training_main">
-            <div className="section__header"><h1 className="section__title">训练</h1></div>
-            <ol className="section__list all primary training__list">
-              {trainings.map((training) => (
-                <li className="section__list__item training__item" key={training.id}>
-                  <div className="media">
-                    <div className="media__left middle">
-                      <div className="training__participants numbox">
-                        <div className="numbox__num large">{training.attend}</div>
-                        <div className="numbox__text">报名</div>
-                      </div>
-                    </div>
-                    <div className="media__body middle">
-                      <h1 className="training__title"><Link to={`/training/${training.docId}`}>{training.title}</Link></h1>
-                      <div className="training__intro typo"><p>{training.description || ''}</p></div>
-                      <ul className="supplementary list training__progress">
-                        <li><span className="icon icon-flag text-blue" /> {training.sectionCount} 个章节, {training.problemCount} 道题</li>
-                      </ul>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <ul className="pager pager-bottom"><li><Link className="pager__item next link" to="/training">更多 &gt;</Link></li></ul>
-          </div>
-        ) : null}
-      </div>
-      <div className="large-3 columns">
-        <div className="section side page--problem_main">
-          <div className="section__header"><h1 className="section__title">最近题目</h1></div>
-          <div className="section__body typo no-media col--problem-name">
-            {problems.map((problem) => (
-              <p key={problem.id}><Link to={`/p/${encodeURIComponent(problem.pid || String(problem.docId))}`}><b>{problem.pid}</b>&nbsp;&nbsp;{problem.title}</Link></p>
-            ))}
-          </div>
-        </div>
-        <div className="section side">
-          <div className="section__header"><h1 className="section__title">推荐</h1></div>
-          <div className="section__body">
-            <ul className="group-list">
-              <li className="group-list__item">
-                <h2 className="section__title">中文</h2>
-                <ol className="chip-list">
-                  <li className="chip-list__item"><a className="typo-a" href="https://loj.ac/" target="_blank" rel="noreferrer">LibreOJ</a></li>
-                  <li className="chip-list__item"><a className="typo-a" href="https://www.luogu.com.cn/" target="_blank" rel="noreferrer">洛谷</a></li>
-                  <li className="chip-list__item"><a className="typo-a" href="https://uoj.ac/" target="_blank" rel="noreferrer">UOJ</a></li>
-                </ol>
-              </li>
-              <li className="group-list__item">
-                <h2 className="section__title">英文</h2>
-                <ol className="chip-list">
-                  <li className="chip-list__item"><a className="typo-a" href="https://codeforces.com/" target="_blank" rel="noreferrer">Codeforces</a></li>
-                  <li className="chip-list__item"><a className="typo-a" href="https://atcoder.jp/" target="_blank" rel="noreferrer">AtCoder</a></li>
-                  <li className="chip-list__item"><a className="typo-a" href="https://www.spoj.com/" target="_blank" rel="noreferrer">SPOJ</a></li>
-                </ol>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  const buildUrl = useMemo(() => (name: string, args: Record<string, unknown> = {}) => {
+    switch (name) {
+      case 'contest_main': return '/contest'
+      case 'contest_detail': return `/contest/${encodeURIComponent(String(args.tid ?? ''))}`
+      case 'homework_main': return '/homework'
+      case 'homework_detail': return `/homework/${encodeURIComponent(String(args.tid ?? ''))}`
+      case 'training_main': return '/training'
+      case 'training_detail': return `/training/${encodeURIComponent(String(args.tid ?? ''))}`
+      case 'discussion_main': return '/discuss'
+      case 'discussion_detail': return `/discuss/${encodeURIComponent(String(args.did ?? ''))}`
+      case 'discussion_node': return `/discuss/node/${encodeURIComponent(String(args.name ?? ''))}`
+      case 'problem_detail': return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
+      case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+      default: return '/'
+    }
+  }, [])
+
+  if (error) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  }
+  if (!data) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
+  }
+  return <HydroTemplate template="main.html" context={context} url={buildUrl} />
 }
