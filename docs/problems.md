@@ -101,6 +101,25 @@
 
 投票沿用 Hydro 的增量语义：重复投同一票是空操作，改票只累计差值。未登录用户可浏览，登录用户可以发表、投票和回复。
 
+## FPS 导入
+
+迁移自上游 `fps-importer` 插件（`/problem/import/fps`，仅管理员）：
+
+- 支持单个 FPS XML 或包含多个 XML 的 zip，单文件上限 64MiB
+- 每个 `<item>` 创建一道题：标题、HTML 题面、来源拆成标签、`time_limit` / `memory_limit` 写入 `config.yaml`
+- 测试数据按 `filename` → `name` → `<序号>.<in|out>` 的顺序命名；只有 `test_input` 的 HUSTOJ 导出按 in/out 成对处理
+- `<img>` 里的 base64 图片写入附加文件，题面里的 `src` 替换为 `file://<文件名>`
+- `<solution>` 生成对应题解
+- 题面默认按 HTML 存储（`html: true`），命中 `[md]` 标记时按 Markdown 处理
+
+接口：
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| POST | `/api/v1/problems/import/fps` | multipart `file`，返回 `{items, failures}` |
+
+导入失败的单条会记录在 `failures` 里，其余继续导入；题库侧栏的 “Create Problem” 区域会同时显示“创建题目”和“从 FPS 文件导入”。
+
 ## 判题配置页
 
 `/p/:pid/config` 由 `HydroTemplate` 渲染上游 `problem_config.html`：标题「评测设置(Beta)」、testdata 侧栏（`partials/problem_files.html`，支持上传）和题目侧栏都来自原模板。

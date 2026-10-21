@@ -62,10 +62,47 @@ sources.set('components/home.html', `{% import "components/sidemenu.html" as sid
 </div>
 {% endmacro %}`)
 
+// fps-importer ships its page outside the ui-default package; the template is
+// copied verbatim from packages/fps-importer/template/problem_import_fps.html.
+sources.set('problem_import_fps.html', `{% extends "layout/basic.html" %}
+{% block content %}
+<div class="row">
+  <div class="medium-9 columns">
+    <div class="section">
+      <div class="section__body">
+        <form method="post" enctype="multipart/form-data">
+          <p>{{ _('Upload fps file') }}:
+            <input type="file" name="file">
+            <input type="submit" value="{{ _('Upload') }}" class="rounded primary button">
+          </p>
+          <p>{{ _('problem.import.fps.hint1') }}</p>
+          <p>{{ _('problem.import.fps.hint2') }}</p>
+          <p>{{ _('problem.import.fps.hint3') }}</p>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="medium-3 columns">
+    <div class="section side">
+      <div class="section__body typo">
+        <h2>{{ _('What is this?') }}</h2>
+        <p>{{ _('With this feature, you can import problems that you can view from a site to here. Their title, content, tags and categories will be imported.') }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}`)
+
 // Strings this rewrite adds on top of the pinned ui-default locale.
 const LOCAL_TRANSLATIONS: TranslationMap = {
   setting_basic: '基本设置',
   Bulletin: '站点公告',
+  // fps-importer addon locale strings.
+  'From FPS File': '从 FPS 文件导入',
+  'Upload fps file': '上传 FPS 文件',
+  'problem.import.fps.hint1': '我们推荐的最大导入大小为 64MiB，若文件超出此大小，强烈建议您在本机使用 EasyFPSViewer 等工具将其拆分或是移除测试数据后单独上传。',
+  'problem.import.fps.hint2': '由于 xml 格式无法随机读写，解析需要消耗大量内存，在内存过小的机器上导入大型题目包很可能导致崩溃或死机。',
+  'problem.import.fps.hint3': '若您确有需要，此限制可在系统设置中更改。我们建议您使用 Hydro 自带的 zip 格式存储或是交换题目。',
 }
 const translations = { ...(yaml.load(zhYaml) as TranslationMap), ...LOCAL_TRANSLATIONS }
 

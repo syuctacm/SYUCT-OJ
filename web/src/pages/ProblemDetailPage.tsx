@@ -97,7 +97,8 @@ export function ProblemDetailPage() {
       owner_udoc: owner,
       mode: 'normal',
       showAccept: true,
-      renderredContent: renderMarkdown(problem.content || ''),
+      // Imported FPS problemsets keep pre-rendered HTML; the rest is markdown.
+      renderredContent: problem.html ? problem.content : renderMarkdown(problem.content || ''),
       handler: {
         user: {
           _id: user?.id ?? 0,

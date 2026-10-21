@@ -272,6 +272,7 @@ export async function deleteProblemAssets(pid: string, type: 'testdata' | 'addit
 
 export type ProblemDetail = ProblemSummary & {
   content: string
+  html?: boolean
   owner?: number
   problemType?: string
   timeLimit?: string
@@ -1350,4 +1351,19 @@ export async function deleteMessage(id: string): Promise<void> {
   await request<Envelope<Record<string, unknown>>>(`/api/v1/messages/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
+}
+
+export type FPSImportResult = {
+  items: Array<{ pid: string; docId: number; title: string }>
+  failures: Array<{ title: string; error: string }>
+}
+
+export async function importFPSProblems(file: File): Promise<FPSImportResult> {
+  const body = new FormData()
+  body.set('file', file)
+  const result = await request<Envelope<FPSImportResult>>('/api/v1/problems/import/fps', {
+    method: 'POST',
+    body,
+  })
+  return result.data
 }
