@@ -78,7 +78,31 @@
 后续处理：
 ```
 
-## 6. 当前已知差异
+## 6. Phase 7 回归记录（2026-10-21，本地 Docker）
+
+冒烟回归覆盖全部路由（匿名 + 管理员），页面均无模板渲染错误：
+
+- 前台：`/`、`/p`、`/p/:pid`、`/p/:pid/submit`（未登录提示）、`/p/tag/:tag`、`/contest`、`/contest/:tid`、`/contest/:tid/scoreboard`、`/contest/:tid/problems`（未报名提示）、`/homework`、`/homework/:tid`、`/homework/:tid/scoreboard`、`/training`、`/training/:tid`、`/discuss`、`/discuss/node/:name`、`/discuss/:did`、`/user/:uid`、`/login`
+- 登录后：`/record`、`/record/:rid`、`/admin`、`/admin/users`、`/p/new`、`/p/:pid/edit`、`/p/:pid/config`、`/p/:pid/files`、`/contest/new`、`/contest/:tid/edit`、`/contest/:tid/files`、`/homework/new`、`/homework/:tid/edit`、`/homework/:tid/files`、`/training/new`、`/training/:tid/edit`、`/training/:tid/files`、`/discuss/node/:name/create`、`/discuss/:did/edit`
+- `/discuss/new` 无节点参数时按上游行为回到讨论首页
+
+关键交互已在对应 PR 中逐项验证：
+
+| 交互 | 验证位置 |
+|---|---|
+| 登录 / 登出 | #97、#133 |
+| 题目搜索 / 分页 | #109 |
+| 比赛搜索 / 赛制筛选 | #111 |
+| 比赛报名 | #119 |
+| 比赛答疑提问 | #127 |
+| 榜单（封榜、记录链接、解封按钮位置） | #121 |
+| 作业认领 / 状态列 | #123 |
+| 训练报名 / 章节展开 / 状态列 | #115、#117 |
+| 讨论回复 / 楼中楼 / 编辑 / 删除 / 锁定 | #131 |
+| 用户主页标签页 / 活跃日历 | #133 |
+| 首页各区块 | #135 |
+
+## 7. 当前已知差异
 
 ```text
 页面：首页 / 登录 / 比赛 / 作业 / 训练 / 讨论列表 / 讨论详情 / 讨论创建与编辑 / 用户主页 / 题目列表 / 题目详情 / 题目编辑 / 比赛列表 / 比赛详情 / 比赛榜单 / 作业列表 / 作业详情 / 训练列表 / 训练详情 / 题目文件 / 题目提交 / 记录列表 / 记录详情
