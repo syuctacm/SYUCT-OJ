@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -182,6 +183,30 @@ func (s *FileStore) SaveUpload(rid, name string, reader io.Reader) error {
 		return err
 	}
 	return writeFile(path, reader)
+}
+
+func (s *FileStore) PutUserFile(uid int64, name string, reader io.Reader) (StoredFile, error) {
+	path, err := s.path("user", strconv.FormatInt(uid, 10), name)
+	if err != nil {
+		return StoredFile{}, err
+	}
+	return writeFileWithMetadata(path, name, reader)
+}
+
+func (s *FileStore) OpenUserFile(uid int64, name string) (io.ReadCloser, error) {
+	path, err := s.path("user", strconv.FormatInt(uid, 10), name)
+	if err != nil {
+		return nil, err
+	}
+	return os.Open(path)
+}
+
+func (s *FileStore) DeleteUserFile(uid int64, name string) error {
+	path, err := s.path("user", strconv.FormatInt(uid, 10), name)
+	if err != nil {
+		return err
+	}
+	return removeFile(path)
 }
 
 func (s *FileStore) path(parts ...string) (string, error) {

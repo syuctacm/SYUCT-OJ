@@ -30,6 +30,7 @@ import { ProblemsPage } from './pages/ProblemsPage.tsx'
 import { RecordsPage } from './pages/RecordsPage.tsx'
 import { SubmissionPage } from './pages/SubmissionPage.tsx'
 import { UserProfilePage } from './pages/UserProfilePage.tsx'
+import { UserFilesPage } from './pages/UserFilesPage.tsx'
 import { TrainingDetailPage } from './pages/TrainingDetailPage.tsx'
 import { TrainingEditPage } from './pages/TrainingEditPage.tsx'
 import { TrainingsPage } from './pages/TrainingsPage.tsx'
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="/user/:uid" element={<UserProfilePage />} />
         <Route path="/ranking" element={<RankingPage />} />
         <Route path="/home/settings" element={<HomeSettingsPage />} />
+        <Route path="/file" element={<UserFilesPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/d/:domainId/*" element={<LegacyDomainRedirect />} />
         <Route path="*" element={<Navigate to="/p" replace />} />

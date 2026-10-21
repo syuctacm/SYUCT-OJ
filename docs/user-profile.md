@@ -50,11 +50,21 @@ gravatar 需要 MD5，浏览器没有同步实现，因此在 `web/src/upstream/
 
 账号侧栏复用上游 `components/home.html`，只删掉了两个多域入口（重写版已删除多域），`/home/messages`、`/file`、`/home/security` 尚未实现，链接为占位。头像上传区块（`#upload_avatar`）未接入，页面会移除；头像仍可用 provider 文本填写。
 
+## 我的文件
+
+`/file` 由 `HydroTemplate` 渲染上游 `home_files.html`，文件表来自 `partials/files.html`：
+
+- 存储路径 `user/<uid>/<name>`，元数据写入用户文档的 `_files`
+- `GET/POST/DELETE /api/v1/user/files`，下载 `GET /api/v1/user/files/:name`
+- 配额沿用上游默认：最多 100 个文件、总计 128 MiB；重名上传返回 409
+- 上传、全选、批量删除、拖拽上传都挂在上游 DOM 上，React 只做事件适配
+- 账户侧栏「我的文件」入口随 `PRIV_CREATE_FILE` 显示并高亮
+
 ## 尚未完成
 
 - 微信图标和 `data-copy` 复制反馈（复制按钮当前无提示）
 - 头像上传（`#upload_avatar`）
-- 站内消息、我的文件、安全设置三个账户页
+- 站内消息和安全设置两个账户页
 - 获赞题解（当前显示 0）
 - 个人主页的账号自助侧栏（消息、设置、文件）暂不显示
 - 在线状态（当前统一显示离线）

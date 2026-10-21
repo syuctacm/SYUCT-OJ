@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+
+	"github.com/syuctacm/syuct-oj/internal/filemeta"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
@@ -18,26 +20,27 @@ import (
 var ErrNotFound = errors.New("user not found")
 
 type User struct {
-	ID              int64     `bson:"_id" json:"id"`
-	Mail            string    `bson:"mail" json:"email"`
-	MailLower       string    `bson:"mailLower" json:"-"`
-	Uname           string    `bson:"uname" json:"username"`
-	UnameLower      string    `bson:"unameLower" json:"-"`
-	Salt            string    `bson:"salt" json:"-"`
-	Hash            string    `bson:"hash" json:"-"`
-	HashType        string    `bson:"hashType" json:"-"`
-	Priv            int64     `bson:"priv" json:"priv"`
-	RegAt           time.Time `bson:"regat" json:"regAt"`
-	LoginAt         time.Time `bson:"loginat" json:"loginAt"`
-	DisplayName     string    `bson:"displayName" json:"displayName,omitempty"`
-	StudentID       string    `bson:"studentId" json:"studentId,omitempty"`
-	Avatar          string    `bson:"avatar" json:"avatar,omitempty"`
-	Bio             string    `bson:"bio" json:"bio,omitempty"`
-	QQ              string    `bson:"qq,omitempty" json:"qq,omitempty"`
-	Wechat          string    `bson:"wechat,omitempty" json:"wechat,omitempty"`
-	Gender          *int64    `bson:"gender,omitempty" json:"gender,omitempty"`
-	School          string    `bson:"school,omitempty" json:"school,omitempty"`
-	BackgroundImage string    `bson:"backgroundImage,omitempty" json:"backgroundImage,omitempty"`
+	ID              int64           `bson:"_id" json:"id"`
+	Mail            string          `bson:"mail" json:"email"`
+	MailLower       string          `bson:"mailLower" json:"-"`
+	Uname           string          `bson:"uname" json:"username"`
+	UnameLower      string          `bson:"unameLower" json:"-"`
+	Salt            string          `bson:"salt" json:"-"`
+	Hash            string          `bson:"hash" json:"-"`
+	HashType        string          `bson:"hashType" json:"-"`
+	Priv            int64           `bson:"priv" json:"priv"`
+	RegAt           time.Time       `bson:"regat" json:"regAt"`
+	LoginAt         time.Time       `bson:"loginat" json:"loginAt"`
+	DisplayName     string          `bson:"displayName" json:"displayName,omitempty"`
+	StudentID       string          `bson:"studentId" json:"studentId,omitempty"`
+	Avatar          string          `bson:"avatar" json:"avatar,omitempty"`
+	Bio             string          `bson:"bio" json:"bio,omitempty"`
+	QQ              string          `bson:"qq,omitempty" json:"qq,omitempty"`
+	Wechat          string          `bson:"wechat,omitempty" json:"wechat,omitempty"`
+	Gender          *int64          `bson:"gender,omitempty" json:"gender,omitempty"`
+	School          string          `bson:"school,omitempty" json:"school,omitempty"`
+	BackgroundImage string          `bson:"backgroundImage,omitempty" json:"backgroundImage,omitempty"`
+	Files           []filemeta.File `bson:"_files,omitempty" json:"-"`
 }
 
 type Group struct {
@@ -231,6 +234,41 @@ func (r *Repository) FindByID(ctx context.Context, id int64) (*User, error) {
 		return nil, err
 	}
 	return &u, nil
+}
+
+// Files lists the files a user uploaded to their own storage area.
+func (r *Repository) Files(ctx context.Context, uid int64) ([]filemeta.File, error) {
+	var doc struct {
+		Files []filemeta.File `bson:"_files"`
+	}
+	if err := r.collection.FindOne(ctx, bson.M{"_id": uid}).Decode(&doc); err != nil {
+		return nil, err
+	}
+	files := append([]filemeta.File(nil), doc.Files...)
+	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
+	return files, nil
+}
+
+// UpsertFile stores or replaces one entry of the user's `_files` list.
+func (r *Repository) UpsertFile(ctx context.Context, uid int64, file filemeta.File) error {
+	if err := filemeta.Upsert(ctx, r.collection, bson.M{"_id": uid}, "_files", file); err != nil {
+		if err == filemeta.ErrNotFound {
+			return fmt.Errorf("user not found")
+		}
+		return err
+	}
+	return nil
+}
+
+// DeleteFiles removes entries from the user's `_files` list.
+func (r *Repository) DeleteFiles(ctx context.Context, uid int64, names []string) error {
+	if err := filemeta.Delete(ctx, r.collection, bson.M{"_id": uid}, "_files", names); err != nil {
+		if err == filemeta.ErrNotFound {
+			return fmt.Errorf("user not found")
+		}
+		return err
+	}
+	return nil
 }
 
 // UpdateSettings applies a validated $set document to the user profile.
