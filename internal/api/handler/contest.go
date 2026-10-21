@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -30,6 +31,9 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/contests/:tid/attend", h.attend)
 	router.GET("/api/v1/contests/:tid/problems", h.problems)
 	router.GET("/api/v1/contests/:tid/scoreboard", h.scoreboard)
+	router.GET("/api/v1/contests/:tid/clarifications", h.clarifications)
+	router.POST("/api/v1/contests/:tid/clarifications", h.addClarification)
+	router.POST("/api/v1/contests/:tid/clarifications/:cid/reply", h.replyClarification)
 }
 
 func (h *ContestHandler) list(c *gin.Context) {
@@ -158,6 +162,129 @@ func (h *ContestHandler) attend(c *gin.Context) {
 		"code": 0, "message": "success",
 		"data": gin.H{"attended": true, "changed": changed},
 	})
+}
+
+func (h *ContestHandler) clarifications(c *gin.Context) {
+	u, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	item, err := h.repo.Get(c.Request.Context(), c.Param("tid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+		return
+	}
+	all := u.ID == item.Owner || u.Priv&1 != 0 || containsInt64(item.Maintainer, u.ID)
+	items, err := h.repo.ListClarifications(c.Request.Context(), c.Param("tid"), u.ID, all)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list clarifications"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"items": items, "total": len(items)},
+	})
+}
+
+func (h *ContestHandler) addClarification(c *gin.Context) {
+	u, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	item, err := h.repo.Get(c.Request.Context(), c.Param("tid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+		return
+	}
+	if item.Rule == "homework" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "homework does not support clarifications"})
+		return
+	}
+	attended, err := h.repo.Attended(c.Request.Context(), c.Param("tid"), u.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest attendance"})
+		return
+	}
+	if !attended {
+		c.JSON(http.StatusForbidden, gin.H{"error": "contest not attended"})
+		return
+	}
+	now := time.Now()
+	if now.Before(item.BeginAt) || now.After(item.EndAt) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "contest is not running"})
+		return
+	}
+	var request struct {
+		Subject int64  `json:"subject"`
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	created, err := h.repo.AddClarification(c.Request.Context(), c.Param("tid"), u.ID, request.Subject, request.Content)
+	if err != nil {
+		if errors.Is(err, contest.ErrInvalidClarificationSubject) || errors.Is(err, contest.ErrEmptyClarificationContent) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, contest.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to add clarification"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": created})
+}
+
+func (h *ContestHandler) replyClarification(c *gin.Context) {
+	u, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	item, err := h.repo.Get(c.Request.Context(), c.Param("tid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+		return
+	}
+	if u.ID != item.Owner && u.Priv&1 == 0 && !containsInt64(item.Maintainer, u.ID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	var request struct {
+		Content string `json:"content"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	updated, err := h.repo.AddClarificationReply(c.Request.Context(), c.Param("cid"), u.ID, request.Content)
+	if err != nil {
+		if errors.Is(err, contest.ErrClarificationNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "clarification not found"})
+			return
+		}
+		if errors.Is(err, contest.ErrEmptyClarificationContent) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to reply clarification"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": updated})
+}
+
+func containsInt64(values []int64, target int64) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *ContestHandler) requireAdmin(c *gin.Context) (*user.User, bool) {

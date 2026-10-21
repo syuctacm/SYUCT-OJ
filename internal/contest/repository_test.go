@@ -167,6 +167,45 @@ func TestContestRepositoryIntegration(t *testing.T) {
 		t.Fatalf("invalid id error = %v", err)
 	}
 
+	created, err := repo.AddClarification(ctx, newID.Hex(), 7, 1, "题目一的时间限制是多少？")
+	if err != nil || created.Subject != 1 || created.Content == "" || created.Owner != 7 {
+		t.Fatalf("add clarification: %+v err=%v", created, err)
+	}
+	own, err := repo.ListClarifications(ctx, newID.Hex(), 7, false)
+	if err != nil || len(own) != 1 || own[0].ID != created.ID {
+		t.Fatalf("list own clarifications: %+v err=%v", own, err)
+	}
+	if others, err := repo.ListClarifications(ctx, newID.Hex(), 8, false); err != nil || len(others) != 0 {
+		t.Fatalf("clarifications should be private: %+v err=%v", others, err)
+	}
+	jury, err := repo.AddClarification(ctx, newID.Hex(), 0, 0, "请注意比赛纪律。")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if others, err := repo.ListClarifications(ctx, newID.Hex(), 8, false); err != nil || len(others) != 1 || others[0].ID != jury.ID {
+		t.Fatalf("jury announcements should be visible: %+v err=%v", others, err)
+	}
+	all, err := repo.ListClarifications(ctx, newID.Hex(), 1, true)
+	if err != nil || len(all) != 2 {
+		t.Fatalf("list all clarifications: %+v err=%v", all, err)
+	}
+	replied, err := repo.AddClarificationReply(ctx, created.ID.Hex(), 1, "1000ms。")
+	if err != nil || len(replied.Reply) != 1 || replied.Reply[0].Content != "1000ms。" {
+		t.Fatalf("reply clarification: %+v err=%v", replied, err)
+	}
+	if _, err := repo.AddClarification(ctx, newID.Hex(), 7, 999, "bad"); err != contest.ErrInvalidClarificationSubject {
+		t.Fatalf("invalid subject error = %v", err)
+	}
+	if _, err := repo.AddClarification(ctx, newID.Hex(), 7, 1, "   "); err != contest.ErrEmptyClarificationContent {
+		t.Fatalf("empty content error = %v", err)
+	}
+	if _, err := repo.AddClarificationReply(ctx, "invalid", 1, "x"); err != contest.ErrClarificationNotFound {
+		t.Fatalf("invalid clarification id error = %v", err)
+	}
+	if _, err := repo.AddClarification(ctx, "invalid", 7, 0, "x"); err != contest.ErrNotFound {
+		t.Fatalf("invalid contest id error = %v", err)
+	}
+
 	attended, err := repo.Attended(ctx, newID.Hex(), 10)
 	if err != nil || attended {
 		t.Fatalf("unexpected initial attendance: attended=%v err=%v", attended, err)

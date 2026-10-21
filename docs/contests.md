@@ -12,6 +12,9 @@
 | PATCH | `/api/v1/contests/:tid` | 更新比赛 |
 | GET | `/api/v1/contests/:tid/problems` | 比赛题目列表 |
 | GET | `/api/v1/contests/:tid/scoreboard` | ACM 榜单（含参赛者、每题 AC 记录 id） |
+| GET | `/api/v1/contests/:tid/clarifications` | 答疑列表（jury 公告 + 自己的提问） |
+| POST | `/api/v1/contests/:tid/clarifications` | 提问（需报名且比赛进行中） |
+| POST | `/api/v1/contests/:tid/clarifications/:cid/reply` | 答疑回复（所有者/维护者/管理员） |
 
 数据直接读取 Hydro `document` 集合中的 `docType=30` 文档。列表支持 `q` 标题搜索和 `rule` 赛制筛选。
 
@@ -35,6 +38,8 @@
 比赛详情不再内嵌题目列表和榜单，改为原版结构下的独立路由 `/contest/:tid/problems` 和 `/contest/:tid/scoreboard`（题目列表目前仍是手写表格，榜单已迁移到上游模板）。题目行提供带 `contest` 参数的提交入口，提交会写入比赛关联并进入榜单。比赛结束或未开始时后端拒绝比赛提交。
 
 比赛报名写入 `document.status`（`docType=30`, `attend=1`），重复报名幂等，首次报名递增 `attend` 人数。详情页返回当前登录用户的 `attended` 状态，未登录显示登录入口，报名后侧栏显示已参加状态、题目列表和我的递交入口。
+
+答疑沿用 Hydro `document` 集合布局：`docType=31`、`parentType=30`、`parentId=比赛 docId`，`owner=0` 表示 jury 公告，`reply` 保存回复数组。普通参赛者只能看到 jury 公告和自己的提问；比赛所有者、维护者和管理员可以看到全部答疑。提问要求已报名且比赛进行中，回复仅限所有者/维护者/管理员。
 
 榜单页把榜单 API 的数据转换成上游 `partials/scoreboard.html` 需要的行列结构：`rank`/`user`/`solved` 列加上每题 `problem`/`record` 单元，题目表头显示本场比赛的过题/提交数，AC 和失败提交都能链接到对应记录（`rid`）。已报名但没有提交的用户也会以 0 分出现在榜单上。封榜时显示原版提示，封榜后的提交不计入榜单。
 
@@ -64,4 +69,5 @@
 - 首次通过高亮
 - 提前结束比赛操作
 - OI 等赛制榜单和封榜后的解封逻辑
-- 封榜、打印、气球、答疑
+- 封榜、打印、气球
+- 比赛题目列表页的答疑区块（API 已完成，页面待迁移）
