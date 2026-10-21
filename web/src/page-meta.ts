@@ -42,6 +42,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/discuss/new') return basic('discussion_create', '创建讨论')
   if (/^\/discuss\/node\/[^/]+\/create\/?$/.test(pathname)) return basic('discussion_create', '创建讨论')
   if (/^\/discuss\/[^/]+\/edit\/?$/.test(pathname)) return basic('discussion_edit', '编辑讨论')
+  if (/^\/discuss\/node\/[^/]+\/?$/.test(pathname)) return basic('discussion_node', '讨论节点')
   if (/^\/discuss\/[^/]+\/?$/.test(pathname)) return basic('discussion_detail', '讨论详情')
   if (/^\/user\/[^/]+\/?$/.test(pathname)) return basic('user_detail', '用户主页')
   if (pathname === '/admin/users') return basic('manage_user_priv', '用户权限')

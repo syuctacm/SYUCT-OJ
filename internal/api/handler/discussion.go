@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +39,8 @@ func (h *DiscussionHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *DiscussionHandler) list(c *gin.Context) {
-	items, err := h.repo.List(c.Request.Context())
+	parentType, _ := strconv.ParseInt(c.Query("parentType"), 10, 64)
+	items, err := h.repo.ListFiltered(c.Request.Context(), parentType, c.Query("parentId"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list discussions"})
 		return

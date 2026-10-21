@@ -33,8 +33,8 @@ func TestDiscussionRepositoryIntegration(t *testing.T) {
 	firstID := bson.NewObjectID()
 	secondID := bson.NewObjectID()
 	_, err = db.Collection("document").InsertMany(ctx, []any{
-		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 21, "docId": firstID, "title": "普通讨论", "owner": int64(1), "updateAt": time.Now().Add(-time.Hour), "nReply": int64(2), "views": int64(3)},
-		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 21, "docId": secondID, "title": "置顶讨论", "owner": int64(2), "updateAt": time.Now().Add(-2 * time.Hour), "nReply": int64(4), "views": int64(5), "pin": true, "content": "# 内容"},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 21, "docId": firstID, "title": "普通讨论", "owner": int64(1), "updateAt": time.Now().Add(-time.Hour), "nReply": int64(2), "views": int64(3), "parentType": int64(20), "parentId": "qa"},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 21, "docId": secondID, "title": "置顶讨论", "owner": int64(2), "updateAt": time.Now().Add(-2 * time.Hour), "nReply": int64(4), "views": int64(5), "pin": true, "content": "# 内容", "parentType": int64(20), "parentId": "advice"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -46,6 +46,20 @@ func TestDiscussionRepositoryIntegration(t *testing.T) {
 	}
 	if len(items) != 2 || items[0].Title != "置顶讨论" {
 		t.Fatalf("unexpected discussions: %+v", items)
+	}
+	qa, err := repo.ListFiltered(ctx, 20, "qa")
+	if err != nil || len(qa) != 1 || qa[0].Title != "普通讨论" {
+		t.Fatalf("filter by node: %+v err=%v", qa, err)
+	}
+	advice, err := repo.ListFiltered(ctx, 20, "advice")
+	if err != nil || len(advice) != 1 || advice[0].Title != "置顶讨论" {
+		t.Fatalf("filter by advice node: %+v err=%v", advice, err)
+	}
+	if all, err := repo.ListFiltered(ctx, 20, ""); err != nil || len(all) != 2 {
+		t.Fatalf("filter by parent type only: %+v err=%v", all, err)
+	}
+	if none, err := repo.ListFiltered(ctx, 30, ""); err != nil || len(none) != 0 {
+		t.Fatalf("unexpected contests discussions: %+v err=%v", none, err)
 	}
 	found, err := repo.Get(ctx, secondID.Hex())
 	if err != nil {

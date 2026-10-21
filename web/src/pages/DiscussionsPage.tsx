@@ -1,130 +1,154 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { getDiscussionNodes, getDiscussions, type Discussion, type DiscussionNode } from '../api.ts'
+// Page markup is rendered from the pinned Hydro ui-default template. Keep this
+// file limited to data mapping and request handling.
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import {
+  getDiscussionNodes, getDiscussions, getUsersByIDs,
+  type Discussion, type DiscussionNode, type UserChoice,
+} from '../api.ts'
 import { useAuth } from '../auth.tsx'
+import { HydroTemplate } from '../components/HydroTemplate.tsx'
 
 export function DiscussionsPage() {
-  const { user } = useAuth()
+  const { name: nodeName } = useParams()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const selectedNode = searchParams.get('node') ?? ''
+  const legacyNode = searchParams.get('node') ?? ''
+  const { user } = useAuth()
+  const isNode = Boolean(nodeName)
   const [items, setItems] = useState<Discussion[]>([])
   const [nodes, setNodes] = useState<DiscussionNode[]>([])
-  const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState<UserChoice[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([getDiscussions(), getDiscussionNodes()])
-      .then(([nextItems, nextNodes]) => {
-        setItems(nextItems)
+    if (legacyNode && !isNode) {
+      navigate(`/discuss/node/${encodeURIComponent(legacyNode)}`, { replace: true })
+    }
+  }, [isNode, legacyNode, navigate])
+
+  useEffect(() => {
+    setLoaded(false)
+    setError('')
+    Promise.all([
+      getDiscussions(isNode ? { parentType: 20, parentId: nodeName } : {}),
+      getDiscussionNodes(),
+    ])
+      .then(([discussions, nextNodes]) => {
+        setItems(discussions)
         setNodes(nextNodes)
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '讨论加载失败'))
-      .finally(() => setLoading(false))
+      .finally(() => setLoaded(true))
+  }, [isNode, nodeName])
+
+  useEffect(() => {
+    const ids = [...new Set(items.map((item) => item.owner))].filter((id) => id > 0)
+    if (!ids.length) {
+      setUsers([])
+      return
+    }
+    getUsersByIDs(ids).then(setUsers).catch(() => setUsers([]))
+  }, [items])
+
+  const vnode = useMemo(
+    () => (isNode ? nodes.find((node) => node.docId === nodeName) ?? null : null),
+    [isNode, nodeName, nodes],
+  )
+
+  const context = useMemo(() => {
+    const vnodes = nodes.map((node) => ({
+      docId: node.docId,
+      title: node.title,
+      content: node.category,
+      pic: node.pic ?? '',
+    }))
+    const vndict: Record<string, Record<string, { title: string }>> = { '20': {} }
+    for (const node of nodes) vndict['20'][node.docId] = { title: node.title || node.docId }
+    const ddocs = items.map((item) => ({
+      ...item,
+      _id: item.docId,
+      updateAt: new Date(item.updateAt),
+    }))
+    const udict = Object.fromEntries(users.map((item) => [String(item.id), {
+      _id: item.id,
+      uname: item.username,
+      displayName: item.displayName ?? '',
+      avatar: item.avatar ?? '',
+    }]))
+    return {
+      page_name: isNode ? 'discussion_node' : 'discussion_main',
+      ddocs,
+      udict,
+      vndict,
+      vnodes,
+      vnode: vnode ? {
+        _id: vnode.docId,
+        id: vnode.docId,
+        docId: vnode.docId,
+        type: 20,
+        title: vnode.title,
+        pic: vnode.pic ?? '',
+      } : {},
+      handler: {
+        user: {
+          _id: user?.id ?? 0,
+          viewLang: 'zh',
+          _dudoc: { join: true },
+          hasPerm: (permission: number) => permission === 1 && Boolean(user),
+          hasPriv: (privilege: number) => privilege === 1 && Boolean(user),
+          own: (doc?: unknown) => Boolean(user && doc && (doc as { owner?: number }).owner === user.id),
+        },
+        args: { domainId: 'system' },
+        request: {
+          query: {},
+          path: isNode ? `/discuss/node/${nodeName}` : '/discuss',
+          headers: { 'user-agent': navigator.userAgent },
+        },
+        session: { legacy: false, viewLang: 'zh' },
+        ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+      },
+      perm: { PERM_CREATE_DISCUSSION: 1, PERM_EDIT_DISCUSSION: 2 },
+      PRIV: { PRIV_USER_PROFILE: 1 },
+      model: {
+        document: { TYPE_PROBLEM: 10, TYPE_CONTEST: 30, TYPE_DISCUSSION_NODE: 20, TYPE_TRAINING: 40 },
+        discussion: { typeDisplay: { 10: 'problem', 20: 'node', 30: 'contest', 40: 'training' } },
+      },
+      avatarUrl: (value?: string) => value || '/logo.png',
+      UiContext: {},
+      UserContext: user,
+    }
+  }, [isNode, items, nodeName, nodes, user, users, vnode])
+
+  const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
+    switch (name) {
+      case 'discussion_main': return '/discuss'
+      case 'discussion_detail': {
+        const did = encodeURIComponent(String(args.did ?? ''))
+        return `/discuss/${did}${args.anchor ? `#${args.anchor}` : ''}`
+      }
+      case 'discussion_node': return `/discuss/node/${encodeURIComponent(String(args.name ?? ''))}`
+      case 'discussion_create': return `/discuss/node/${encodeURIComponent(String(args.name ?? ''))}/create`
+      case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+      default: return '/'
+    }
   }, [])
 
-  const filteredItems = selectedNode
-    ? items.filter((item) => item.parentType === 20 && item.parentId === selectedNode)
-    : items
-  const currentTitle = nodes.find((node) => node.docId === selectedNode)?.title || '讨论'
-  const groupedNodes = useMemo(() => {
-    const groups = new Map<string, DiscussionNode[]>()
-    for (const node of nodes) {
-      const values = groups.get(node.category) ?? []
-      values.push(node)
-      groups.set(node.category, values)
-    }
-    return Array.from(groups.entries())
-  }, [nodes])
-
+  if (error) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  }
+  if (!loaded) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
+  }
+  if (isNode && !vnode) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">讨论节点不存在</div></div></div>
+  }
   return (
-    <div className="row">
-      <div className="medium-9 columns">
-        <div className="section">
-          <div className="section__header">
-            <h1 className="section__title">{currentTitle}</h1>
-          </div>
-          {loading ? <div className="nothing-placeholder">加载中...</div> : null}
-          {error ? <div className="nothing-placeholder error-state">{error}</div> : null}
-          {!loading && !error && filteredItems.length === 0 ? (
-            <div className="nothing-placeholder">
-              <div className="nothing-icon" />
-              暂无讨论
-            </div>
-          ) : null}
-          {!loading && !error && filteredItems.length > 0 ? (
-            <ol className="section__list discussion__list">
-              {filteredItems.map((item) => (
-                <li className={`section__list__item discussion__item${item.highlight ? ' highlight' : ''}`} key={item.id}>
-                  <div className="media">
-                    <div className="media__left">
-                      <div className="discussion__replies numbox">
-                        <div className="numbox__num large">{item.nReply}</div>
-                        <div className="numbox__text">回复</div>
-                      </div>
-                    </div>
-                    <div className="media__body top">
-                      <h1 className="discussion__title">
-                        <Link to={`/discuss/${item.docId}`}>{item.title}</Link>
-                      </h1>
-                      <ul className="supplementary list">
-                        <li>
-                          <Link className="discussion-node-tag" to={`/discuss?node=${encodeURIComponent(String(item.parentId ?? ''))}`}>
-                            <span className="v-center icon icon-flag" />
-                            {item.parentTitle || String(item.parentId || '讨论')}
-                          </Link>
-                        </li>
-                        <li>{item.views} 浏览</li>
-                        <li>
-                          <Link to={`/user/${item.owner}`}>UID {item.owner}</Link>
-                          {' @ '}
-                          {new Date(item.updateAt).toLocaleString('zh-CN', { hour12: false })}
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          ) : null}
-        </div>
-      </div>
-      <div className="medium-3 columns">
-        <div className="section side">
-          <div className="section__header">
-            <h1 className="section__title">{selectedNode ? currentTitle : '创建讨论'}</h1>
-          </div>
-          <div className="section__body">
-            {user && selectedNode ? (
-              <p><Link to={`/discuss/node/${encodeURIComponent(selectedNode)}/create`} className="expanded primary button">创建讨论</Link></p>
-            ) : user ? (
-              <p>选择一个讨论节点后创建讨论。</p>
-            ) : (
-              <p><Link to="/login" className="expanded primary button">登录后创建讨论</Link></p>
-            )}
-          </div>
-        </div>
-        <div className="section side">
-          <div className="section__header">
-            <h1 className="section__title">讨论节点</h1>
-          </div>
-          <div className="section__body">
-            <ul className="group-list">
-              {groupedNodes.map(([category, values]) => (
-                <li className="group-list__item" key={category}>
-                  <h2 className="section__title">{category}</h2>
-                  <ol className="chip-list">
-                    {values.map((node) => (
-                      <li className="chip-list__item" key={node.docId}>
-                        <Link className="typo-a" to={`/discuss?node=${encodeURIComponent(node.docId)}`}>{node.title || node.docId}</Link>
-                      </li>
-                    ))}
-                  </ol>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
+    <HydroTemplate
+      template="discussion_main_or_node.html"
+      context={context}
+      url={buildUrl}
+    />
   )
 }
