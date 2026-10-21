@@ -101,6 +101,21 @@
 
 投票沿用 Hydro 的增量语义：重复投同一票是空操作，改票只累计差值。未登录用户可浏览，登录用户可以发表、投票和回复。
 
+## 题目统计
+
+`/p/:pid/statistics` 直接渲染上游 `problem_statistics.html`：
+
+- 状态饼图和分数柱状图由 echarts 绘制，数据来自 `GET /api/v1/problems/:pid/statistics`
+- 提交表格支持 `sort`（`time` / `memory` / `length` / `date`）、`direction`（`1` / `-1`）和 `lang` 过滤，改动下拉框即提交
+- 表格里的代码大小由 `$strLenCP(code)` 在 MongoDB 侧计算，响应里不带代码本身
+- 统计数字按需聚合 `record` 集合（状态计数 + 0..100 分数直方图），不依赖上游的 `problemStat` 离线脚本
+
+接口：
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/api/v1/problems/:pid/statistics` | `page` / `limit` / `sort` / `direction` / `lang` |
+
 ## FPS 导入
 
 迁移自上游 `fps-importer` 插件（`/problem/import/fps`，仅管理员）：

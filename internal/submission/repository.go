@@ -52,6 +52,7 @@ type Record struct {
 	Rejudged      bool           `bson:"rejudged" json:"rejudged"`
 	Source        string         `bson:"source" json:"source,omitempty"`
 	Contest       *bson.ObjectID `bson:"contest,omitempty" json:"contest,omitempty"`
+	Length        int            `bson:"length" json:"length,omitempty"`
 	Problem       *ProblemInfo   `bson:"-" json:"problem,omitempty"`
 	Submitter     *UserInfo      `bson:"-" json:"submitter,omitempty"`
 	CreatedAt     time.Time      `bson:"-" json:"createdAt"`
@@ -438,4 +439,163 @@ func configMap(value any) (map[string]any, error) {
 	default:
 		return nil, fmt.Errorf("unsupported problem config type %T", value)
 	}
+}
+
+// StatisticsSorts are the sort keys the problem statistics page accepts,
+// mirroring Hydro's record.STAT_QUERY.
+var StatisticsSorts = []string{"time", "memory", "length", "date"}
+
+// StatisticsFilter selects one page of a problem's submissions plus the
+// aggregated per-status and per-score counters.
+type StatisticsFilter struct {
+	DocID     int64
+	Lang      string
+	Sort      string
+	Direction int
+	Page      int
+	Limit     int
+}
+
+type StatisticsResult struct {
+	Items []Record
+	Total int64
+	Stats map[string]int64
+}
+
+func normalizeStatisticsFilter(filter StatisticsFilter) StatisticsFilter {
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.Limit < 1 || filter.Limit > 100 {
+		filter.Limit = 20
+	}
+	valid := false
+	for _, sort := range StatisticsSorts {
+		if filter.Sort == sort {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		filter.Sort = "time"
+	}
+	if filter.Direction != -1 {
+		filter.Direction = 1
+	}
+	return filter
+}
+
+// Statistics returns the submission list of one problem, sorted and filtered
+// like the upstream statistics page, together with the status/score counters
+// the charts need.
+func (r *Repository) Statistics(ctx context.Context, filter StatisticsFilter) (*StatisticsResult, error) {
+	filter = normalizeStatisticsFilter(filter)
+	match := bson.M{"domainId": "system", "pid": filter.DocID}
+	if filter.Lang != "" {
+		match["lang"] = filter.Lang
+	}
+	sortKey := filter.Sort
+	sort := bson.D{{Key: sortKey, Value: filter.Direction}, {Key: "_id", Value: -1}}
+	if sortKey == "date" {
+		sort = bson.D{{Key: "_id", Value: filter.Direction}}
+	}
+	pipeline := []bson.M{
+		{"$match": match},
+		// `length` is the code size shown in the table; the code itself stays
+		// out of the payload.
+		{"$addFields": bson.M{"length": bson.M{"$strLenCP": bson.M{"$ifNull": []any{"$code", ""}}}}},
+		{"$project": bson.M{"code": 0, "judgeTexts": 0, "compilerTexts": 0, "testCases": 0}},
+		{"$sort": sort},
+		{"$facet": bson.M{
+			"items": []any{
+				bson.M{"$skip": int64((filter.Page - 1) * filter.Limit)},
+				bson.M{"$limit": int64(filter.Limit)},
+			},
+			"total": []any{bson.M{"$count": "value"}},
+		}},
+	}
+	cursor, err := r.records.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var page struct {
+		Items []Record `bson:"items"`
+		Total []struct {
+			Value int64 `bson:"value"`
+		} `bson:"total"`
+	}
+	if cursor.Next(ctx) {
+		if err := cursor.Decode(&page); err != nil {
+			return nil, err
+		}
+	}
+	result := &StatisticsResult{Items: page.Items, Stats: map[string]int64{}}
+	if len(page.Total) > 0 {
+		result.Total = page.Total[0].Value
+	}
+	for i := range result.Items {
+		result.Items[i].CreatedAt = result.Items[i].ID.Timestamp()
+	}
+	if err := r.enrich(ctx, result.Items); err != nil {
+		return nil, err
+	}
+	stats, err := r.problemStatistics(ctx, filter.DocID)
+	if err != nil {
+		return nil, err
+	}
+	result.Stats = stats
+	return result, nil
+}
+
+// problemStatistics aggregates the status counters and the 0..100 score
+// histogram, the same numbers Hydro's problemStat script stores on the problem.
+func (r *Repository) problemStatistics(ctx context.Context, docID int64) (map[string]int64, error) {
+	group := bson.M{"_id": nil, "total": bson.M{"$sum": 1}}
+	for name, status := range map[string]int{
+		"AC": StatusAccepted, "WA": 2, "TLE": 3, "MLE": 4,
+		"RE": 6, "CE": 7, "SE": 8, "IGN": 9,
+	} {
+		group[name] = bson.M{"$sum": bson.M{"$cond": []any{
+			bson.M{"$eq": []any{"$status", status}}, 1, 0,
+		}}}
+	}
+	for score := 0; score <= 100; score++ {
+		group[fmt.Sprintf("s%d", score)] = bson.M{"$sum": bson.M{"$cond": []any{
+			bson.M{"$and": []any{
+				bson.M{"$gte": []any{"$score", score}},
+				bson.M{"$lt": []any{"$score", score + 1}},
+			}}, 1, 0,
+		}}}
+	}
+	cursor, err := r.records.Aggregate(ctx, []bson.M{
+		{"$match": bson.M{"domainId": "system", "pid": docID}},
+		{"$group": group},
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	stats := map[string]int64{}
+	if !cursor.Next(ctx) {
+		return stats, cursor.Err()
+	}
+	var raw bson.M
+	if err := cursor.Decode(&raw); err != nil {
+		return nil, err
+	}
+	for key, value := range raw {
+		if key == "_id" {
+			continue
+		}
+		switch current := value.(type) {
+		case int32:
+			stats[key] = int64(current)
+		case int64:
+			stats[key] = current
+		case float64:
+			stats[key] = int64(current)
+		}
+	}
+	return stats, cursor.Err()
 }

@@ -1367,3 +1367,45 @@ export async function importFPSProblems(file: File): Promise<FPSImportResult> {
   })
   return result.data
 }
+
+export type ProblemStatSubmission = {
+  id: string
+  uid: number
+  pid: number
+  status: number
+  score: number
+  time: number
+  memory: number
+  length?: number
+  lang: string
+  createdAt: string
+}
+
+export type ProblemStatisticsData = {
+  items: ProblemStatSubmission[]
+  total: number
+  page: number
+  limit: number
+  sort: string
+  direction: number
+  stats: Record<string, number>
+  users: UserChoice[]
+  problem: { docId: number; pid: string; title: string; owner: number }
+  sorts: string[]
+}
+
+export async function getProblemStatistics(
+  pid: string,
+  options: { page?: number; sort?: string; direction?: number; lang?: string } = {},
+): Promise<ProblemStatisticsData> {
+  const params = new URLSearchParams({
+    page: String(options.page ?? 1),
+    sort: options.sort ?? 'time',
+    direction: String(options.direction ?? 1),
+  })
+  if (options.lang) params.set('lang', options.lang)
+  const result = await request<Envelope<ProblemStatisticsData>>(
+    `/api/v1/problems/${encodeURIComponent(pid)}/statistics?${params.toString()}`,
+  )
+  return result.data
+}

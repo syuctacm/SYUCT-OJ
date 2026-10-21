@@ -186,7 +186,7 @@ export function ProblemSolutionPage() {
       problem_files: `/p/${id}/files`,
       problem_config: `/p/${id}/config`,
       problem_edit: `/p/${id}/edit`,
-      problem_statistics: `/p/${id}`,
+      problem_statistics: `/p/${id}/statistics`,
       problem_solution: `/p/${id}/solution`,
       problem_solution_detail: `/p/${id}/solution/${encodeURIComponent(String(args.sid ?? ''))}`,
       problem_solution_raw: '#',
@@ -316,9 +316,6 @@ export function ProblemSolutionPage() {
     // The pinned template ships a no-JS fallback; this app always runs JavaScript.
     root.querySelectorAll('div.hasjs--hide').forEach((element) => element.classList.remove('hasjs--hide'))
     root.querySelectorAll('.dczcomments__dummy-box').forEach((element) => element.closest('.nojs--hide')?.remove())
-    // The statistics page is not ported yet; keep the sidebar in sync with the
-    // other problem pages, which hide the same entry.
-    root.querySelector('.icon-statistics')?.closest('li')?.remove()
     // The commentbox script hides the cancel button until a box is in edit mode.
     root.querySelectorAll('form.dczcomments__box').forEach((form) => {
       if (form.querySelector<HTMLInputElement>('input[name="operation"]')?.value === 'submit') {

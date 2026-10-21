@@ -36,7 +36,6 @@ export function ProblemDetailPage() {
     const cleanups: Array<() => void> = []
     root.querySelectorAll('[name="problem-sidebar__download"], [name="problem-sidebar__copy"]')
       .forEach((element) => element.closest('li')?.remove())
-    root.querySelector('.icon-statistics')?.closest('li')?.remove()
 
     for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
       const operation = form.querySelector<HTMLInputElement>('input[name="operation"]')?.value
@@ -171,7 +170,7 @@ export function ProblemDetailPage() {
             problem_solution: `/p/${id}/solution`,
           problem_config: `/p/${id}/config`,
           problem_edit: `/p/${id}/edit`,
-          problem_statistics: `/p/${id}`,
+          problem_statistics: `/p/${id}/statistics`,
           problem_hack: `/p/${id}`,
           record_main: `/record${query.pid ? `?pid=${encodeURIComponent(String(query.pid))}` : ''}`,
           record_detail: `/record/${encodeURIComponent(String(args.rid ?? ''))}`,

@@ -25,6 +25,15 @@ func NewSubmissionHandler(repo *submission.Repository, sessions *auth.SessionMan
 	return &SubmissionHandler{repo: repo, sessions: sessions, contests: contests, users: users}
 }
 
+// Repository exposes the submission store for handlers that need read-only
+// access to records (the problem statistics page).
+func (h *SubmissionHandler) Repository() *submission.Repository {
+	if h == nil {
+		return nil
+	}
+	return h.repo
+}
+
 func (h *SubmissionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/submissions", h.create)
 	router.GET("/api/v1/submissions", h.list)
