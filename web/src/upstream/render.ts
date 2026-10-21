@@ -42,6 +42,26 @@ sources.set('layout/basic.html', '{% block content %}{% endblock %}')
 sources.set('layout/immersive.html', '{% block content %}{% endblock %}')
 sources.set('layout/html5.html', '{% block body %}{% block content %}{% endblock %}{% endblock %}')
 
+// Single-site deployment: the upstream account sidebar links to domain
+// settings, which this rewrite dropped. The rest of the macro is upstream.
+sources.set('components/home.html', `{% import "components/sidemenu.html" as sidemenu with context %}
+{% macro render_sidebar() %}
+<div class="section side">
+  <ol class="menu">
+    {{ sidemenu.render_item('account--circle', 'user_detail', {uid:handler.user._id}, label='My Profile') }}
+    {{ sidemenu.render_item('comment--multiple', 'home_messages') }}
+    <li class="menu__seperator"></li>
+    {% if handler.user.hasPriv(PRIV.PRIV_CREATE_FILE) %}
+      {{ sidemenu.render_item('file', 'home_files', label='My Files') }}
+      <li class="menu__seperator"></li>
+    {% endif %}
+    {{ sidemenu.render_item('wrench', 'home_settings', {category:'account'}, label='Account Settings', menu_item='home_account') }}
+    {{ sidemenu.render_item('sliders', 'home_settings', {category:'preference'}, label='Preference Settings', menu_item='home_preference')}}
+    {{ sidemenu.render_item('security', 'home_security') }}
+  </ol>
+</div>
+{% endmacro %}`)
+
 const translations = yaml.load(zhYaml) as TranslationMap
 
 const loader = {
@@ -67,6 +87,12 @@ env.addFilter('toString', (value: unknown) => String(value ?? ''))
 env.addFilter('contentLang', () => ['zh'])
 env.addFilter('content', (value: unknown) => value)
 env.addFilter('bitand', (left: unknown, right: unknown) => Number(left) & Number(right))
+env.addFilter('base64_encode', (value: unknown) => {
+  const bytes = new TextEncoder().encode(String(value ?? ''))
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
+})
 env.addFilter('ansi', (value: unknown) => String(value ?? '')
   .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
   .replace(/&/g, '&amp;')
@@ -178,7 +204,17 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     datetimeSpan,
     findSubModule: () => [],
     templateExists: (name: string) => sources.has(name),
-    model: { builtin: { STATUS_CODES, STATUS_TEXTS, STATUS_SHORT_TEXTS } },
+    model: {
+      builtin: {
+        STATUS_CODES, STATUS_TEXTS, STATUS_SHORT_TEXTS,
+        // packages/common/status.ts
+        USER_GENDER_MALE: 0,
+        USER_GENDER_FEMALE: 1,
+        USER_GENDER_OTHER: 2,
+        USER_GENDER_RANGE: { 0: 'Boy ♂', 1: 'Girl ♀', 2: 'Other' },
+        USER_GENDER_ICONS: { 0: '♂', 1: '♀', 2: '?' },
+      },
+    },
     utils: {
       status: { getScoreColor },
       getAlphabeticId: (index: number) => String.fromCharCode(65 + index),

@@ -37,10 +37,24 @@ gravatar 需要 MD5，浏览器没有同步实现，因此在 `web/src/upstream/
 
 所有页面和两个用户自动补全组件都使用同一个 `avatarUrl()`，不再各自内联 `value || '/logo.png'`。
 
+## 账户设置
+
+`/home/settings?category=account` 由 `HydroTemplate` 直接渲染上游 `home_settings.html` + `partials/setting.html`，字段来自 `packages/hydrooj/src/model/setting.ts` 的 `AccountSetting(...)`：
+
+- 个人信息：Avatar、QQ、Gender、Bio（挂原版 Markdown 编辑器）、School、Student ID，Phone 保持 disabled
+- 个性化：个人主页背景图
+
+`PATCH /api/v1/user/settings` 校验规则：头像必须是 `gravatar:` / `qq:` / `github:` / `url:` 形式（与上游 `avatar.validate()` 一致），性别 0-2，背景图不允许空白/引号/括号，QQ ≤32、Bio ≤10000、School ≤100、Student ID ≤64。
+
+`school` 和 `studentId` 按上游 `FLAG_PRIVATE` 处理：只有本人和管理员能从 `/api/v1/users/:uid` 读到；`qq`、`gender`、`backgroundImage`、`bio` 公开。
+
+账号侧栏复用上游 `components/home.html`，只删掉了两个多域入口（重写版已删除多域），`/home/messages`、`/file`、`/home/security` 尚未实现，链接为占位。头像上传区块（`#upload_avatar`）未接入，页面会移除；头像仍可用 provider 文本填写。
+
 ## 尚未完成
 
-- 用户签名和社交信息（邮箱/QQ/微信/性别图标）
-- 头像上传与 `/home/settings` 账户设置页
+- 微信图标和 `data-copy` 复制反馈（复制按钮当前无提示）
+- 头像上传（`#upload_avatar`）
+- 站内消息、我的文件、安全设置三个账户页
 - 获赞题解（当前显示 0）
 - 个人主页的账号自助侧栏（消息、设置、文件）暂不显示
 - 在线状态（当前统一显示离线）
