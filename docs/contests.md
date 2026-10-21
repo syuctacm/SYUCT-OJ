@@ -102,6 +102,16 @@
 - `POST /api/v1/contests/:tid/score`（owner/管理员，pid 必须在题目列表内，0-10000）
 - 榜单的 `ProblemCell` 带上记录得分（`record.score`），OI/IOI/StrictIOI 赛制按分数展示并按分值着色；XCPC 仍用通过/罚时
 
+## 打印台
+
+`/contest/:tid/print` 渲染上游 `contest_print.html`：
+
+- 打印任务存 `document`（`docType=32`、`parentType=30`、`parentId=tid`），与 Hydro 的 `TYPE_CONTEST_PRINT` 一致
+- `GET/POST /api/v1/contests/:tid/print/tasks`：参赛者只看自己的队列，管理员看全部；提交要求已报名且比赛进行中
+- `POST .../print/allocate`：管理员原子认领最早的一条待打印任务（pending → printing）
+- `POST .../print/tasks/:id/status`：标记 printed/pending
+- 所有打印接口都要求 `tdoc.allowPrint` 开启（比赛编辑页的「打印」开关）
+
 ## 气球状态
 
 `/contest/:tid/balloon` 渲染上游 `contest_balloon.html` + `partials/contest_balloon.html`：
