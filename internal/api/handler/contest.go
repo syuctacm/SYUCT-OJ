@@ -27,6 +27,7 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/contests/:tid/edit", h.editData)
 	router.PATCH("/api/v1/contests/:tid", h.update)
 	router.GET("/api/v1/contests/:tid", h.get)
+	router.POST("/api/v1/contests/:tid/attend", h.attend)
 	router.GET("/api/v1/contests/:tid/problems", h.problems)
 	router.GET("/api/v1/contests/:tid/scoreboard", h.scoreboard)
 }
@@ -113,13 +114,50 @@ func (h *ContestHandler) scoreboard(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"contest": item, "rows": rows}})
 }
 
+type contestDetailResponse struct {
+	*contest.Contest
+	Attended bool `json:"attended"`
+}
+
 func (h *ContestHandler) get(c *gin.Context) {
 	item, err := h.repo.Get(c.Request.Context(), c.Param("tid"))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": item})
+	attended := false
+	if u, ok := h.currentUser(c); ok {
+		attended, err = h.repo.Attended(c.Request.Context(), c.Param("tid"), u.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest attendance"})
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": contestDetailResponse{Contest: item, Attended: attended},
+	})
+}
+
+func (h *ContestHandler) attend(c *gin.Context) {
+	u, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	changed, err := h.repo.Attend(c.Request.Context(), c.Param("tid"), u.ID)
+	if err != nil {
+		if errors.Is(err, contest.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to attend contest"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"attended": true, "changed": changed},
+	})
 }
 
 func (h *ContestHandler) requireAdmin(c *gin.Context) (*user.User, bool) {

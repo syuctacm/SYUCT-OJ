@@ -24,6 +24,8 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/contest/new') return basic('contest_create', '创建比赛')
   if (/^\/contest\/[^/]+\/edit\/?$/.test(pathname)) return basic('contest_edit', '编辑比赛')
   if (/^\/contest\/[^/]+\/files\/?$/.test(pathname)) return basic('contest_files', '比赛文件')
+  if (/^\/contest\/[^/]+\/problems\/?$/.test(pathname)) return basic('contest_problemlist', '比赛题目')
+  if (/^\/contest\/[^/]+\/scoreboard\/?$/.test(pathname)) return basic('contest_scoreboard', '比赛榜单')
   if (/^\/contest\/[^/]+\/?$/.test(pathname)) return basic('contest_detail', '比赛详情')
   if (pathname === '/training') return basic('training_main', '训练')
   if (pathname === '/training/new') return basic('training_create', '创建训练')
