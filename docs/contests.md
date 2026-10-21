@@ -102,6 +102,15 @@
 - `POST /api/v1/contests/:tid/score`（owner/管理员，pid 必须在题目列表内，0-10000）
 - 榜单的 `ProblemCell` 带上记录得分（`record.score`），OI/IOI/StrictIOI 赛制按分数展示并按分值着色；XCPC 仍用通过/罚时
 
+## 气球状态
+
+`/contest/:tid/balloon` 渲染上游 `contest_balloon.html` + `partials/contest_balloon.html`：
+
+- 判题结果 AC 时自动写入 `contest.balloon`（同一用户同一题只建一次，全站首 AC 标记 `first`）
+- `tdoc.balloon` 存每题的颜色与名称，页面用 YAML 对话框编辑（`PUT /api/v1/contests/:tid/balloons/colors`）
+- 「发送」按钮走 `POST /api/v1/contests/:tid/balloons/:bid/sent`，记录发放人和时间，重复发放返回 404
+- 列表接口 `GET /api/v1/contests/:tid/balloons`，仅 owner/管理员
+
 ## 导出代码
 
 侧栏的「导出所有代码」指向 `GET /api/v1/contests/:tid/code`，流式返回 zip：
@@ -113,7 +122,6 @@
 
 ## 尚未完成
 
-- 气球状态页
 - 比赛题目的时间/权限访问控制
 - 组队和参赛状态（个人报名已实现，提交暂未强制要求报名）
 - 比赛管理中的气球、参赛者管理和导出代码入口（当前为占位）

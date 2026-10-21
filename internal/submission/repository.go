@@ -74,11 +74,16 @@ type ListFilter struct {
 	Status    *int
 }
 
+// AcceptedHook is called after a submission is accepted; the contest package
+// uses it to create balloons.
+type AcceptedHook func(ctx context.Context, contestID bson.ObjectID, uid, pid int64)
+
 type Repository struct {
-	records  *mongo.Collection
-	tasks    *mongo.Collection
-	users    *mongo.Collection
-	problems *problem.Repository
+	records      *mongo.Collection
+	tasks        *mongo.Collection
+	users        *mongo.Collection
+	problems     *problem.Repository
+	acceptedHook AcceptedHook
 }
 
 func NewRepository(db *mongo.Database, problems *problem.Repository) *Repository {
@@ -295,6 +300,11 @@ func (r *Repository) Get(ctx context.Context, rid string) (*Record, error) {
 	return &items[0], nil
 }
 
+// SetAcceptedHook registers the callback fired for accepted submissions.
+func (r *Repository) SetAcceptedHook(hook AcceptedHook) {
+	r.acceptedHook = hook
+}
+
 func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]any) error {
 	rawRID, ok := payload["rid"].(string)
 	if !ok {
@@ -332,8 +342,38 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 	if len(push) > 0 {
 		update["$push"] = push
 	}
-	_, err = r.records.UpdateOne(ctx, bson.M{"_id": oid}, update)
-	return err
+	if _, err = r.records.UpdateOne(ctx, bson.M{"_id": oid}, update); err != nil {
+		return err
+	}
+	if hook := r.acceptedHook; hook != nil && isAccepted(set["status"]) {
+		var record struct {
+			UID     int64          `bson:"uid"`
+			PID     int64          `bson:"pid"`
+			Contest *bson.ObjectID `bson:"contest"`
+		}
+		if err := r.records.FindOne(ctx, bson.M{"_id": oid}, options.FindOne().
+			SetProjection(bson.M{"uid": 1, "pid": 1, "contest": 1})).Decode(&record); err == nil {
+			if record.Contest != nil && record.UID > 0 && record.PID > 0 {
+				hook(ctx, *record.Contest, record.UID, record.PID)
+			}
+		}
+	}
+	return nil
+}
+
+func isAccepted(value any) bool {
+	switch number := value.(type) {
+	case int:
+		return number == 1
+	case int32:
+		return number == 1
+	case int64:
+		return number == 1
+	case float64:
+		return number == 1
+	default:
+		return false
+	}
 }
 
 func normalizeJudgeField(key string, value any) any {

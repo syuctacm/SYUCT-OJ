@@ -125,8 +125,7 @@ export function ContestUserPage() {
         return `/record${params.toString() ? `?${params.toString()}` : ''}`
       }
       case 'contest_code': return `/api/v1/contests/${encodeURIComponent(id)}/code`
-      case 'contest_balloon':
-        return '#'
+      case 'contest_balloon': return `/contest/${encodeURIComponent(id)}/balloon`
       default: return '/'
     }
   }, [contest?.docId, tid])

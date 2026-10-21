@@ -157,9 +157,7 @@ export function ContestManagementPage() {
       }
       case 'contest_user': return `/contest/${encodeURIComponent(id)}/user`
       case 'contest_code': return `/api/v1/contests/${encodeURIComponent(id)}/code`
-      // Balloon status is not ported yet.
-      case 'contest_balloon':
-        return '#'
+      case 'contest_balloon': return `/contest/${encodeURIComponent(id)}/balloon`
       default: return '/'
     }
   }, [contest?.docId, problems, tid])
