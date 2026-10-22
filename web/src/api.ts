@@ -1508,6 +1508,29 @@ export async function enableTFA(secret: string, code: string): Promise<void> {
   })
 }
 
+export type EmailChangeRequest = {
+  sent: boolean
+  mail: string
+  code?: string
+  link?: string
+}
+
+export async function requestEmailChange(current: string, email: string): Promise<EmailChangeRequest> {
+  const result = await request<Envelope<EmailChangeRequest>>('/api/v1/user/security/email', {
+    method: 'POST',
+    body: JSON.stringify({ current, email }),
+  })
+  return result.data
+}
+
+export async function confirmEmailChange(code: string): Promise<{ email: string }> {
+  const result = await request<Envelope<{ email: string }>>('/api/v1/user/security/email/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  })
+  return result.data
+}
+
 export async function disableTFA(current: string): Promise<void> {
   await request<void>('/api/v1/user/security/tfa/disable', {
     method: 'POST',

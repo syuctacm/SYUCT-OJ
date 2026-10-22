@@ -11,6 +11,7 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/contest"
 	"github.com/syuctacm/syuct-oj/internal/discussion"
 	"github.com/syuctacm/syuct-oj/internal/judge"
+	"github.com/syuctacm/syuct-oj/internal/mail"
 	"github.com/syuctacm/syuct-oj/internal/message"
 	"github.com/syuctacm/syuct-oj/internal/problem"
 	"github.com/syuctacm/syuct-oj/internal/submission"
@@ -27,7 +28,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		middleware.SecurityHeaders(),
 		middleware.BodyLimit(middleware.DefaultBodyLimit),
 		middleware.RateLimit(cfg.LoginRateLimit, cfg.LoginRateWindow,
-			"/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/user/security/password"),
+			"/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/user/security/password", "/api/v1/user/security/email"),
 	)
 
 	v1 := router.Group("/api/v1")
@@ -74,10 +75,15 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		handler.NewDiscussionHandler(discussionRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
 	}
 	if userRepo != nil {
+		mailer := mail.New(mail.Config{
+			Host: cfg.MailHost, Port: cfg.MailPort, Username: cfg.MailUsername,
+			Password: cfg.MailPassword, From: cfg.MailFrom,
+		})
 		handler.NewUserHandler(userRepo, sessions, problemRepo).RegisterRoutes(router.Group("/"))
 		handler.NewMessageHandler(message.NewRepository(db), sessions, userRepo).RegisterRoutes(router.Group("/"))
 		handler.NewUserFileHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
 		handler.NewUserAvatarHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
+		handler.NewUserEmailHandler(userRepo, sessions, mailer).RegisterRoutes(router.Group("/"))
 	}
 	if adminHandler != nil {
 		adminHandler.RegisterRoutes(router.Group("/"))

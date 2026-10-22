@@ -20,6 +20,11 @@ type Config struct {
 	LoginRateLimit  int
 	LoginRateWindow time.Duration
 	CookieSecure    bool
+	MailHost        string
+	MailPort        int
+	MailUsername    string
+	MailPassword    string
+	MailFrom        string
 }
 
 func Load() Config {
@@ -43,6 +48,11 @@ func Load() Config {
 		LoginRateLimit:  intEnv("LOGIN_RATE_LIMIT", 10),
 		LoginRateWindow: durationEnv("LOGIN_RATE_WINDOW", time.Minute),
 		CookieSecure:    boolEnv("COOKIE_SECURE", false),
+		MailHost:        env("MAIL_HOST", ""),
+		MailPort:        intEnv("MAIL_PORT", 587),
+		MailUsername:    env("MAIL_USERNAME", ""),
+		MailPassword:    env("MAIL_PASSWORD", ""),
+		MailFrom:        env("MAIL_FROM", ""),
 	}
 }
 
