@@ -27,6 +27,17 @@
 
 默认只返回 `domainId=system`、`docType=10` 且未隐藏的题目；管理员登录后列表会包含隐藏题目，模板会显示 “(隐藏)” 标记。
 
+## 删除题目
+
+题目编辑页的“删除”按钮对应 `DELETE /api/v1/problems/:pid`（owner 或管理员），会清理：
+
+- 题目文档与 `document.status`
+- `problem/<domain>/<docId>` 下的测试数据和附加文件（元数据随文档删除，物理目录由 `FileStore.DeleteProblemDir` 删除）
+- 该题的所有提交记录、`record.stat`、判题任务
+- 题解（docType 11）和题目下的讨论（docType 21/22）
+
+比赛/训练/作业中对题目的引用不会自动清理（与上游一致；这些页面会把问题视为缺失）。
+
 ## 提交计数
 
 题目的 `nSubmit` / `nAccept` 实时维护：

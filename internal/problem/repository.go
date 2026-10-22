@@ -17,6 +17,9 @@ import (
 const (
 	DocumentTypeProblem = 10
 	DomainSystem        = "system"
+
+	documentTypeDiscussion      = 21
+	documentTypeDiscussionReply = 22
 )
 
 var (
@@ -124,16 +127,19 @@ type TagRanking struct {
 }
 
 type Repository struct {
-	coll     *mongo.Collection
-	records  *mongo.Collection
-	users    *mongo.Collection
-	counters *mongo.Collection
-	statuses *mongo.Collection
+	coll        *mongo.Collection
+	records     *mongo.Collection
+	recordStats *mongo.Collection
+	tasks       *mongo.Collection
+	users       *mongo.Collection
+	counters    *mongo.Collection
+	statuses    *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
 	return &Repository{
 		coll: db.Collection("document"), records: db.Collection("record"), users: db.Collection("user"),
+		recordStats: db.Collection("record.stat"), tasks: db.Collection("task"),
 		counters: db.Collection("counter"), statuses: db.Collection("document.status"),
 	}
 }
@@ -300,6 +306,55 @@ func (r *Repository) List(ctx context.Context, opts ListOptions) (*ListResult, e
 		}
 	}
 	return &ListResult{Items: items, Total: total, Page: opts.Page, Limit: opts.Limit}, nil
+}
+
+// Delete removes a problem together with the data Hydro deletes through its
+// problem/delete hooks: statuses, stored files metadata, records, judge tasks,
+// solutions and the problem's discussions. Physical files are removed by the
+// handler through the file store.
+func (r *Repository) Delete(ctx context.Context, docID int64) error {
+	result, err := r.coll.DeleteOne(ctx,
+		bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "docId": docID})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return ErrNotFound
+	}
+	_, _ = r.statuses.DeleteMany(ctx,
+		bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "docId": docID})
+	_, _ = r.records.DeleteMany(ctx, bson.M{"domainId": DomainSystem, "pid": docID})
+	_, _ = r.recordStats.DeleteMany(ctx, bson.M{"domainId": DomainSystem, "pid": docID})
+	_, _ = r.tasks.DeleteMany(ctx, bson.M{"domainId": DomainSystem, "pid": docID})
+	_, _ = r.coll.DeleteMany(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeProblemSolution,
+		"parentType": DocumentTypeProblem, "parentId": docID,
+	})
+	cursor, err := r.coll.Find(ctx, bson.M{
+		"domainId": DomainSystem, "docType": documentTypeDiscussion,
+		"parentType": DocumentTypeProblem, "parentId": docID,
+	}, options.Find().SetProjection(bson.M{"_id": 1}))
+	if err == nil {
+		var discussions []struct {
+			ID bson.ObjectID `bson:"_id"`
+		}
+		if err := cursor.All(ctx, &discussions); err == nil && len(discussions) > 0 {
+			ids := make([]bson.ObjectID, 0, len(discussions))
+			for _, item := range discussions {
+				ids = append(ids, item.ID)
+			}
+			_, _ = r.coll.DeleteMany(ctx, bson.M{
+				"domainId": DomainSystem, "docType": documentTypeDiscussionReply,
+				"parentType": documentTypeDiscussion, "parentId": bson.M{"$in": ids},
+			})
+			_, _ = r.coll.DeleteMany(ctx, bson.M{
+				"domainId": DomainSystem, "docType": documentTypeDiscussion,
+				"_id": bson.M{"$in": ids},
+			})
+		}
+		_ = cursor.Close(ctx)
+	}
+	return nil
 }
 
 // IncStats adjusts the submission counters shown on the problem list and the
