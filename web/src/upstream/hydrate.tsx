@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { uploadActivityFiles, type ActivityFile, type ActivityFileResource } from '../api.ts'
+import { uploadActivityFiles, uploadUserFiles, type ActivityFile, type ActivityFileResource } from '../api.ts'
 import { LegacyMarkdownEditor } from '../components/LegacyMarkdownEditor.tsx'
 import { AssignSelectAutoComplete } from '../components/autocomplete/AssignSelectAutoComplete.tsx'
 import { LanguageSelectAutoComplete } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
@@ -56,8 +56,53 @@ type MarkdownHydrationOptions = {
   tid?: string
   onChange?: () => void
   onUploaded?: (files: ActivityFile[]) => void
-  uploadProblem?: (files: File[]) => Promise<Array<{ downloadUrl: string }>>
-  onProblemUploaded?: (files: Array<{ downloadUrl: string }>) => void
+  uploadProblem?: (files: File[]) => Promise<Array<{ name?: string; downloadUrl: string }>>
+  onProblemUploaded?: (files: Array<{ name?: string; downloadUrl: string }>) => void
+  uploadToUserFiles?: boolean
+}
+
+type MarkdownUploadHandler = (
+  files: File[],
+  callback: (urls: string[]) => void,
+) => Promise<void>
+
+function uploadedForInsertion<T extends { name?: string; downloadUrl: string }>(files: File[], uploaded: T[]): T[] {
+  if (uploaded.some((file) => !file.name)) return uploaded
+  return newlyUploaded(files, uploaded as Array<T & { name: string }>)
+}
+
+function uploadWithFeedback<T extends { name?: string; downloadUrl: string }>(
+  upload: (files: File[]) => Promise<T[]>,
+  onUploaded?: (files: T[]) => void,
+): MarkdownUploadHandler {
+  return async (files, callback) => {
+    try {
+      const uploaded = await upload(files)
+      callback(uploadedForInsertion(files, uploaded).map((file) => file.downloadUrl))
+      onUploaded?.(uploaded)
+    } catch (error) {
+      callback([])
+      window.alert(error instanceof Error ? error.message : '图片上传失败')
+    }
+  }
+}
+
+function newlyUploaded<T extends { name: string; downloadUrl: string }>(files: File[], items: T[]): T[] {
+  const names = new Set(files
+    .map((file) => file.name.replaceAll('\\', '/').split('/').pop())
+    .filter(Boolean))
+  return items.filter((item) => names.has(item.name))
+}
+
+function randomizeImageNames(files: File[]): File[] {
+  return files.map((file) => {
+    const dot = file.name.lastIndexOf('.')
+    const extension = dot >= 0 ? file.name.slice(dot) : ''
+    const id = typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    return new File([file], `${id}${extension}`, { type: file.type, lastModified: file.lastModified })
+  })
 }
 
 function mountMarkdownEditor(textarea: HTMLTextAreaElement, options: MarkdownHydrationOptions): Cleanup {
@@ -65,6 +110,18 @@ function mountMarkdownEditor(textarea: HTMLTextAreaElement, options: MarkdownHyd
   textarea.hidden = true
   textarea.parentElement?.appendChild(host)
   const root = createRoot(host)
+  let onUploadImg: MarkdownUploadHandler | undefined
+  if (options.uploadProblem) {
+    onUploadImg = uploadWithFeedback((files) => options.uploadProblem!(files), options.onProblemUploaded)
+  } else if (options.uploadToUserFiles) {
+    onUploadImg = uploadWithFeedback(async (files) => uploadUserFiles(files))
+  } else if (options.resource && options.tid) {
+    const { resource, tid } = options
+    onUploadImg = uploadWithFeedback(async (files) => uploadActivityFiles(resource, tid, files), options.onUploaded)
+  }
+  const uploadHandler = onUploadImg ? async (files: File[], callback: (urls: string[]) => void) => {
+    await onUploadImg(randomizeImageNames(files), callback)
+  } : undefined
   root.render(
     <LegacyMarkdownEditor
       value={textarea.value}
@@ -74,26 +131,8 @@ function mountMarkdownEditor(textarea: HTMLTextAreaElement, options: MarkdownHyd
         textarea.dispatchEvent(new Event('change', { bubbles: true }))
         options.onChange?.()
       }}
-      hideImageUpload={!(options.uploadProblem || (options.resource && options.tid))}
-      onUploadImg={options.uploadProblem ? async (files, callback) => {
-        try {
-          const uploaded = await options.uploadProblem!(files)
-          callback(uploaded.map((file) => file.downloadUrl))
-          options.onProblemUploaded?.(uploaded)
-        } catch (error) {
-          callback([])
-          window.alert(error instanceof Error ? error.message : '图片上传失败')
-        }
-      } : options.resource && options.tid ? async (files, callback) => {
-        try {
-          const uploaded = await uploadActivityFiles(options.resource!, options.tid!, files)
-          callback(uploaded.map((file) => file.downloadUrl))
-          options.onUploaded?.(uploaded)
-        } catch (error) {
-          callback([])
-          window.alert(error instanceof Error ? error.message : '图片上传失败')
-        }
-      } : undefined}
+      hideImageUpload={!uploadHandler}
+      onUploadImg={uploadHandler}
     />,
   )
   return () => {
