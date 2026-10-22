@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   createClarification, getClarifications, getContest, getContestProblems, getSubmissions, getUsersByIDs,
-  type Clarification, type Contest, type ProblemStatus, type ProblemSummary, type Submission, type UserChoice,
+  type Clarification, type Contest, type ContestStatus, type ProblemStatus, type ProblemSummary, type Submission, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -25,6 +25,7 @@ export function ContestProblemsPage() {
   const [problems, setProblems] = useState<ProblemSummary[]>([])
   const [statuses, setStatuses] = useState<Record<string, ProblemStatus>>({})
   const [attended, setAttended] = useState(false)
+  const [problemPageStatus, setProblemPageStatus] = useState<ContestStatus | undefined>()
   const [clarifications, setClarifications] = useState<Clarification[]>([])
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [users, setUsers] = useState<UserChoice[]>([])
@@ -45,6 +46,7 @@ export function ContestProblemsPage() {
       setProblems(problemPage.problems)
       setStatuses(problemPage.statuses ?? {})
       setAttended(problemPage.attended)
+      setProblemPageStatus(problemPage.status)
       setClarifications(tcdocs)
     } catch (err) {
       setError(err instanceof Error ? err.message : '比赛题目加载失败')
@@ -186,7 +188,11 @@ export function ContestProblemsPage() {
     return {
       page_name: 'contest_problemlist',
       tdoc,
-      tsdoc: { attend: attended },
+      tsdoc: {
+        attend: attended,
+        startAt: problemPageStatus?.startAt ? new Date(problemPageStatus.startAt) : undefined,
+        endAt: problemPageStatus?.endAt ? new Date(problemPageStatus.endAt) : undefined,
+      },
       pdict,
       psdict,
       rdict,
@@ -203,7 +209,7 @@ export function ContestProblemsPage() {
       UiContext: {},
       UserContext: user,
     }
-  }, [attended, canViewRecord, clarifications, contest, contestModel, handler, problems, statuses, submissions, tdoc, user, users])
+  }, [attended, canViewRecord, clarifications, contest, contestModel, handler, problemPageStatus, problems, statuses, submissions, tdoc, user, users])
 
   const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
     const id = String(args.tid ?? contest?.docId ?? tid)

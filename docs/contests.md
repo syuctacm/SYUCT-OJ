@@ -7,7 +7,8 @@
 | GET | `/api/v1/contests` | 比赛列表 |
 | POST | `/api/v1/contests` | 创建比赛 |
 | GET | `/api/v1/contests/:tid` | 比赛详情（含当前用户是否已报名） |
-| POST | `/api/v1/contests/:tid/attend` | 比赛报名（幂等） |
+| POST | `/api/v1/contests/:tid/attend` | 比赛报名（幂等，校验结束时间和邀请码） |
+| POST | `/api/v1/contests/:tid/early-end` | 参赛者提前结束自己的比赛 |
 | GET | `/api/v1/contests/:tid/edit` | 比赛编辑数据 |
 | PATCH | `/api/v1/contests/:tid` | 更新比赛 |
 | GET | `/api/v1/contests/:tid/problems` | 比赛题目列表 |
@@ -41,7 +42,13 @@
 
 比赛详情不再内嵌题目列表和榜单，改为原版结构下的独立路由 `/contest/:tid/problems` 和 `/contest/:tid/scoreboard`，两个页面都已迁移到上游模板。题目行提供带 `contest` 参数的提交入口，提交会写入比赛关联并进入榜单。比赛结束或未开始时后端拒绝比赛提交。
 
-比赛报名写入 `document.status`（`docType=30`, `attend=1`），重复报名幂等，首次报名递增 `attend` 人数。详情页返回当前登录用户的 `attended` 状态，未登录显示登录入口，报名后侧栏显示已参加状态、题目列表和我的递交入口。
+比赛报名写入 `document.status`（`docType=30`, `attend=1`），重复报名幂等，首次报名递增 `attend` 人数。详情页返回当前登录用户的 `attended` 和 `status`，未登录显示登录入口，报名后侧栏显示已参加状态、题目列表和我的递交入口。
+
+报名与上游一致：已结束比赛不能报名；设置邀请码的比赛必须提交正确 `code`。邀请码只通过所有者/管理员可见的编辑接口返回，普通比赛详情只返回 `requiresInvitationCode` 标记，避免泄露。
+
+参赛者可在比赛进行中提前结束自己的比赛。`POST /api/v1/contests/:tid/early-end` 写入当前用户 `document.status.endAt`；结束后的比赛提交会被后端拒绝。个人提前结束不会修改比赛本身的结束时间。
+
+比赛提交会读取当前用户的参赛状态，未报名、已提前结束或已超过个人时限时返回 403。
 
 答疑沿用 Hydro `document` 集合布局：`docType=31`、`parentType=30`、`parentId=比赛 docId`，`owner=0` 表示 jury 公告，`reply` 保存回复数组。普通参赛者只能看到 jury 公告和自己的提问；比赛所有者、维护者和管理员可以看到全部答疑。提问要求已报名且比赛进行中，回复仅限所有者/维护者/管理员。
 

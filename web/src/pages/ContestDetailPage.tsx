@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  attendContest, getContest, getUsersByIDs,
+  attendContest, earlyEndContest, getContest, getUsersByIDs,
   type Contest, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
@@ -18,6 +18,7 @@ export function ContestDetailPage() {
   const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
   const [attendError, setAttendError] = useState('')
+  const [attending, setAttending] = useState(false)
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export function ContestDetailPage() {
       lockAt: contest.lockAt ? new Date(contest.lockAt) : null,
       penaltySince: contest.penaltySince ? new Date(contest.penaltySince) : null,
       pids: contest.pids ?? [],
-      _code: contest.invitationCode,
+      _code: contest.requiresInvitationCode ? '__required__' : '',
       domainId: 'system',
     }
   }, [contest])
@@ -89,7 +90,11 @@ export function ContestDetailPage() {
     return {
       page_name: 'contest_detail',
       tdoc,
-      tsdoc: { attend: Boolean(contest.attended) },
+      tsdoc: {
+        attend: Boolean(contest.attended),
+        startAt: contest.status?.startAt ? new Date(contest.status.startAt) : undefined,
+        endAt: contest.status?.endAt ? new Date(contest.status.endAt) : undefined,
+      },
       udict,
       // The upstream detail page only lists contest materials, and the API
       // returns them for owners, administrators and participants.
@@ -145,22 +150,46 @@ export function ContestDetailPage() {
     return () => cleanups.forEach((cleanup) => cleanup())
   }, [])
 
-  async function handleSubmit(event: SubmitEvent) {
-    const form = event.target as HTMLFormElement
-    const operation = new FormData(form).get('operation')
-    if (operation !== 'attend') {
-      // Early end and other contest operations are not ported yet.
-      event.preventDefault()
-      return
-    }
-    event.preventDefault()
+  async function submitAttend(code: string) {
+    if (attending) return
+    setAttending(true)
     setAttendError('')
     try {
-      await attendContest(tid)
+      await attendContest(tid, code)
       setContest(await getContest(tid))
     } catch (err) {
       setAttendError(err instanceof Error ? err.message : '报名失败')
+    } finally {
+      setAttending(false)
     }
+  }
+
+  async function handleSubmit(event: SubmitEvent) {
+    // The upstream template's inline confirm cancels the default action before
+    // this listener runs. Respect that decision instead of asking twice.
+    if (event.defaultPrevented) return
+    event.preventDefault()
+    const form = event.target as HTMLFormElement
+    const operation = new FormData(form).get('operation')
+    if (operation === 'early_end') {
+      setAttendError('')
+      try {
+        await earlyEndContest(tid)
+        setContest(await getContest(tid))
+      } catch (err) {
+        setAttendError(err instanceof Error ? err.message : '提前结束比赛失败')
+      }
+      return
+    }
+    if (operation !== 'attend') return
+    let code = ''
+    if (form.querySelector('[data-contest-code]')) {
+      const input = window.prompt('邀请码：')
+      if (input === null) return
+      code = input.trim()
+      if (!code) return
+    }
+    await submitAttend(code)
   }
   submitRef.current = (event) => void handleSubmit(event)
 

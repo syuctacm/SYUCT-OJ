@@ -25,6 +25,10 @@ const (
 
 var (
 	ErrNotFound                    = fmt.Errorf("contest not found")
+	ErrContestEnded                = fmt.Errorf("contest has ended")
+	ErrContestNotLive              = fmt.Errorf("contest is not running")
+	ErrContestNotAttended          = fmt.Errorf("contest has not been attended")
+	ErrInvalidInvitationCode       = fmt.Errorf("invalid contest invitation code")
 	ErrClarificationNotFound       = fmt.Errorf("clarification not found")
 	ErrInvalidClarificationSubject = fmt.Errorf("invalid clarification subject")
 	ErrEmptyClarificationContent   = fmt.Errorf("empty clarification content")
@@ -83,12 +87,15 @@ type Contest struct {
 	Score                map[int64]int          `bson:"score,omitempty" json:"score,omitempty"`
 	Balloon              map[int64]BalloonColor `bson:"balloon,omitempty" json:"balloon,omitempty"`
 	PrivateFiles         []filemeta.File        `bson:"privateFiles,omitempty" json:"-"`
-	InvitationCode       string                 `bson:"_code,omitempty" json:"invitationCode,omitempty"`
+	// InvitationCode is hidden from normal contest responses. The edit API
+	// serializes it separately for contest owners and administrators.
+	InvitationCode string `bson:"_code,omitempty" json:"-"`
 }
 
 // AttendeeStatus is the per-user contest status document.
 type AttendeeStatus struct {
 	UID     int64      `bson:"uid" json:"uid"`
+	Attend  int        `bson:"attend,omitempty" json:"attend"`
 	Unrank  bool       `bson:"unrank,omitempty" json:"unrank"`
 	StartAt *time.Time `bson:"startAt,omitempty" json:"startAt,omitempty"`
 	EndAt   *time.Time `bson:"endAt,omitempty" json:"endAt,omitempty"`
@@ -148,6 +155,97 @@ func (r *Repository) Attended(ctx context.Context, tid string, uid int64) (bool,
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// Status returns one attendee's contest status. A missing status document is
+// not an error; callers use nil to represent a user who has not attended.
+func (r *Repository) Status(ctx context.Context, tid string, uid int64) (*AttendeeStatus, error) {
+	if uid <= 0 {
+		return nil, nil
+	}
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	var status AttendeeStatus
+	err = r.statuses.FindOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    oid,
+		"uid":      uid,
+	}).Decode(&status)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &status, nil
+}
+
+// AttendContest applies the public attendance rules before recording a user as
+// an attendee. Homework and administrative imports use Attend directly.
+func (r *Repository) AttendContest(ctx context.Context, tid string, uid int64, code string) (bool, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return false, err
+	}
+	if item.Rule == "homework" {
+		return false, ErrNotFound
+	}
+	if !time.Now().Before(item.EndAt) {
+		return false, ErrContestEnded
+	}
+	if item.InvitationCode != "" && code != item.InvitationCode {
+		return false, ErrInvalidInvitationCode
+	}
+	return r.Attend(ctx, tid, uid)
+}
+
+// EarlyEnd stops the current user's contest clock. It mirrors Hydro's
+// postEarlyEnd operation: the contest document itself is unchanged.
+func (r *Repository) EarlyEnd(ctx context.Context, tid string, uid int64) (*AttendeeStatus, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, err
+	}
+	if item.Rule == "homework" {
+		return nil, ErrNotFound
+	}
+	status, err := r.Status(ctx, tid, uid)
+	if err != nil {
+		return nil, err
+	}
+	if status == nil || status.Attend == 0 {
+		return nil, ErrContestNotAttended
+	}
+	now := time.Now()
+	if now.Before(item.BeginAt) || !now.Before(item.EndAt) {
+		return nil, ErrContestNotLive
+	}
+	if status.EndAt != nil && !now.Before(*status.EndAt) {
+		return nil, ErrContestEnded
+	}
+	if item.Duration > 0 && status.StartAt != nil {
+		deadline := status.StartAt.Add(time.Duration(item.Duration) * time.Hour)
+		if !now.Before(deadline) {
+			return nil, ErrContestNotLive
+		}
+	}
+	set := bson.M{"endAt": now}
+	if status.StartAt == nil {
+		set["startAt"] = now
+	}
+	if _, err := r.statuses.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    item.DocID,
+		"uid":      uid,
+		"attend":   1,
+	}, bson.M{"$set": set}); err != nil {
+		return nil, err
+	}
+	return r.Status(ctx, tid, uid)
 }
 
 // Attend marks the user as an attendee of the contest. It is idempotent and
