@@ -2,7 +2,7 @@
 // file limited to data and interaction adapters.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getProblem, starProblem, type ProblemDetail } from '../api.ts'
+import { getProblem, rejudgeProblem, starProblem, type ProblemDetail } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { renderMarkdown } from '../upstream/markdown.ts'
@@ -39,17 +39,29 @@ export function ProblemDetailPage() {
 
     for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
       const operation = form.querySelector<HTMLInputElement>('input[name="operation"]')?.value
-      if (operation !== 'star') continue
-      const onSubmit = (event: SubmitEvent) => {
-        event.preventDefault()
-        const next = form.querySelector<HTMLInputElement>('input[name="star"]')?.value === 'true'
-        void starProblem(pid, next)
-          .then(() => getProblem(pid))
-          .then(setProblem)
-          .catch((err: unknown) => setError(err instanceof Error ? err.message : '收藏失败'))
+      if (operation === 'star') {
+        const onSubmit = (event: SubmitEvent) => {
+          event.preventDefault()
+          const next = form.querySelector<HTMLInputElement>('input[name="star"]')?.value === 'true'
+          void starProblem(pid, next)
+            .then(() => getProblem(pid))
+            .then(setProblem)
+            .catch((err: unknown) => setError(err instanceof Error ? err.message : '收藏失败'))
+        }
+        form.addEventListener('submit', onSubmit)
+        cleanups.push(() => form.removeEventListener('submit', onSubmit))
+      } else if (operation === 'rejudge') {
+        const onSubmit = (event: SubmitEvent) => {
+          event.preventDefault()
+          if (!window.confirm('确定重测该题的全部提交吗？')) return
+          void rejudgeProblem(pid)
+            .then(() => getProblem(pid))
+            .then(setProblem)
+            .catch((err: unknown) => setError(err instanceof Error ? err.message : '重测失败'))
+        }
+        form.addEventListener('submit', onSubmit)
+        cleanups.push(() => form.removeEventListener('submit', onSubmit))
       }
-      form.addEventListener('submit', onSubmit)
-      cleanups.push(() => form.removeEventListener('submit', onSubmit))
     }
 
     const tagToggle = root.querySelector<HTMLElement>('[name="show_tags"]')
@@ -104,7 +116,11 @@ export function ProblemDetailPage() {
           viewLang: 'zh',
           codeLang: 'cpp',
           _dudoc: { join: true },
-          hasPerm: (permission: number) => permission === 8 || (Boolean(user) && [1, 2, 3, 4].includes(permission)),
+          hasPerm: (permission: number) => {
+            if (permission === 8) return true
+            if (permission === 7) return isAdmin
+            return Boolean(user) && [1, 2, 3, 4].includes(permission)
+          },
           hasPriv: () => Boolean(user),
           own: () => Boolean(user && (problem.owner === user.id || isAdmin)),
         },

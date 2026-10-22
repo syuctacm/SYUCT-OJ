@@ -1490,3 +1490,11 @@ export async function completeRegistration(
   })
   return result.user
 }
+
+export async function rejudgeProblem(pid: string): Promise<number> {
+  const result = await request<Envelope<{ count: number }>>(
+    `/api/v1/problems/${encodeURIComponent(pid)}/rejudge`,
+    { method: 'POST' },
+  )
+  return result.data.count
+}

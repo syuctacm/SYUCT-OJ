@@ -1,14 +1,37 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/syuctacm/syuct-oj/internal/problem"
 	"github.com/syuctacm/syuct-oj/internal/submission"
 )
+
+// rejudge resets every submission of a problem and queues it again.
+func (h *ProblemHandler) rejudge(c *gin.Context) {
+	if _, ok := h.requireAdmin(c); !ok {
+		return
+	}
+	if h.submissions == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "submission storage is unavailable"})
+		return
+	}
+	count, err := h.submissions.RejudgeProblem(c.Request.Context(), c.Param("pid"))
+	if err != nil {
+		if errors.Is(err, problem.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to rejudge problem"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"count": count}})
+}
 
 // statistics serves the /p/:pid/statistics page: one page of the problem's
 // submissions plus the status/score counters the charts need.
