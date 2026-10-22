@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -141,6 +142,56 @@ func TestProblemAssetManagementIntegration(t *testing.T) {
 		t.Fatalf("download = %d %q", response.StatusCode, body)
 	}
 
+	request, _ = http.NewRequest(http.MethodGet, server.URL+"/api/v1/problems/P5/assets/download-all", nil)
+	for _, cookie := range adminCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveBody, _ := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "application/zip" {
+		t.Fatalf("download all = %d %q", response.StatusCode, archiveBody)
+	}
+	archive, err := zip.NewReader(bytes.NewReader(archiveBody), int64(len(archiveBody)))
+	if err != nil {
+		t.Fatalf("open testdata archive: %v", err)
+	}
+	archiveFiles := map[string]string{}
+	for _, entry := range archive.File {
+		if entry.FileInfo().IsDir() {
+			continue
+		}
+		reader, err := entry.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		content, err := io.ReadAll(reader)
+		_ = reader.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		archiveFiles[entry.Name] = string(content)
+	}
+	if len(archiveFiles) != 3 || archiveFiles["1.in"] != "7 8\n" || archiveFiles["1.out"] != "15\n" || archiveFiles["config.yaml"] != configText {
+		t.Fatalf("testdata archive = %#v", archiveFiles)
+	}
+
+	request, _ = http.NewRequest(http.MethodGet, server.URL+"/api/v1/problems/P5/assets/download-all", nil)
+	for _, cookie := range normalCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("non-owner download all = %d", response.StatusCode)
+	}
+
 	request, _ = http.NewRequest(http.MethodGet, server.URL+"/api/v1/problems/P5/assets", nil)
 	for _, cookie := range normalCookies {
 		request.AddCookie(cookie)
@@ -174,6 +225,18 @@ func TestProblemAssetManagementIntegration(t *testing.T) {
 	}
 	if len(pdoc.Data) != 0 || pdoc.Config != "" {
 		t.Fatalf("files after delete: data=%+v config=%q", pdoc.Data, pdoc.Config)
+	}
+	request, _ = http.NewRequest(http.MethodGet, server.URL+"/api/v1/problems/P5/assets/download-all", nil)
+	for _, cookie := range adminCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("empty testdata download = %d", response.StatusCode)
 	}
 
 	body, _ = json.Marshal(map[string]any{
@@ -210,6 +273,27 @@ func TestProblemAssetManagementIntegration(t *testing.T) {
 	}
 	if createdEnvelope.Data.Problem.DocID != 6 || createdEnvelope.Data.Problem.PID != "PNEW" || len(createdEnvelope.Data.Problem.Tags) != 2 {
 		t.Fatalf("created problem: %+v", createdEnvelope.Data)
+	}
+
+	request, _ = http.NewRequest(http.MethodGet, server.URL+"/api/v1/problems/PNEW/assets/download-all", nil)
+	for _, cookie := range adminCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	configArchiveBody, _ := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("config-only archive = %d: %s", response.StatusCode, configArchiveBody)
+	}
+	configArchive, err := zip.NewReader(bytes.NewReader(configArchiveBody), int64(len(configArchiveBody)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(configArchive.File) != 1 || configArchive.File[0].Name != "config.yaml" {
+		t.Fatalf("config-only archive entries = %+v", configArchive.File)
 	}
 
 	body, _ = json.Marshal(map[string]any{"pid": "PNEW", "title": "Duplicate"})

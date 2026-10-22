@@ -29,8 +29,19 @@ export function ProblemConfigPage() {
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = []
-    // Batch download of the whole testdata set is not ported yet.
-    root.querySelector('[name="testdata__download__all"]')?.remove()
+    const downloadAll = root.querySelector<HTMLElement>('[name="testdata__download__all"]')
+    if (downloadAll) {
+      if (!data?.testdata.length) {
+        downloadAll.remove()
+      } else {
+        const onClick = (event: Event) => {
+          event.preventDefault()
+          window.location.assign(`/api/v1/problems/${encodeURIComponent(pid)}/assets/download-all`)
+        }
+        downloadAll.addEventListener('click', onClick)
+        cleanups.push(() => downloadAll.removeEventListener('click', onClick))
+      }
+    }
     root.querySelectorAll<HTMLElement>('[name="testdata__upload"]').forEach((button) => {
       const onClick = () => {
         const picker = document.createElement('input')
@@ -67,7 +78,7 @@ export function ProblemConfigPage() {
       })
     }
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [pid])
+  }, [data, pid])
 
   const context = useMemo(() => {
     if (!data) return null

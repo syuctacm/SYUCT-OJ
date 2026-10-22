@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"archive/zip"
 	"errors"
 	"fmt"
 	"io"
@@ -62,6 +63,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/problems/:pid/assets", h.uploadAssets)
 	router.DELETE("/api/v1/problems/:pid/assets", h.deleteAssets)
 	router.GET("/api/v1/problems/:pid/assets/download", h.downloadAsset)
+	router.GET("/api/v1/problems/:pid/assets/download-all", h.downloadAllAssets)
 	router.GET("/api/v1/problems/:pid", h.get)
 	router.GET("/api/v1/starred-problems", h.starred)
 	router.POST("/api/v1/problems/:pid/star", h.star)
@@ -627,6 +629,89 @@ func (h *ProblemHandler) downloadAsset(c *gin.Context) {
 	c.Header("Content-Disposition", contentDisposition)
 	c.Header("Content-Type", "application/octet-stream")
 	_, _ = io.Copy(c.Writer, reader)
+}
+
+func (h *ProblemHandler) downloadAllAssets(c *gin.Context) {
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	if h.store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "problem file storage is unavailable"})
+		return
+	}
+	configText := problemConfigString(pdoc)
+	hasConfigFile := false
+	for _, file := range pdoc.Data {
+		if isConfigFile(file.Name) {
+			hasConfigFile = true
+			break
+		}
+	}
+	if len(pdoc.Data) == 0 && strings.TrimSpace(configText) == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "testdata is empty"})
+		return
+	}
+
+	pid := strconv.FormatInt(pdoc.DocID, 10)
+	// Validate every object before writing response headers so a missing
+	// file produces a proper JSON error instead of a truncated zip.
+	for _, file := range pdoc.Data {
+		name, err := sanitizeAssetName(file.Name)
+		if err != nil || name != file.Name {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid stored filename"})
+			return
+		}
+		reader, err := h.store.OpenProblemFile(problem.DomainSystem, pid, name)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("file not found: %s", file.Name)})
+			return
+		}
+		_ = reader.Close()
+	}
+
+	filename := fmt.Sprintf("%d %s.zip", pdoc.DocID, pdoc.PID)
+	if pdoc.Title != "" {
+		filename = fmt.Sprintf("%d %s.zip", pdoc.DocID, pdoc.Title)
+	}
+	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	c.Header("Content-Type", "application/zip")
+	writer := zip.NewWriter(c.Writer)
+	defer writer.Close()
+	for _, file := range pdoc.Data {
+		name, err := sanitizeAssetName(file.Name)
+		if err != nil || name != file.Name {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid stored filename"})
+			return
+		}
+		reader, err := h.store.OpenProblemFile(problem.DomainSystem, pid, name)
+		if err != nil {
+			return
+		}
+		header := &zip.FileHeader{Name: name, Method: zip.Deflate}
+		if !file.LastModified.IsZero() {
+			header.SetModTime(file.LastModified)
+		}
+		entry, err := writer.CreateHeader(header)
+		if err != nil {
+			_ = reader.Close()
+			return
+		}
+		_, copyErr := io.Copy(entry, reader)
+		_ = reader.Close()
+		if copyErr != nil {
+			return
+		}
+	}
+	if !hasConfigFile && strings.TrimSpace(configText) != "" {
+		entry, err := writer.Create("config.yaml")
+		if err != nil {
+			return
+		}
+		if _, err := io.WriteString(entry, configText); err != nil {
+			return
+		}
+	}
 }
 
 func (h *ProblemHandler) requireAdmin(c *gin.Context) (*user.User, bool) {
