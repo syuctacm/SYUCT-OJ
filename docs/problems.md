@@ -12,7 +12,8 @@
 | GET | `/api/v1/problems/:pid/assets` | 测试数据和附加文件列表 |
 | POST | `/api/v1/problems/:pid/assets` | multipart 上传文件 |
 | DELETE | `/api/v1/problems/:pid/assets` | 批量删除文件 |
-| GET | `/api/v1/problems/:pid/assets/download` | 下载文件 |
+| GET | `/api/v1/problems/:pid/assets/download` | 下载单个文件 |
+| GET | `/api/v1/problems/:pid/assets/download-all` | 打包下载全部测试数据 |
 
 ## 列表参数
 
@@ -100,10 +101,12 @@
 
 - `/p/:pid/files`
 - 测试数据与附加文件分栏
-- 多文件上传、单文件下载和批量删除
+- 多文件上传、单文件下载、全部测试数据打包下载和批量删除
 - 配置入口和原版题目信息侧栏
 - 仅管理员或题目所有者可访问
-- 后端尚未实现的创建、重命名、批量下载和生成测试数据控件会从页面移除
+- 后端尚未实现的创建、重命名和生成测试数据控件会从页面移除
+
+`GET /api/v1/problems/:pid/assets/download-all` 返回包含全部测试数据和 `config.yaml` 的 zip；附加文件不进入该压缩包。测试数据为空时返回 404，未授权用户返回 403。
 
 ## 题解
 
