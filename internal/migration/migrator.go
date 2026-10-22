@@ -70,17 +70,37 @@ type ValidationReport struct {
 }
 
 type Report struct {
-	DryRun         bool               `json:"dry_run"`
-	Target         string             `json:"target"`
-	Sources        []string           `json:"sources"`
-	StartedAt      time.Time          `json:"started_at"`
-	EndedAt        time.Time          `json:"ended_at,omitempty"`
-	Collections    []CollectionReport `json:"collections"`
-	Domains        []DomainReport     `json:"domains"`
-	UsersMerged    int64              `json:"users_merged"`
-	UsersRemaining *int64             `json:"users_remaining,omitempty"`
-	Validation     *ValidationReport  `json:"validation,omitempty"`
-	Warnings       []string           `json:"warnings,omitempty"`
+	DryRun          bool               `json:"dry_run"`
+	Target          string             `json:"target"`
+	Sources         []string           `json:"sources"`
+	StartedAt       time.Time          `json:"started_at"`
+	EndedAt         time.Time          `json:"ended_at,omitempty"`
+	Collections     []CollectionReport `json:"collections"`
+	Domains         []DomainReport     `json:"domains"`
+	UsersMerged     int64              `json:"users_merged"`
+	UsersRemaining  *int64             `json:"users_remaining,omitempty"`
+	Conflicts       []ProblemConflict  `json:"conflicts,omitempty"`
+	ProblemsRenamed []ProblemRename    `json:"problems_renamed,omitempty"`
+	Validation      *ValidationReport  `json:"validation,omitempty"`
+	Warnings        []string           `json:"warnings,omitempty"`
+}
+
+// ProblemConflict describes a problem identifier collision that flattening the
+// domains would introduce.
+type ProblemConflict struct {
+	Kind          string `json:"kind"` // "docId" or "pid"
+	Domain        string `json:"domain"`
+	DocID         int64  `json:"docId"`
+	PID           string `json:"pid,omitempty"`
+	ConflictsWith string `json:"conflictsWith"`
+}
+
+// ProblemRename records an automatic pid rename applied before flattening.
+type ProblemRename struct {
+	Domain string `json:"domain"`
+	DocID  int64  `json:"docId"`
+	From   string `json:"from"`
+	To     string `json:"to"`
 }
 
 func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error) {
@@ -97,10 +117,8 @@ func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error)
 			"physical object-storage migration is not performed; only logical storage.path prefixes are rewritten",
 		},
 	}
-	if !opts.DryRun {
-		report.DryRun = false
-	}
-
+	domainDocs := map[string]bson.M{}
+	domainFound := map[string]bool{}
 	for _, source := range sources {
 		for _, collection := range ScopedCollections {
 			count, err := db.Collection(collection).CountDocuments(ctx, bson.M{"domainId": source})
@@ -123,59 +141,88 @@ func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error)
 			Matched:    storageCount,
 		})
 
-		domainFound := false
 		var domainDoc bson.M
 		err = db.Collection("domain").FindOne(ctx, bson.M{"$or": []bson.M{{"_id": source}, {"lower": source}}}).Decode(&domainDoc)
 		if err == nil {
-			domainFound = true
+			domainFound[source] = true
+			domainDocs[source] = domainDoc
 		} else if err != mongo.ErrNoDocuments {
 			return nil, fmt.Errorf("read domain %s: %w", source, err)
 		}
-		report.Domains = append(report.Domains, DomainReport{Domain: source, Found: domainFound})
+		report.Domains = append(report.Domains, DomainReport{Domain: source, Found: domainFound[source]})
+	}
 
-		if opts.DryRun {
-			continue
+	// Problem identifiers are per-domain in Hydro. Flattening can therefore
+	// collide, and a docId collision would silently repoint records at the
+	// wrong problem, so it is checked before any write.
+	conflicts, renames, err := analyzeProblemConflicts(ctx, db, target, sources)
+	if err != nil {
+		return nil, err
+	}
+	report.Conflicts = conflicts
+	if !opts.DryRun {
+		for _, conflict := range conflicts {
+			if conflict.Kind != "docId" {
+				continue
+			}
+			report.EndedAt = time.Now().UTC()
+			return report, fmt.Errorf(
+				"problem docId collision: domain %s docId %d conflicts with %s; resolve problem docIds before migrating",
+				conflict.Domain, conflict.DocID, conflict.ConflictsWith)
 		}
+		for _, source := range sources {
+			for _, rename := range renames[source] {
+				result, err := db.Collection("document").UpdateOne(ctx,
+					bson.M{"domainId": source, "docType": 10, "docId": rename.DocID},
+					bson.M{"$set": bson.M{"pid": rename.To}, "$addToSet": bson.M{"legacyPids": rename.From}})
+				if err != nil {
+					return nil, fmt.Errorf("rename pid %s/%d: %w", source, rename.DocID, err)
+				}
+				if result.MatchedCount == 0 {
+					return nil, fmt.Errorf("rename pid %s/%d: problem not found", source, rename.DocID)
+				}
+				report.ProblemsRenamed = append(report.ProblemsRenamed, rename)
+			}
+		}
+		for _, source := range sources {
+			for _, collection := range ScopedCollections {
+				result, err := db.Collection(collection).UpdateMany(ctx, bson.M{"domainId": source}, bson.M{
+					"$set":      bson.M{"domainId": target},
+					"$addToSet": bson.M{"legacyDomains": source},
+				})
+				if err != nil {
+					return nil, fmt.Errorf("update %s/%s: %w", collection, source, err)
+				}
+				updateReport(report.Collections, collection, source, result.ModifiedCount)
+			}
 
-		for _, collection := range ScopedCollections {
-			result, err := db.Collection(collection).UpdateMany(ctx, bson.M{"domainId": source}, bson.M{
-				"$set":      bson.M{"domainId": target},
-				"$addToSet": bson.M{"legacyDomains": source},
-			})
+			merged, err := mergeDomainUsers(ctx, db, source, target)
 			if err != nil {
-				return nil, fmt.Errorf("update %s/%s: %w", collection, source, err)
+				return nil, err
 			}
-			updateReport(report.Collections, collection, source, result.ModifiedCount)
-		}
+			report.UsersMerged += merged
 
-		merged, err := mergeDomainUsers(ctx, db, source, target)
-		if err != nil {
-			return nil, err
-		}
-		report.UsersMerged += merged
-
-		storageModified, storageRemaining, err := migrateStoragePaths(ctx, db, source, target)
-		if err != nil {
-			return nil, err
-		}
-		updateReport(report.Collections, "storage.path", source, storageModified)
-		setReportRemaining(report.Collections, "storage.path", source, storageRemaining)
-
-		if domainFound {
-			if _, err := db.Collection("domain.legacy").ReplaceOne(ctx, bson.M{"_id": domainDoc["_id"]}, domainDoc, options.Replace().SetUpsert(true)); err != nil {
-				return nil, fmt.Errorf("archive domain %s: %w", source, err)
+			storageModified, storageRemaining, err := migrateStoragePaths(ctx, db, source, target)
+			if err != nil {
+				return nil, err
 			}
-			if _, err := db.Collection("domain").DeleteOne(ctx, bson.M{"_id": domainDoc["_id"]}); err != nil {
-				return nil, fmt.Errorf("delete domain %s: %w", source, err)
-			}
-			for i := range report.Domains {
-				if report.Domains[i].Domain == source {
-					report.Domains[i].Archived = true
+			updateReport(report.Collections, "storage.path", source, storageModified)
+			setReportRemaining(report.Collections, "storage.path", source, storageRemaining)
+
+			if domainFound[source] {
+				if _, err := db.Collection("domain.legacy").ReplaceOne(ctx, bson.M{"_id": domainDocs[source]["_id"]}, domainDocs[source], options.Replace().SetUpsert(true)); err != nil {
+					return nil, fmt.Errorf("archive domain %s: %w", source, err)
+				}
+				if _, err := db.Collection("domain").DeleteOne(ctx, bson.M{"_id": domainDocs[source]["_id"]}); err != nil {
+					return nil, fmt.Errorf("delete domain %s: %w", source, err)
+				}
+				for i := range report.Domains {
+					if report.Domains[i].Domain == source {
+						report.Domains[i].Archived = true
+					}
 				}
 			}
 		}
-	}
-	if !opts.DryRun {
 		residuals, err := collectResiduals(ctx, db, sources)
 		if err != nil {
 			return nil, err
@@ -199,6 +246,101 @@ func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error)
 		return report.Collections[i].Domain < report.Collections[j].Domain
 	})
 	return report, nil
+}
+
+// analyzeProblemConflicts compares problem docIds and pids across the target and
+// all source domains. docId collisions are fatal; pid collisions are renamed to
+// P<docId> because pids are display keys while docIds are the stable references
+// used by records, contests and training plans.
+func analyzeProblemConflicts(ctx context.Context, db *mongo.Database, target string, sources []string) ([]ProblemConflict, map[string][]ProblemRename, error) {
+	type problemRef struct {
+		DocID int64  `bson:"docId"`
+		PID   string `bson:"pid"`
+	}
+	load := func(domain string) ([]problemRef, error) {
+		cursor, err := db.Collection("document").Find(ctx,
+			bson.M{"domainId": domain, "docType": 10},
+			options.Find().SetProjection(bson.M{"docId": 1, "pid": 1}))
+		if err != nil {
+			return nil, err
+		}
+		defer cursor.Close(ctx)
+		var items []problemRef
+		if err := cursor.All(ctx, &items); err != nil {
+			return nil, err
+		}
+		return items, nil
+	}
+
+	docIDs := map[int64]string{}
+	pids := map[string]string{}
+	targetProblems, err := load(target)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load %s problems: %w", target, err)
+	}
+	for _, problem := range targetProblems {
+		if problem.DocID != 0 {
+			docIDs[problem.DocID] = target
+		}
+		if problem.PID != "" {
+			pids[problem.PID] = target
+		}
+	}
+	conflicts := make([]ProblemConflict, 0)
+	renames := map[string][]ProblemRename{}
+	for _, source := range sources {
+		problems, err := load(source)
+		if err != nil {
+			return nil, nil, fmt.Errorf("load %s problems: %w", source, err)
+		}
+		for _, problem := range problems {
+			if problem.DocID == 0 {
+				continue
+			}
+			if owner, ok := docIDs[problem.DocID]; ok {
+				conflicts = append(conflicts, ProblemConflict{
+					Kind: "docId", Domain: source, DocID: problem.DocID,
+					PID: problem.PID, ConflictsWith: owner,
+				})
+				continue
+			}
+			docIDs[problem.DocID] = source
+			if problem.PID == "" {
+				continue
+			}
+			owner, ok := pids[problem.PID]
+			if !ok {
+				pids[problem.PID] = source
+				continue
+			}
+			next := uniqueProblemPID(fmt.Sprintf("P%d", problem.DocID), pids)
+			conflicts = append(conflicts, ProblemConflict{
+				Kind: "pid", Domain: source, DocID: problem.DocID,
+				PID: problem.PID, ConflictsWith: owner,
+			})
+			renames[source] = append(renames[source], ProblemRename{
+				Domain: source, DocID: problem.DocID, From: problem.PID, To: next,
+			})
+			pids[next] = source
+		}
+	}
+	sort.Slice(conflicts, func(i, j int) bool {
+		if conflicts[i].Domain != conflicts[j].Domain {
+			return conflicts[i].Domain < conflicts[j].Domain
+		}
+		return conflicts[i].DocID < conflicts[j].DocID
+	})
+	return conflicts, renames, nil
+}
+
+func uniqueProblemPID(base string, taken map[string]string) string {
+	candidate := base
+	for {
+		if _, ok := taken[candidate]; !ok {
+			return candidate
+		}
+		candidate += "X"
+	}
 }
 
 func storagePathFilter(source string) bson.M {

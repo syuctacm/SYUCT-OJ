@@ -220,3 +220,121 @@ func findCollectionReport(report *migration.Report, collection, domain string) *
 	}
 	return nil
 }
+
+func TestFlattenRenamesConflictingProblemPIDs(t *testing.T) {
+	uri := os.Getenv("TEST_MONGO_URI")
+	if uri == "" {
+		t.Skip("TEST_MONGO_URI is not set; start local Docker MongoDB to run this integration test")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	dbName := fmt.Sprintf("syuct_oj_migration_pid_test_%d", time.Now().UnixNano())
+	client, db, err := database.Connect(ctx, uri, dbName, 5*time.Second)
+	if err != nil {
+		t.Fatalf("connect test database: %v", err)
+	}
+	defer func() {
+		_ = db.Drop(context.Background())
+		_ = client.Disconnect(context.Background())
+	}()
+
+	if _, err := db.Collection("document").InsertMany(ctx, []any{
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(1), "pid": "P1", "title": "System"},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "contest2025", "docType": 10, "docId": int64(2), "pid": "P1", "title": "Contest"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := migration.Run(ctx, db, migration.Options{
+		Sources: []string{"contest2025"},
+		Target:  migration.DefaultTargetDomain,
+		DryRun:  false,
+	})
+	if err != nil {
+		t.Fatalf("migration: %v", err)
+	}
+	if len(report.ProblemsRenamed) != 1 {
+		t.Fatalf("renames = %#v", report.ProblemsRenamed)
+	}
+	rename := report.ProblemsRenamed[0]
+	if rename.From != "P1" || rename.To != "P2" || rename.DocID != 2 {
+		t.Fatalf("rename = %#v", rename)
+	}
+	var contest struct {
+		PID        string   `bson:"pid"`
+		LegacyPIDs []string `bson:"legacyPids"`
+	}
+	if err := db.Collection("document").FindOne(ctx, bson.M{"domainId": "system", "docType": 10, "docId": int64(2)}).Decode(&contest); err != nil {
+		t.Fatal(err)
+	}
+	if contest.PID != "P2" || len(contest.LegacyPIDs) != 1 || contest.LegacyPIDs[0] != "P1" {
+		t.Fatalf("contest problem = %#v", contest)
+	}
+	var system struct {
+		PID string `bson:"pid"`
+	}
+	if err := db.Collection("document").FindOne(ctx, bson.M{"domainId": "system", "docType": 10, "docId": int64(1)}).Decode(&system); err != nil {
+		t.Fatal(err)
+	}
+	if system.PID != "P1" {
+		t.Fatalf("system pid changed: %q", system.PID)
+	}
+}
+
+func TestFlattenRefusesProblemDocIDCollision(t *testing.T) {
+	uri := os.Getenv("TEST_MONGO_URI")
+	if uri == "" {
+		t.Skip("TEST_MONGO_URI is not set; start local Docker MongoDB to run this integration test")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	dbName := fmt.Sprintf("syuct_oj_migration_collision_test_%d", time.Now().UnixNano())
+	client, db, err := database.Connect(ctx, uri, dbName, 5*time.Second)
+	if err != nil {
+		t.Fatalf("connect test database: %v", err)
+	}
+	defer func() {
+		_ = db.Drop(context.Background())
+		_ = client.Disconnect(context.Background())
+	}()
+
+	if _, err := db.Collection("document").InsertMany(ctx, []any{
+		bson.M{"_id": bson.NewObjectID(), "domainId": "system", "docType": 10, "docId": int64(1), "pid": "P1", "title": "System"},
+		bson.M{"_id": bson.NewObjectID(), "domainId": "contest2025", "docType": 10, "docId": int64(1), "pid": "C1", "title": "Contest"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Collection("domain").InsertOne(ctx, bson.M{"_id": "contest2025", "name": "contest2025"}); err != nil {
+		t.Fatal(err)
+	}
+
+	dry, err := migration.Run(ctx, db, migration.Options{
+		Sources: []string{"contest2025"},
+		Target:  migration.DefaultTargetDomain,
+		DryRun:  true,
+	})
+	if err != nil {
+		t.Fatalf("dry run: %v", err)
+	}
+	if len(dry.Conflicts) != 1 || dry.Conflicts[0].Kind != "docId" {
+		t.Fatalf("dry conflicts = %#v", dry.Conflicts)
+	}
+
+	report, err := migration.Run(ctx, db, migration.Options{
+		Sources: []string{"contest2025"},
+		Target:  migration.DefaultTargetDomain,
+		DryRun:  false,
+	})
+	if err == nil {
+		t.Fatal("execute accepted a docId collision")
+	}
+	if report == nil || len(report.Conflicts) != 1 {
+		t.Fatalf("report = %#v", report)
+	}
+	if count, _ := db.Collection("document").CountDocuments(ctx, bson.M{"domainId": "contest2025"}); count != 1 {
+		t.Fatalf("source documents were modified: %d", count)
+	}
+	if count, _ := db.Collection("domain").CountDocuments(ctx, bson.M{"_id": "contest2025"}); count != 1 {
+		t.Fatalf("source domain was archived")
+	}
+}

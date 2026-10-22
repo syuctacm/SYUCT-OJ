@@ -39,7 +39,27 @@
 9. 生成迁移后报告并对比。
 10. 输出失败项、跳过项和冲突项。
 
-## 4. URL 兼容
+## 4. 题目 ID 冲突
+
+Hydro 的题目 `docId` 是按域自增的（`ProblemModel.add` 取该域最大 docId + 1），三个域压平后可能出现重复。迁移工具的处理：
+
+| 冲突类型 | 行为 |
+|---|---|
+| 题目 `docId` 重复 | **中止迁移**，不写任何数据；报告 `conflicts[kind=docId]`，CLI 退出码非 0 |
+| 题目 `pid` 重复 | 自动把来源域的冲突题目改名为 `P<docId>`，写 `legacyPids`；报告 `conflicts[kind=pid]` 与 `problems_renamed` |
+
+`docId` 被 `record.pid`、`contest.pids`、`training.dag[].pids`、`document.status.docId`、`storage.path` 和物理文件目录引用；重编号必须同时重写这些引用，风险高，所以工具选择拒绝执行而不是猜测。
+
+生产切换前必须先用备份副本跑 dry-run 并检查 `conflicts`：
+
+```bash
+MONGO_URI=... MONGO_DATABASE=syuct_oj_restore \
+  go run ./cmd/migrate --dry-run --report /tmp/migrate-dry.json
+```
+
+如果出现 `docId` 冲突，需要先实现并执行题目重编号（docId + 所有引用 + 存储路径），再跑正式迁移。
+
+## 5. URL 兼容
 
 保留旧 URL 到新 URL 的重定向映射，例如：
 
@@ -51,7 +71,7 @@
 
 重定向规则应集中配置，并有测试覆盖。
 
-## 5. 判题兼容
+## 6. 判题兼容
 
 `hydrojudge` 仍要求任务中包含 `domainId`。迁移后统一使用：
 
@@ -61,7 +81,7 @@ domainId = "system"
 
 不得修改判题机来适配新的单站模型。
 
-## 6. 回滚
+## 7. 回滚
 
 迁移前保留完整 MongoDB dump。回滚步骤：
 
@@ -70,7 +90,7 @@ domainId = "system"
 3. 恢复旧版本服务。
 4. 验证用户、题目、提交、比赛数量。
 
-## 7. 验收
+## 8. 验收
 
 - dry-run 完成且报告可读
 - 迁移前后数量差异可解释
@@ -79,7 +99,7 @@ domainId = "system"
 - 旧 URL 可重定向
 - 本地判题闭环不受影响
 
-## 8. 迁移工具
+## 9. 迁移工具
 
 ```bash
 # 默认 dry-run，不修改数据
