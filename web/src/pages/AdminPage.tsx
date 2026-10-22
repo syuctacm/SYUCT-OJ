@@ -22,6 +22,7 @@ export function AdminPage() {
   const buildUrl = useCallback((name: string) => {
     if (name === 'manage_dashboard') return '/admin'
     if (name === 'manage_user_priv') return '/admin/users'
+    if (name === 'manage_user_import') return '/admin/users/import'
     return '/'
   }, [])
 

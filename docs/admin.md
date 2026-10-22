@@ -48,11 +48,20 @@
 
 `manage_user_priv.html` 的 `show_priv` 宏需要 `bitand` 过滤器（`web/src/upstream/render.ts`），PRIV 位值来自 `web/src/upstream/priv.ts`，与 Hydro `packages/common/permission.ts` 保持一致。
 
+## 用户导入
+
+后台 `/admin/users/import` 渲染上游 `manage_user_import.html`，对应 `POST /api/v1/admin/users/import`：
+
+- 每行一个用户，tab 或逗号分隔：`邮箱, 用户名, 密码, 显示名, 附加JSON`
+- 附加 JSON 支持 `school`、`studentId`、`group`（分组不存在时自动创建）
+- `draft=true` 只预览并检查重复邮箱/用户名；`draft=false` 真正创建
+- 校验规则与注册一致：邮箱格式、用户名 3-31 字符（或 2 个汉字）、密码 6-255 字符
+
 ## 尚未完成
 
 - 用户封禁和删除
 - 题目/比赛/训练编辑
 - 操作日志和审计
-- 控制面板其余节点（脚本管理、用户导入、配置管理）
+- 控制面板其余节点（脚本管理、配置管理）
 - `manage_dashboard` 的 WebSocket 连接检查（`#messages` 目前为空）和「Restart」按钮（未实现，已从 DOM 移除）
 - 修改系统默认权限（默认权限行的 Edit 链接已移除）

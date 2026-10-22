@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -31,6 +32,7 @@ func (h *AdminHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/admin/stats", h.stats)
 	router.GET("/api/v1/admin/users", h.userList)
 	router.PATCH("/api/v1/admin/users/:uid/priv", h.updateUserPriv)
+	router.POST("/api/v1/admin/users/import", h.importUsers)
 	router.GET("/api/v1/admin/settings", h.settings)
 	router.PUT("/api/v1/admin/settings", h.updateSettings)
 }
@@ -198,6 +200,49 @@ func (h *AdminHandler) updateUserPriv(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"id": uid, "priv": request.Priv}})
+}
+
+// importUsers creates accounts in bulk from the admin import textarea.
+func (h *AdminHandler) importUsers(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+	var request struct {
+		Users string `json:"users"`
+		Draft bool   `json:"draft"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || strings.TrimSpace(request.Users) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "users is required"})
+		return
+	}
+	parsed, messages := user.ParseImportUsers(request.Users)
+	if request.Draft {
+		// Upstream also reports rows that already exist while previewing.
+		for _, item := range parsed {
+			if _, err := h.users.FindByMail(c.Request.Context(), item.Email); err == nil {
+				messages = append(messages, fmt.Sprintf("%s：邮箱已注册", item.Email))
+				continue
+			}
+			if _, err := h.users.FindByUsername(c.Request.Context(), item.Username); err == nil {
+				messages = append(messages, fmt.Sprintf("%s：用户名已被占用", item.Username))
+			}
+		}
+		messages = append(messages, fmt.Sprintf("找到 %d 个用户", len(parsed)))
+		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+			"users": parsed, "messages": messages, "created": 0,
+		}})
+		return
+	}
+	uids, createMessages, err := h.users.ImportUsers(c.Request.Context(), parsed, c.ClientIP())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to import users"})
+		return
+	}
+	messages = append(messages, createMessages...)
+	messages = append(messages, fmt.Sprintf("成功创建 %d 个用户", len(uids)))
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+		"users": parsed, "messages": messages, "created": len(uids),
+	}})
 }
 
 func (h *AdminHandler) requireAdmin(c *gin.Context) bool {

@@ -1510,3 +1510,17 @@ export async function getRandomProblem(query = ''): Promise<string> {
   const result = await request<Envelope<{ pid: string }>>(`/api/v1/problems/random${params}`)
   return result.data.pid
 }
+
+export type UserImportResult = {
+  users: Array<{ Email: string; Username: string; Password: string; DisplayName: string }>
+  messages: string[]
+  created: number
+}
+
+export async function importUsers(users: string, draft: boolean): Promise<UserImportResult> {
+  const result = await request<Envelope<UserImportResult>>('/api/v1/admin/users/import', {
+    method: 'POST',
+    body: JSON.stringify({ users, draft }),
+  })
+  return result.data
+}

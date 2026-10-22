@@ -244,7 +244,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     // manage_base.html renders whatever getNodes('ControlPanel') returns.
     ui: {
       getNodes: (family: string) => (family === 'ControlPanel'
-        ? [{ name: 'manage_dashboard' }, { name: 'manage_user_priv' }, { name: 'manage_setting' }]
+        ? [{ name: 'manage_dashboard' }, { name: 'manage_user_priv' }, { name: 'manage_user_import' }, { name: 'manage_setting' }]
         : []),
     },
     STATUS,
