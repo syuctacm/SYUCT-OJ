@@ -3,8 +3,11 @@ package migration
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,6 +45,14 @@ type Options struct {
 	Sources []string
 	Target  string
 	DryRun  bool
+	// RenumberDocIDs resolves colliding problem docIds by assigning new ids and
+	// rewriting every reference. Off by default: it touches records, contests,
+	// training plans and storage paths.
+	RenumberDocIDs bool
+	// FileRoot optionally points at the local problem file root; when set, the
+	// physical problem/<domain>/<docId> directory is moved together with the
+	// renumbering.
+	FileRoot string
 }
 
 type CollectionReport struct {
@@ -70,19 +81,20 @@ type ValidationReport struct {
 }
 
 type Report struct {
-	DryRun          bool               `json:"dry_run"`
-	Target          string             `json:"target"`
-	Sources         []string           `json:"sources"`
-	StartedAt       time.Time          `json:"started_at"`
-	EndedAt         time.Time          `json:"ended_at,omitempty"`
-	Collections     []CollectionReport `json:"collections"`
-	Domains         []DomainReport     `json:"domains"`
-	UsersMerged     int64              `json:"users_merged"`
-	UsersRemaining  *int64             `json:"users_remaining,omitempty"`
-	Conflicts       []ProblemConflict  `json:"conflicts,omitempty"`
-	ProblemsRenamed []ProblemRename    `json:"problems_renamed,omitempty"`
-	Validation      *ValidationReport  `json:"validation,omitempty"`
-	Warnings        []string           `json:"warnings,omitempty"`
+	DryRun             bool                 `json:"dry_run"`
+	Target             string               `json:"target"`
+	Sources            []string             `json:"sources"`
+	StartedAt          time.Time            `json:"started_at"`
+	EndedAt            time.Time            `json:"ended_at,omitempty"`
+	Collections        []CollectionReport   `json:"collections"`
+	Domains            []DomainReport       `json:"domains"`
+	UsersMerged        int64                `json:"users_merged"`
+	UsersRemaining     *int64               `json:"users_remaining,omitempty"`
+	Conflicts          []ProblemConflict    `json:"conflicts,omitempty"`
+	ProblemsRenamed    []ProblemRename      `json:"problems_renamed,omitempty"`
+	ProblemsRenumbered []ProblemDocIDRename `json:"problems_renumbered,omitempty"`
+	Validation         *ValidationReport    `json:"validation,omitempty"`
+	Warnings           []string             `json:"warnings,omitempty"`
 }
 
 // ProblemConflict describes a problem identifier collision that flattening the
@@ -93,6 +105,15 @@ type ProblemConflict struct {
 	DocID         int64  `json:"docId"`
 	PID           string `json:"pid,omitempty"`
 	ConflictsWith string `json:"conflictsWith"`
+}
+
+// ProblemDocIDRename records one problem docId rewrite performed before
+// flattening the domains.
+type ProblemDocIDRename struct {
+	Domain   string `json:"domain"`
+	OldDocID int64  `json:"oldDocId"`
+	NewDocID int64  `json:"newDocId"`
+	PID      string `json:"pid,omitempty"`
 }
 
 // ProblemRename records an automatic pid rename applied before flattening.
@@ -160,15 +181,35 @@ func Run(ctx context.Context, db *mongo.Database, opts Options) (*Report, error)
 		return nil, err
 	}
 	report.Conflicts = conflicts
+	if opts.RenumberDocIDs {
+		plan, err := planProblemDocIDRenames(ctx, db, target, sources)
+		if err != nil {
+			return nil, err
+		}
+		report.ProblemsRenumbered = plan
+	}
 	if !opts.DryRun {
-		for _, conflict := range conflicts {
-			if conflict.Kind != "docId" {
-				continue
+		if first := firstDocIDConflict(conflicts); first != nil {
+			if !opts.RenumberDocIDs {
+				report.EndedAt = time.Now().UTC()
+				return report, fmt.Errorf(
+					"problem docId collision: domain %s docId %d conflicts with %s; resolve problem docIds before migrating (or pass --renumber-doc-ids)",
+					first.Domain, first.DocID, first.ConflictsWith)
 			}
-			report.EndedAt = time.Now().UTC()
-			return report, fmt.Errorf(
-				"problem docId collision: domain %s docId %d conflicts with %s; resolve problem docIds before migrating",
-				conflict.Domain, conflict.DocID, conflict.ConflictsWith)
+			for _, rename := range report.ProblemsRenumbered {
+				if err := applyProblemDocIDRename(ctx, db, rename, opts.FileRoot); err != nil {
+					return nil, err
+				}
+			}
+			// Re-analyze after renumbering so pid renames target P<newDocId>.
+			conflicts, renames, err = analyzeProblemConflicts(ctx, db, target, sources)
+			if err != nil {
+				return nil, err
+			}
+			if first := firstDocIDConflict(conflicts); first != nil {
+				return nil, fmt.Errorf("problem docId collision remains after renumbering: %s/%d", first.Domain, first.DocID)
+			}
+			report.Conflicts = conflicts
 		}
 		for _, source := range sources {
 			for _, rename := range renames[source] {
@@ -592,4 +633,193 @@ func toNumber(value any) (any, bool) {
 		return v, true
 	}
 	return nil, false
+}
+
+func firstDocIDConflict(conflicts []ProblemConflict) *ProblemConflict {
+	for i := range conflicts {
+		if conflicts[i].Kind == "docId" {
+			return &conflicts[i]
+		}
+	}
+	return nil
+}
+
+// numericCandidates matches a problem id whatever BSON number type the old
+// Hydro instance stored (Int32, Int64 or Double).
+func numericCandidates(value int64) bson.A {
+	values := bson.A{value, float64(value)}
+	if value <= int64(^uint32(0)>>1) {
+		values = append(values, int32(value))
+	}
+	return values
+}
+
+// planProblemDocIDRenames assigns new docIds to problems whose docId is already
+// taken by the target domain or an earlier source domain. New ids start above
+// the global maximum so they cannot collide with anything.
+func planProblemDocIDRenames(ctx context.Context, db *mongo.Database, target string, sources []string) ([]ProblemDocIDRename, error) {
+	type problemRef struct {
+		DocID int64  `bson:"docId"`
+		PID   string `bson:"pid"`
+	}
+	load := func(domain string) ([]problemRef, error) {
+		cursor, err := db.Collection("document").Find(ctx,
+			bson.M{"domainId": domain, "docType": 10},
+			options.Find().SetProjection(bson.M{"docId": 1, "pid": 1}))
+		if err != nil {
+			return nil, err
+		}
+		defer cursor.Close(ctx)
+		var items []problemRef
+		if err := cursor.All(ctx, &items); err != nil {
+			return nil, err
+		}
+		sort.Slice(items, func(i, j int) bool { return items[i].DocID < items[j].DocID })
+		return items, nil
+	}
+	occupied := map[int64]bool{}
+	maxID := int64(0)
+	targetProblems, err := load(target)
+	if err != nil {
+		return nil, fmt.Errorf("load %s problems: %w", target, err)
+	}
+	for _, problem := range targetProblems {
+		occupied[problem.DocID] = true
+		if problem.DocID > maxID {
+			maxID = problem.DocID
+		}
+	}
+	sourceProblems := map[string][]problemRef{}
+	for _, source := range sources {
+		items, err := load(source)
+		if err != nil {
+			return nil, fmt.Errorf("load %s problems: %w", source, err)
+		}
+		sourceProblems[source] = items
+		for _, problem := range items {
+			if problem.DocID > maxID {
+				maxID = problem.DocID
+			}
+		}
+	}
+	plan := make([]ProblemDocIDRename, 0)
+	for _, source := range sources {
+		for _, problem := range sourceProblems[source] {
+			if problem.DocID == 0 {
+				continue
+			}
+			if !occupied[problem.DocID] {
+				occupied[problem.DocID] = true
+				continue
+			}
+			maxID++
+			occupied[maxID] = true
+			plan = append(plan, ProblemDocIDRename{
+				Domain: source, OldDocID: problem.DocID, NewDocID: maxID, PID: problem.PID,
+			})
+		}
+	}
+	return plan, nil
+}
+
+// applyProblemDocIDRename rewrites one problem docId and every stored reference
+// to it, then moves the local file directory when a file root is configured.
+func applyProblemDocIDRename(ctx context.Context, db *mongo.Database, rename ProblemDocIDRename, fileRoot string) error {
+	doc := db.Collection("document")
+	result, err := doc.UpdateOne(ctx,
+		bson.M{"domainId": rename.Domain, "docType": 10, "docId": bson.M{"$in": numericCandidates(rename.OldDocID)}},
+		bson.M{"$set": bson.M{"docId": rename.NewDocID, "legacyDocId": rename.OldDocID}})
+	if err != nil {
+		return fmt.Errorf("renumber problem %s/%d: %w", rename.Domain, rename.OldDocID, err)
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("renumber problem %s/%d: problem not found", rename.Domain, rename.OldDocID)
+	}
+	for _, collection := range []string{"record", "record.stat", "task"} {
+		if _, err := db.Collection(collection).UpdateMany(ctx,
+			bson.M{"domainId": rename.Domain, "pid": bson.M{"$in": numericCandidates(rename.OldDocID)}},
+			bson.M{"$set": bson.M{"pid": rename.NewDocID}}); err != nil {
+			return fmt.Errorf("renumber %s/%s/%d: %w", collection, rename.Domain, rename.OldDocID, err)
+		}
+	}
+	if _, err := db.Collection("document.status").UpdateMany(ctx,
+		bson.M{"domainId": rename.Domain, "docType": 10, "docId": bson.M{"$in": numericCandidates(rename.OldDocID)}},
+		bson.M{"$set": bson.M{"docId": rename.NewDocID}}); err != nil {
+		return fmt.Errorf("renumber status %s/%d: %w", rename.Domain, rename.OldDocID, err)
+	}
+	if _, err := doc.UpdateMany(ctx,
+		bson.M{"domainId": rename.Domain, "parentType": 10, "parentId": bson.M{"$in": numericCandidates(rename.OldDocID)}},
+		bson.M{"$set": bson.M{"parentId": rename.NewDocID}}); err != nil {
+		return fmt.Errorf("renumber parents %s/%d: %w", rename.Domain, rename.OldDocID, err)
+	}
+	if _, err := doc.UpdateMany(ctx,
+		bson.M{"domainId": rename.Domain, "docType": 30, "pids": bson.M{"$in": numericCandidates(rename.OldDocID)}},
+		bson.M{"$set": bson.M{"pids.$": rename.NewDocID}}); err != nil {
+		return fmt.Errorf("renumber contest pids %s/%d: %w", rename.Domain, rename.OldDocID, err)
+	}
+	dagUpdate := bson.M{
+		"$map": bson.M{
+			"input": "$dag",
+			"as":    "chapter",
+			"in": bson.M{
+				"$mergeObjects": []any{
+					"$$chapter",
+					bson.M{"pids": bson.M{
+						"$map": bson.M{
+							"input": "$$chapter.pids",
+							"as":    "pid",
+							"in": bson.M{"$cond": []any{
+								bson.M{"$in": []any{"$$pid", numericCandidates(rename.OldDocID)}},
+								rename.NewDocID,
+								"$$pid",
+							}},
+						},
+					}},
+				},
+			},
+		},
+	}
+	if _, err := doc.UpdateMany(ctx,
+		bson.M{"domainId": rename.Domain, "docType": 40, "dag.pids": bson.M{"$in": numericCandidates(rename.OldDocID)}},
+		mongo.Pipeline{bson.D{{Key: "$set", Value: bson.M{"dag": dagUpdate}}}}); err != nil {
+		return fmt.Errorf("renumber training pids %s/%d: %w", rename.Domain, rename.OldDocID, err)
+	}
+	// Logical storage paths keep the problem/<domain>/<docId>/ layout.
+	oldPrefix := fmt.Sprintf("problem/%s/%d/", rename.Domain, rename.OldDocID)
+	newPrefix := fmt.Sprintf("problem/%s/%d/", rename.Domain, rename.NewDocID)
+	cursor, err := db.Collection("storage").Find(ctx, bson.M{"path": bson.M{"$regex": "^" + regexp.QuoteMeta(oldPrefix)}})
+	if err != nil {
+		return fmt.Errorf("read storage paths %s/%d: %w", rename.Domain, rename.OldDocID, err)
+	}
+	var paths []struct {
+		ID   any    `bson:"_id"`
+		Path string `bson:"path"`
+	}
+	if err := cursor.All(ctx, &paths); err != nil {
+		_ = cursor.Close(ctx)
+		return fmt.Errorf("decode storage paths %s/%d: %w", rename.Domain, rename.OldDocID, err)
+	}
+	_ = cursor.Close(ctx)
+	for _, entry := range paths {
+		next := newPrefix + strings.TrimPrefix(entry.Path, oldPrefix)
+		if _, err := db.Collection("storage").UpdateOne(ctx, bson.M{"_id": entry.ID}, bson.M{"$set": bson.M{"path": next}}); err != nil {
+			return fmt.Errorf("update storage path %s/%d: %w", rename.Domain, rename.OldDocID, err)
+		}
+	}
+	if fileRoot != "" {
+		oldDir := filepath.Join(fileRoot, "problem", rename.Domain, strconv.FormatInt(rename.OldDocID, 10))
+		newDir := filepath.Join(fileRoot, "problem", rename.Domain, strconv.FormatInt(rename.NewDocID, 10))
+		if info, statErr := os.Stat(oldDir); statErr == nil && info.IsDir() {
+			if err := os.MkdirAll(filepath.Dir(newDir), 0o755); err != nil {
+				return fmt.Errorf("prepare file dir %s: %w", newDir, err)
+			}
+			if _, err := os.Stat(newDir); err == nil {
+				return fmt.Errorf("file dir %s already exists", newDir)
+			}
+			if err := os.Rename(oldDir, newDir); err != nil {
+				return fmt.Errorf("move file dir %s: %w", oldDir, err)
+			}
+		}
+	}
+	return nil
 }

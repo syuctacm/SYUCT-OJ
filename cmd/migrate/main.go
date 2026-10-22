@@ -19,12 +19,14 @@ import (
 func main() {
 	_ = godotenv.Load()
 	var (
-		sources    = flag.String("sources", "contest2025,select2025", "comma-separated source domains")
-		target     = flag.String("target", migration.DefaultTargetDomain, "target domain")
-		dryRun     = flag.Bool("dry-run", true, "report only; do not mutate data")
-		execute    = flag.Bool("execute", false, "execute migration; overrides --dry-run")
-		reportPath = flag.String("report", "", "optional report JSON path")
-		mongoURI   = flag.String("mongo-uri", os.Getenv("MONGO_URI"), "MongoDB URI")
+		sources       = flag.String("sources", "contest2025,select2025", "comma-separated source domains")
+		target        = flag.String("target", migration.DefaultTargetDomain, "target domain")
+		dryRun        = flag.Bool("dry-run", true, "report only; do not mutate data")
+		execute       = flag.Bool("execute", false, "execute migration; overrides --dry-run")
+		reportPath    = flag.String("report", "", "optional report JSON path")
+		renumberDocID = flag.Bool("renumber-doc-ids", false, "renumber colliding problem docIds and rewrite every reference")
+		fileRoot      = flag.String("file-root", "", "optional local problem file root; moves problem/<domain>/<docId> directories")
+		mongoURI      = flag.String("mongo-uri", os.Getenv("MONGO_URI"), "MongoDB URI")
 	)
 	flag.Parse()
 
@@ -41,9 +43,11 @@ func main() {
 	defer func() { _ = client.Disconnect(context.Background()) }()
 
 	report, err := migration.Run(ctx, db, migration.Options{
-		Sources: strings.Split(*sources, ","),
-		Target:  *target,
-		DryRun:  *dryRun && !*execute,
+		Sources:        strings.Split(*sources, ","),
+		Target:         *target,
+		DryRun:         *dryRun && !*execute,
+		RenumberDocIDs: *renumberDocID,
+		FileRoot:       *fileRoot,
 	})
 	// Write the report even when Run aborts (for example on problem id
 	// collisions) so the operator can inspect report.conflicts.
