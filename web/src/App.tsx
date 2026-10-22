@@ -27,6 +27,7 @@ import { HomeSettingsPage } from './pages/HomeSettingsPage.tsx'
 import { HomeworksPage } from './pages/HomeworksPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
 import { MessagesPage } from './pages/MessagesPage.tsx'
+import { SecurityPage } from './pages/SecurityPage.tsx'
 import { ProblemConfigPage } from './pages/ProblemConfigPage.tsx'
 import { ProblemDetailPage } from './pages/ProblemDetailPage.tsx'
 import { ProblemEditPage } from './pages/ProblemEditPage.tsx'
@@ -101,6 +102,7 @@ export default function App() {
         <Route path="/user/:uid" element={<UserProfilePage />} />
         <Route path="/ranking" element={<RankingPage />} />
         <Route path="/home/messages" element={<MessagesPage />} />
+        <Route path="/home/security" element={<SecurityPage />} />
         <Route path="/home/settings" element={<HomeSettingsPage />} />
         <Route path="/file" element={<UserFilesPage />} />
         <Route path="/login" element={<LoginPage />} />

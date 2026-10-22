@@ -110,7 +110,7 @@ export function HomeSettingsPage() {
       // Domain and security pages are not ported yet.
       case 'home_domain':
       case 'home_security':
-        return '#'
+        return '/home/security'
       default: return '#'
     }
   }, [user?.id])

@@ -272,6 +272,19 @@ func (r *Repository) DeleteFiles(ctx context.Context, uid int64, names []string)
 }
 
 // UpdateSettings applies a validated $set document to the user profile.
+// UpdatePassword replaces the stored hydro password hash.
+func (r *Repository) UpdatePassword(ctx context.Context, uid int64, salt, hash string) error {
+	result, err := r.collection.UpdateOne(ctx, bson.M{"_id": uid},
+		bson.M{"$set": bson.M{"salt": salt, "hash": hash, "hashType": "hydro"}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("user not found")
+	}
+	return nil
+}
+
 func (r *Repository) UpdateSettings(ctx context.Context, uid int64, set bson.M) error {
 	if uid <= 0 {
 		return fmt.Errorf("invalid user id")
