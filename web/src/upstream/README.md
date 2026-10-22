@@ -12,6 +12,9 @@ Nunjucks sources in the pinned `@hydrooj/ui-default` package (AGPL-3.0):
   `urlForFile`, `size`, `handler`, `form` macros) expected by those templates.
 - `hydrate.tsx` mounts only the interactive islands (autocomplete, date/time
   picker, Markdown editor) into the already-rendered upstream markup.
+- `problemconfig/` is the pinned upstream Monaco/problem-config editor ported
+  from `components/problemconfig/`; only imports and the Monaco/Vite worker
+  loader are adapted. Its schema and reducers remain upstream-derived.
 
 Do not duplicate a migrated page's markup in TSX or add handwritten CSS to
 approximate it. Page fixes belong in the adapter context or in an upstream
