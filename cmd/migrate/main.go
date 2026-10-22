@@ -45,19 +45,23 @@ func main() {
 		Target:  *target,
 		DryRun:  *dryRun && !*execute,
 	})
+	// Write the report even when Run aborts (for example on problem id
+	// collisions) so the operator can inspect report.conflicts.
+	if report != nil {
+		data, encodeErr := json.MarshalIndent(report, "", "  ")
+		if encodeErr != nil {
+			fail("encode report: %v", encodeErr)
+		}
+		if *reportPath != "" {
+			if writeErr := os.WriteFile(*reportPath, append(data, '\n'), 0o640); writeErr != nil {
+				fail("write report: %v", writeErr)
+			}
+		}
+		_, _ = os.Stdout.Write(append(data, '\n'))
+	}
 	if err != nil {
 		fail("migration: %v", err)
 	}
-	data, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		fail("encode report: %v", err)
-	}
-	if *reportPath != "" {
-		if err := os.WriteFile(*reportPath, append(data, '\n'), 0o640); err != nil {
-			fail("write report: %v", err)
-		}
-	}
-	_, _ = os.Stdout.Write(append(data, '\n'))
 	if report.Validation != nil && !report.Validation.OK {
 		fail("migration finished with residual source-domain data; see validation.residuals")
 	}

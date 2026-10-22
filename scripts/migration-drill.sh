@@ -23,10 +23,15 @@ if ! docker inspect -f '{{.State.Running}}' "$MONGO_CONTAINER" >/dev/null 2>&1; 
   exit 1
 fi
 
-mongo_eval() {
+mongo_eval_db() {
+  local database=$1
   docker exec "$MONGO_CONTAINER" mongosh --quiet \
     -u "$MONGO_ROOT_USERNAME" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin \
-    "$DRILL_DATABASE" --eval "$1"
+    "$database" --eval "$2"
+}
+
+mongo_eval() {
+  mongo_eval_db "$DRILL_DATABASE" "$1"
 }
 
 echo "==> Seeding synthetic multi-domain data into $DRILL_DATABASE"
@@ -38,7 +43,7 @@ db.domain.insertMany([
 ]);
 db.document.insertMany([
   { _id: ObjectId(), domainId: "system", docType: 10, docId: Long(1), pid: "P1", title: "System Problem" },
-  { _id: ObjectId(), domainId: "contest2025", docType: 10, docId: Long(2), pid: "C1", title: "Contest Problem" },
+  { _id: ObjectId(), domainId: "contest2025", docType: 10, docId: Long(2), pid: "P1", title: "Contest Problem" },
   { _id: ObjectId(), domainId: "select2025", docType: 30, docId: ObjectId(), title: "Select Contest", rule: "acm" },
 ]);
 db.getCollection("document.status").insertOne({ domainId: "contest2025", docType: 40, docId: ObjectId(), uid: Long(7), enroll: 1 });
@@ -86,6 +91,10 @@ VERIFY=$(mongo_eval 'print(JSON.stringify({
   systemRecords: db.record.countDocuments({domainId: "system"}),
   residualStorage: db.storage.countDocuments({path: /^(problem|contest|training)\/(contest2025|select2025)\//}),
   systemStorage: db.storage.countDocuments({path: /^(problem|contest|training)\/system\//}),
+  contestProblem: (() => {
+    const p = db.document.findOne({domainId: "system", docType: 10, docId: Long(2)});
+    return p ? { pid: p.pid, legacyPids: p.legacyPids } : null;
+  })(),
   mergedUsers: db.getCollection("domain.user").countDocuments({domainId: "system"}),
   mergedUid7: (() => {
     const u = db.getCollection("domain.user").findOne({domainId: "system", uid: Long(7)});
@@ -125,6 +134,10 @@ uid7 = verify["mergedUid7"] or {}
 check(uid7.get("nSubmit") == 5, f"uid 7 nSubmit should be merged to 5, got {uid7.get('nSubmit')}")
 check(uid7.get("rp") == 1600, f"uid 7 rp should use max 1600, got {uid7.get('rp')}")
 check(uid7.get("level") == 4, f"uid 7 level should use max 4, got {uid7.get('level')}")
+contest = verify["contestProblem"] or {}
+check(contest.get("pid") == "P2", f"colliding pid should be renamed to P2, got {contest.get('pid')}")
+check(contest.get("legacyPids") == ["P1"], f"legacyPids should keep P1, got {contest.get('legacyPids')}")
+check(len(execute.get("problems_renamed") or []) == 1, f"problems_renamed should have 1 entry, got {execute.get('problems_renamed')}")
 check(sorted(uid7.get("legacyDomains") or []) == ["contest2025", "select2025"], f"uid 7 legacyDomains: {uid7.get('legacyDomains')}")
 
 check(dry["dry_run"] is True, "dry-run report should set dry_run")
@@ -144,6 +157,35 @@ if errors:
 
 print("==> Migration drill passed")
 PY
+
+echo "==> Checking the docId collision guard"
+COLLISION_DB="${DRILL_DATABASE}_collision"
+mongo_eval_db "$COLLISION_DB" 'db.dropDatabase()' >/dev/null
+mongo_eval_db "$COLLISION_DB" "$(cat <<'JS'
+db.document.insertMany([
+  { _id: ObjectId(), domainId: "system", docType: 10, docId: Long(1), pid: "P1", title: "System" },
+  { _id: ObjectId(), domainId: "contest2025", docType: 10, docId: Long(1), pid: "C1", title: "Contest" },
+]);
+db.domain.insertOne({ _id: "contest2025", name: "contest2025" });
+JS
+)" >/dev/null
+if MONGO_DATABASE="$COLLISION_DB" MONGO_URI="$MONGO_URI" \
+  go run ./cmd/migrate --execute --report "$TMP_DIR/collision.json" >/dev/null 2>&1; then
+  echo "ERROR: migration accepted a docId collision" >&2
+  exit 1
+fi
+collision_remaining=$(mongo_eval_db "$COLLISION_DB" 'print(db.document.countDocuments({domainId: "contest2025"}))' | tail -1)
+if [ "$collision_remaining" != "1" ]; then
+  echo "ERROR: docId collision modified source data (remaining=$collision_remaining)" >&2
+  exit 1
+fi
+collision_domain=$(mongo_eval_db "$COLLISION_DB" 'print(db.domain.countDocuments({_id: "contest2025"}))' | tail -1)
+if [ "$collision_domain" != "1" ]; then
+  echo "ERROR: docId collision archived the source domain" >&2
+  exit 1
+fi
+mongo_eval_db "$COLLISION_DB" 'db.dropDatabase()' >/dev/null
+echo "    docId collision correctly refused"
 
 if [[ "$KEEP" != "1" ]]; then
   echo "==> Dropping drill database"
