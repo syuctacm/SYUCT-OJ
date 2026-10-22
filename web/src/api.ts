@@ -990,6 +990,9 @@ export type DiscussionNode = {
   title: string
   category: string
   pic?: string
+  type?: number
+  owner?: number
+  rule?: string
 }
 
 export type DiscussionTailReply = {
@@ -1028,7 +1031,13 @@ export async function getDiscussionNodes(): Promise<DiscussionNode[]> {
   return result.data.items
 }
 
+export async function getDiscussionNode(type: string, name: string): Promise<DiscussionNode> {
+  const result = await request<Envelope<DiscussionNode>>(`/api/v1/discussion-nodes/${encodeURIComponent(type)}/${encodeURIComponent(name)}`)
+  return result.data
+}
+
 export async function createDiscussion(input: {
+  nodeType?: string
   nodeId: string
   title: string
   content: string

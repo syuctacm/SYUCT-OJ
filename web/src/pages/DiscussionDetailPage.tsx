@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  createDiscussionReply, deleteDiscussionReply, getDiscussion, getDiscussionNodes, getDiscussionReplies,
+  createDiscussionReply, deleteDiscussionReply, getDiscussion, getDiscussionNode, getDiscussionNodes, getDiscussionReplies,
   getUsersByIDs, setDiscussionLock, setDiscussionStar, updateDiscussionReply,
   type Discussion, type DiscussionNode, type DiscussionReply, type UserChoice,
 } from '../api.ts'
@@ -33,6 +33,8 @@ export function DiscussionDetailPage() {
   const [discussion, setDiscussion] = useState<Discussion | null>(null)
   const [replies, setReplies] = useState<DiscussionReply[]>([])
   const [nodes, setNodes] = useState<DiscussionNode[]>([])
+  const [parentNode, setParentNode] = useState<DiscussionNode | null>(null)
+  const [parentTypeName, setParentTypeName] = useState('node')
   const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
@@ -66,13 +68,42 @@ export function DiscussionDetailPage() {
     getUsersByIDs([...ids].filter((id) => id > 0)).then(setUsers).catch(() => setUsers([]))
   }, [discussion, replies])
 
+  useEffect(() => {
+    if (!discussion) return
+    if (discussion.parentType === 20) {
+      setParentTypeName('node')
+      setParentNode(nodes.find((node) => node.docId === String(discussion.parentId)) ?? null)
+      return
+    }
+    const name = String(discussion.parentId ?? '')
+    if (discussion.parentType === 10) {
+      setParentTypeName('problem')
+      getDiscussionNode('problem', name).then(setParentNode).catch(() => setParentNode(null))
+    } else if (discussion.parentType === 40) {
+      setParentTypeName('training')
+      getDiscussionNode('training', name).then(setParentNode).catch(() => setParentNode(null))
+    } else if (discussion.parentType === 30) {
+      getDiscussionNode('contest', name)
+        .then((node) => {
+          setParentTypeName('contest')
+          setParentNode(node)
+        })
+        .catch(() => getDiscussionNode('homework', name)
+          .then((node) => {
+            setParentTypeName('homework')
+            setParentNode(node)
+          })
+          .catch(() => setParentNode(null)))
+    }
+  }, [discussion, nodes])
+
   const context = useMemo(() => {
     if (!discussion) return {}
     const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
     const isOwner = Boolean(user && user.id === discussion.owner)
-    const node = discussion.parentType === 20
+    const node = parentNode ?? (discussion.parentType === 20
       ? nodes.find((item) => item.docId === String(discussion.parentId)) ?? null
-      : null
+      : null)
     const ddoc = {
       ...discussion,
       _id: discussion.docId,
@@ -146,20 +177,21 @@ export function DiscussionDetailPage() {
       PRIV: { PRIV_USER_PROFILE: 1 },
       model: {
         document: { TYPE_PROBLEM: 10, TYPE_CONTEST: 30, TYPE_DISCUSSION_NODE: 20, TYPE_TRAINING: 40 },
-        discussion: { typeDisplay: { 10: 'problem', 20: 'node', 30: 'contest', 40: 'training' } },
+        discussion: { typeDisplay: { 10: 'problem', 20: parentTypeName, 30: parentTypeName, 40: 'training' } },
       },
       avatarUrl,
       UiContext: {},
       UserContext: user,
     }
-  }, [did, discussion, nodes, replies, user, users])
+  }, [did, discussion, nodes, parentNode, parentTypeName, replies, user, users])
 
   const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
     switch (name) {
       case 'discussion_main': return '/discuss'
       case 'discussion_detail': return `/discuss/${encodeURIComponent(String(args.did ?? did))}`
       case 'discussion_edit': return `/discuss/${encodeURIComponent(String(args.did ?? did))}/edit`
-      case 'discussion_node': return `/discuss/node/${encodeURIComponent(String(args.name ?? ''))}`
+      case 'discussion_node':
+        return `/discuss/${encodeURIComponent(parentTypeName)}/${encodeURIComponent(String(args.name ?? parentNode?.docId ?? ''))}`
       case 'discussion_raw': return `/api/v1/discussions/${encodeURIComponent(String(args.did ?? did))}/raw`
       case 'discussion_reply_raw':
         return `/api/v1/discussions/${encodeURIComponent(String(args.did ?? did))}/raw?docId=${encodeURIComponent(String(args.drid ?? ''))}`
@@ -176,7 +208,7 @@ export function DiscussionDetailPage() {
         return '#'
       default: return '/'
     }
-  }, [did])
+  }, [did, parentNode?.docId, parentTypeName])
 
   const run = useCallback(async (action: () => Promise<void>) => {
     setActionError('')

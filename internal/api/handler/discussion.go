@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ func NewDiscussionHandler(repo *discussion.Repository, sessions *auth.SessionMan
 func (h *DiscussionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/discussions", h.list)
 	router.GET("/api/v1/discussion-nodes", h.listNodes)
+	router.GET("/api/v1/discussion-nodes/:type/:name", h.getNode)
 	router.POST("/api/v1/discussions", h.create)
 	router.PATCH("/api/v1/discussions/:did", h.update)
 	router.DELETE("/api/v1/discussions/:did", h.delete)
@@ -65,6 +67,19 @@ func (h *DiscussionHandler) listNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"items": items, "total": len(items)}})
 }
 
+func (h *DiscussionHandler) getNode(c *gin.Context) {
+	node, err := h.repo.ResolveNode(c.Request.Context(), c.Param("type"), c.Param("name"))
+	if err != nil {
+		if errors.Is(err, discussion.ErrNodeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "discussion node not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load discussion node"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": node})
+}
+
 func (h *DiscussionHandler) create(c *gin.Context) {
 	if h.sessions == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -76,6 +91,7 @@ func (h *DiscussionHandler) create(c *gin.Context) {
 		return
 	}
 	var request struct {
+		NodeType  string `json:"nodeType"`
 		NodeID    string `json:"nodeId"`
 		Title     string `json:"title"`
 		Content   string `json:"content"`
@@ -86,6 +102,7 @@ func (h *DiscussionHandler) create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
+	request.NodeType = strings.TrimSpace(request.NodeType)
 	request.NodeID = strings.TrimSpace(request.NodeID)
 	request.Title = strings.TrimSpace(request.Title)
 	if request.NodeID == "" || request.Title == "" || strings.TrimSpace(request.Content) == "" {
@@ -104,7 +121,7 @@ func (h *DiscussionHandler) create(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "admin required"})
 		return
 	}
-	node, err := h.repo.GetNode(c.Request.Context(), request.NodeID)
+	node, err := h.repo.ResolveNode(c.Request.Context(), request.NodeType, request.NodeID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "discussion node not found"})
 		return

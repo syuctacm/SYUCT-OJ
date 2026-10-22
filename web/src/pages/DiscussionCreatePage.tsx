@@ -2,13 +2,13 @@
 // file limited to data and event adapters; do not re-create the DOM in JSX.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { createDiscussion, getDiscussionNodes, type DiscussionNode } from '../api.ts'
+import { createDiscussion, getDiscussionNode, type DiscussionNode } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 
 export function DiscussionCreatePage() {
-  const { name = '' } = useParams()
+  const { type = 'node', name = '' } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
@@ -21,13 +21,14 @@ export function DiscussionCreatePage() {
 
   useEffect(() => {
     if (!name) return
-    getDiscussionNodes()
-      .then(setNodes)
+    setLoading(true)
+    getDiscussionNode(type, name)
+      .then((node) => setNodes([node]))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '讨论节点加载失败'))
       .finally(() => setLoading(false))
-  }, [name])
+  }, [name, type])
 
-  const vnode = nodes.find((node) => node.docId === name)
+  const vnode = nodes[0]
   const handleReady = useCallback((root: HTMLDivElement) => {
     const form = root.querySelector('form')
     const onSubmit = (event: SubmitEvent) => submitRef.current(event)
@@ -43,7 +44,7 @@ export function DiscussionCreatePage() {
     if (!vnode) return null
     const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
     return {
-      vnode: { ...vnode, _id: vnode.docId, title: vnode.title || vnode.docId },
+      vnode: { ...vnode, _id: vnode.docId, id: vnode.docId, type: 20, title: vnode.title || vnode.docId },
       ddoc: {},
       handler: {
         user: {
@@ -70,6 +71,7 @@ export function DiscussionCreatePage() {
     setError('')
     try {
       const discussion = await createDiscussion({
+        nodeType: type,
         nodeId: name,
         title,
         content,

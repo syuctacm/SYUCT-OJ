@@ -230,6 +230,7 @@ export function ContestScoreboardPage() {
     switch (name) {
       case 'contest_scoreboard': return `/contest/${encodeURIComponent(id)}/scoreboard`
       case 'contest_detail': return `/contest/${encodeURIComponent(id)}`
+      case 'discussion_node': return `/discuss/contest/${encodeURIComponent(id)}`
       case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
       case 'record_detail': return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
       case 'problem_detail': {
