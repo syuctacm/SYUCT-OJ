@@ -1498,3 +1498,9 @@ export async function rejudgeProblem(pid: string): Promise<number> {
   )
   return result.data.count
 }
+
+export async function deleteProblem(pid: string): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>(`/api/v1/problems/${encodeURIComponent(pid)}`, {
+    method: 'DELETE',
+  })
+}

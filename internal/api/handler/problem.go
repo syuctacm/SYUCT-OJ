@@ -54,6 +54,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/problems/import/hydro", h.importHydro)
 	router.GET("/api/v1/problems/:pid/edit", h.editData)
 	router.PATCH("/api/v1/problems/:pid", h.update)
+	router.DELETE("/api/v1/problems/:pid", h.delete)
 	router.GET("/api/v1/problems/:pid/statistics", h.statistics)
 	router.POST("/api/v1/problems/:pid/rejudge", h.rejudge)
 	router.GET("/api/v1/problems/:pid/assets", h.listAssets)

@@ -68,6 +68,15 @@ func (s *FileStore) OpenProblemFile(domainID, pid, name string) (io.ReadCloser, 
 	return os.Open(path)
 }
 
+// DeleteProblemDir removes every stored file of one problem.
+func (s *FileStore) DeleteProblemDir(domainID, pid string) error {
+	path, err := s.path("problem", domainID, pid)
+	if err != nil {
+		return err
+	}
+	return os.RemoveAll(path)
+}
+
 func (s *FileStore) DeleteProblemFile(domainID, pid, name string) error {
 	path, err := s.path("problem", domainID, pid, "testdata", name)
 	if err != nil {

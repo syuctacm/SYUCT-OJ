@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import yaml from 'js-yaml'
 import {
   createProblem,
+  deleteProblem,
   getProblemAssets,
   getProblemEditor,
   updateProblem,
@@ -101,8 +102,6 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
     const form = root.querySelector('form')
     const onSubmit = (event: SubmitEvent) => submitRef.current(event)
     form?.addEventListener('submit', onSubmit)
-    // The Go API does not expose problem deletion yet; do not leave a dead control.
-    root.querySelector('button[value="delete"]')?.remove()
     const stopHydration = hydrateHydroEditForm(root, {
       uploadProblem: mode === 'edit' ? async (selected) => {
         const result = await uploadProblemAssets(pid, 'additional', selected)
@@ -206,6 +205,20 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     const form = event.target as HTMLFormElement
+    if (mode === 'edit' && (event.submitter as HTMLButtonElement | null)?.value === 'delete') {
+      if (!window.confirm('确定删除这道题目吗？相关提交、题解、讨论和文件都会被删除。')) return
+      setSaving(true)
+      setError('')
+      try {
+        await deleteProblem(pid)
+        navigate('/p', { replace: true })
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : '删除题目失败')
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
     const data = new FormData(form)
     const input: ProblemEditInput = {
       pid: String(data.get('pid') ?? '').trim(),

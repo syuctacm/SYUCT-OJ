@@ -33,6 +33,27 @@ func (h *ProblemHandler) rejudge(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"count": count}})
 }
 
+// delete removes a problem and its related data. Only the owner and
+// administrators may delete a problem.
+func (h *ProblemHandler) delete(c *gin.Context) {
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	if err := h.repo.Delete(c.Request.Context(), pdoc.DocID); err != nil {
+		if errors.Is(err, problem.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to delete problem"})
+		return
+	}
+	if h.store != nil {
+		_ = h.store.DeleteProblemDir(problem.DomainSystem, strconv.FormatInt(pdoc.DocID, 10))
+	}
+	c.Status(http.StatusNoContent)
+}
+
 // statistics serves the /p/:pid/statistics page: one page of the problem's
 // submissions plus the status/score counters the charts need.
 func (h *ProblemHandler) statistics(c *gin.Context) {
