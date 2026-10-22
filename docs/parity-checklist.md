@@ -138,6 +138,20 @@
   - 比赛打印页在 `allowPrint=false` 时仍挂载 kiosk 面板并轮询 `/print/tasks`，控制台持续 404；现在与上游一致返回 404 占位
   - 挂载型组件（活跃日历、讨论历史/表情、消息 pad、判题配置面板、打印面板）在 StrictMode 下重复挂载会打印 createRoot/unmount 告警；改为按容器复用 root（`web/src/upstream/roots.ts`），回归后控制台 0 告警
 
+## 6.3 核心路由最终回归（2026-10-22）
+
+本地 Docker（MongoDB） + Go API + Vite 下按实际路由逐页加载：
+
+- 匿名：18 条核心路由
+- 管理员：34 条核心路由
+- 共 52 条页面加载，全部存在 `.main`
+- 未出现 `Template render error`
+- 未出现 `HTTP 500`
+
+回归覆盖首页、题库/题目/题解/统计/文件、比赛/榜单/答疑/打印/气球、作业、训练、讨论、记录、用户中心、安全设置、后台、标签榜单以及签到/倒计时首页区块。核心视觉结构来自上游 `@hydrooj/ui-default` 原模板和原插件模板；交互回归已在对应 PR 中逐项记录。
+
+高级认证（WebAuthn / Passkey / OAuth）、onsite-toolkit 剩余线下能力和真实生产备份迁移仍在 #1 / #4 跟踪，不再阻塞 #6 的核心页面视觉验收。
+
 ## 7. 当前已知差异
 
 ```text
