@@ -2,7 +2,7 @@
 // file limited to data mapping, filters and pagination state.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { getSubmissions, type SubmissionPage } from '../api.ts'
+import { getSubmissions, type SubmissionEvent, type SubmissionPage } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -71,6 +71,52 @@ export function RecordsPage() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '提交记录加载失败'))
       .finally(() => setLoading(false))
   }, [authLoading, user, filters.uidOrName, filters.pid, filters.tid, filters.lang, filters.status, filters.page])
+
+  useEffect(() => {
+    if (!user) return
+    let disposed = false
+    let socket: WebSocket | null = null
+    let reconnect: number | undefined
+    const connect = () => {
+      if (disposed) return
+      const url = new URL('/api/v1/submissions/events', window.location.href)
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+      socket = new WebSocket(url)
+      socket.onmessage = (message) => {
+        try {
+          const event = JSON.parse(String(message.data)) as SubmissionEvent
+          setPage((current) => {
+            if (!current) return current
+            let changed = false
+            const items = current.items.map((item) => {
+              if (item.id !== event.rid) return item
+              changed = true
+              return {
+                ...item,
+                status: event.status,
+                score: event.score,
+                time: event.time,
+                memory: event.memory,
+                judgeAt: event.judgeAt,
+              }
+            })
+            return changed ? { ...current, items } : current
+          })
+        } catch {
+          // Ignore malformed event frames.
+        }
+      }
+      socket.onclose = () => {
+        if (!disposed) reconnect = window.setTimeout(connect, 3000)
+      }
+    }
+    connect()
+    return () => {
+      disposed = true
+      if (reconnect) window.clearTimeout(reconnect)
+      socket?.close()
+    }
+  }, [user])
 
   const hasMore = Boolean(page && page.page * page.limit < page.total)
 

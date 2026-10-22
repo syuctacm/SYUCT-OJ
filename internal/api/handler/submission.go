@@ -21,6 +21,7 @@ type SubmissionHandler struct {
 	sessions *auth.SessionManager
 	contests *contest.Repository
 	users    *user.Repository
+	hub      *submission.RecordHub
 }
 
 func NewSubmissionHandler(repo *submission.Repository, sessions *auth.SessionManager, contests *contest.Repository, users *user.Repository) *SubmissionHandler {
@@ -29,6 +30,10 @@ func NewSubmissionHandler(repo *submission.Repository, sessions *auth.SessionMan
 
 // Repository exposes the submission store for handlers that need read-only
 // access to records (the problem statistics page).
+func (h *SubmissionHandler) SetHub(hub *submission.RecordHub) {
+	h.hub = hub
+}
+
 func (h *SubmissionHandler) Repository() *submission.Repository {
 	if h == nil {
 		return nil
@@ -39,6 +44,9 @@ func (h *SubmissionHandler) Repository() *submission.Repository {
 func (h *SubmissionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/submissions", h.create)
 	router.GET("/api/v1/submissions", h.list)
+	if h.hub != nil {
+		router.GET("/api/v1/submissions/events", h.events)
+	}
 	router.GET("/api/v1/submissions/:rid", h.get)
 	router.GET("/api/v1/submissions/:rid/code", h.downloadCode)
 	router.POST("/api/v1/submissions/:rid/rejudge", h.rejudge)
@@ -141,6 +149,16 @@ func (h *SubmissionHandler) list(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": result})
+}
+
+func (h *SubmissionHandler) events(c *gin.Context) {
+	if _, ok := h.currentUser(c); !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	if err := h.hub.Serve(c.Writer, c.Request); err != nil {
+		return
+	}
 }
 
 func (h *SubmissionHandler) get(c *gin.Context) {
