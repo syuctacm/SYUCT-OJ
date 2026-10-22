@@ -108,7 +108,22 @@ docker compose -f deploy/compose.prod.yaml up -d --build
 4. 启动旧 Hydro 服务。
 5. 核对数量与核心闭环，恢复流量并公告。
 
-## 6. 已知限制
+## 6. 安全基线
+
+切换前逐项确认：
+
+- [ ] 站点通过 HTTPS 提供服务，并设置 `COOKIE_SECURE=1`（否则 Cookie 缺少 `Secure`）
+- [ ] 反向代理传递 `X-Forwarded-For` / `X-Forwarded-Proto`（`deploy/nginx.conf` 已配置）
+- [ ] 登录与改密接口限流生效：默认 `LOGIN_RATE_LIMIT=10` / `LOGIN_RATE_WINDOW=1m`，超出返回 `429` + `Retry-After`
+- [ ] API 响应带 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`
+- [ ] nginx 对 SPA 响应带同样的安全头，并关闭 `server_tokens`
+- [ ] 非 multipart 请求体上限 8MiB；上传接口使用各自的显式上限
+- [ ] `JUDGE_PASSWORD`、`MONGO_URI` 只通过环境变量注入，不写入镜像或仓库
+- [ ] 判题机沙箱版本与 `docs/judge-security.md` 记录一致
+
+限流是单进程内存实现；如果 API 水平扩容到多实例，需要换成共享存储（Redis 等）。
+
+## 7. 已知限制
 
 - 迁移只重写逻辑存储路径（`storage.path`），不移动物理文件；存储后端必须保持相同布局。
 - 迁移后统一使用 `domainId=system`，旧多域 URL 依赖前端重定向。

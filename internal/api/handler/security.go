@@ -67,7 +67,7 @@ func (h *UserHandler) securityRevokeAll(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to revoke sessions"})
 		return
 	}
-	clearSessionCookie(c)
+	auth.ClearSessionCookie(c)
 	c.Status(http.StatusNoContent)
 }
 
@@ -111,7 +111,7 @@ func (h *UserHandler) securityChangePassword(c *gin.Context) {
 		return
 	}
 	_ = h.sessions.RevokeUser(c.Request.Context(), uid)
-	clearSessionCookie(c)
+	auth.ClearSessionCookie(c)
 	c.Status(http.StatusNoContent)
 }
 
@@ -121,11 +121,4 @@ func newSalt() (string, bool) {
 		return "", false
 	}
 	return strings.TrimRight(base64.RawURLEncoding.EncodeToString(buffer), "="), true
-}
-
-func clearSessionCookie(c *gin.Context) {
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name: "sid", Value: "", Path: "/", MaxAge: -1,
-		HttpOnly: true, SameSite: http.SameSiteLaxMode,
-	})
 }

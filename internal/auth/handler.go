@@ -56,14 +56,7 @@ func (h *Handler) login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "session error"})
 		return
 	}
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "sid",
-		Value:    token,
-		Path:     "/",
-		MaxAge:   int(h.sessions.TTL().Seconds()),
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	SetSessionCookie(c, token, h.sessions.TTL())
 	c.JSON(http.StatusOK, gin.H{"user": publicUser(u)})
 }
 
@@ -87,14 +80,7 @@ func (h *Handler) logout(c *gin.Context) {
 	if token != "" {
 		h.sessions.RevokeContext(c.Request.Context(), token)
 	}
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "sid",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	ClearSessionCookie(c)
 	c.Status(http.StatusNoContent)
 }
 
