@@ -3,7 +3,7 @@
 // body is rendered with the same markdown pipeline as the page itself.
 import { MantineProvider, Popover } from '@mantine/core'
 import { useState } from 'react'
-import { createRoot } from 'react-dom/client'
+import { clearRendered, renderInto } from '../upstream/roots.ts'
 import { getDiscussionHistory, getDiscussionRevision, type DiscussionHistoryEntry } from '../api.ts'
 import { renderMarkdown } from '../upstream/markdown.ts'
 import { Dialog } from './Dialog.tsx'
@@ -111,13 +111,12 @@ function History({ payload }: { payload: string }) {
 }
 
 export function mountDiscussionHistory(root: HTMLElement) {
-  const roots: Array<{ unmount: () => void }> = []
+  const containers: HTMLElement[] = []
   root.querySelectorAll<HTMLElement>('[data-discussion-history]').forEach((element) => {
     const payload = element.getAttribute('data-raw-url')
     if (!payload) return
-    const reactRoot = createRoot(element)
-    reactRoot.render(<History payload={payload} />)
-    roots.push(reactRoot)
+    renderInto(element, <History payload={payload} />)
+    containers.push(element)
   })
-  return () => roots.forEach((reactRoot) => reactRoot.unmount())
+  return () => containers.forEach(clearRendered)
 }

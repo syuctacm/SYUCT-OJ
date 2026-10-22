@@ -2,7 +2,7 @@
 // (contest_print.html). The `#printKioskContainer` is filled by
 // PrintKioskPanel; the toolbar buttons queue tasks and toggle the kiosk.
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { createRoot } from 'react-dom/client'
+import { clearRendered, renderInto } from '../upstream/roots.ts'
 import { useParams } from 'react-router-dom'
 import {
   addPrintTask, getContest, getUsersByIDs,
@@ -69,11 +69,10 @@ export function ContestPrintPage() {
       container.replaceChildren()
       const host = document.createElement('div')
       container.appendChild(host)
-      const reactRoot = createRoot(host)
-      reactRoot.render(<PrintKioskPanel tid={tid} kiosk={kiosk} key={refreshKey} />)
+      renderInto(host, <PrintKioskPanel tid={tid} kiosk={kiosk} key={refreshKey} />)
       cleanups.push(() => {
+        clearRendered(host)
         host.remove()
-        queueMicrotask(() => reactRoot.unmount())
       })
     }
     return () => cleanups.forEach((cleanup) => cleanup())
@@ -171,6 +170,10 @@ export function ContestPrintPage() {
   }, [contest, isManager, user, users])
 
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
+  // Upstream returns NotFoundError when printing is disabled for the contest.
+  if (contest && !contest.allowPrint) {
+    return <div className="row"><div className="columns"><div className="nothing-placeholder">404 Not Found</div></div></div>
+  }
   if (!contest) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
   return (
     <>

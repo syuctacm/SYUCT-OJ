@@ -1,7 +1,7 @@
 // Page markup comes from the pinned ui-default template; the messagepad app
 // itself is mounted into #messagePad exactly like home_messages.page.tsx does.
 import { useCallback, useEffect, useMemo } from 'react'
-import { createRoot } from 'react-dom/client'
+import { clearRendered, renderInto } from '../upstream/roots.ts'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -37,9 +37,8 @@ export function MessagesPage() {
     const mount = root.querySelector<HTMLElement>('#messagePad')
     if (!mount) return
     mount.innerHTML = ''
-    const app = createRoot(mount)
-    app.render(<MessagePad user={user} target={target} />)
-    return () => queueMicrotask(() => app.unmount())
+    renderInto(mount, <MessagePad user={user} target={target} />)
+    return () => clearRendered(mount)
   }, [target, user])
 
   const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
