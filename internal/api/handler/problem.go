@@ -2,6 +2,8 @@ package handler
 
 import (
 	"archive/zip"
+	"bytes"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
@@ -50,6 +52,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/problems", h.list)
 	router.GET("/api/v1/problem-tags", h.tags)
 	router.GET("/api/v1/problem-tags/:tag/ranking", h.tagRanking)
+	router.GET("/api/v1/problem-tags/:tag/ranking/export", h.tagRankingExport)
 	router.POST("/api/v1/problems", h.create)
 	router.POST("/api/v1/problems/import/fps", h.importFPS)
 	router.POST("/api/v1/problems/import/hydro", h.importHydro)
@@ -343,6 +346,44 @@ func (h *ProblemHandler) tagRanking(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": result})
+}
+
+func (h *ProblemHandler) tagRankingExport(c *gin.Context) {
+	tag := c.Param("tag")
+	items, err := h.repo.TagRankingExport(c.Request.Context(), tag, c.Query("q"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to export tag ranking"})
+		return
+	}
+	var output bytes.Buffer
+	output.WriteString("\uFEFF")
+	writer := csv.NewWriter(&output)
+	_ = writer.Write([]string{"排名", "UID", "账号名", "过题数", "提交数", "通过率", "算法标签"})
+	for _, item := range items {
+		rate := 0.0
+		if item.Submissions > 0 {
+			rate = float64(item.Solved) / float64(item.Submissions) * 100
+		}
+		_ = writer.Write([]string{
+			strconv.Itoa(item.Rank),
+			strconv.FormatInt(item.UID, 10),
+			item.Username,
+			strconv.FormatInt(item.Solved, 10),
+			strconv.FormatInt(item.Submissions, 10),
+			fmt.Sprintf("%.1f%%", rate),
+			tag,
+		})
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to encode tag ranking"})
+		return
+	}
+	filename := fmt.Sprintf("%s标签过题榜单_%s.csv", tag, time.Now().Format("2006-01-02"))
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	c.Status(http.StatusOK)
+	_, _ = c.Writer.Write(output.Bytes())
 }
 
 func (h *ProblemHandler) get(c *gin.Context) {

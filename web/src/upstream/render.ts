@@ -4,6 +4,9 @@
 import nunjucks from 'nunjucks'
 import yaml from 'js-yaml'
 import zhYaml from '@hydrooj/ui-default/locales/zh.yaml?raw'
+import tagStatTemplate from './templates/problem_tag_stat.html?raw'
+import problemMainTemplate from './templates/problem_main.html?raw'
+import tagStatCategoryTemplate from './templates/partials/category.html?raw'
 import { size } from './format.ts'
 import { renderMarkdown } from './markdown.ts'
 import { datetimeSpan } from './datetime.ts'
@@ -34,6 +37,11 @@ const prefix = '/node_modules/@hydrooj/ui-default/templates/'
 const sources = new Map<string, string>(
   Object.entries(templateFiles).map(([path, source]) => [path.slice(prefix.length), source]),
 )
+
+// The tag-stat addon pages are copied verbatim from the local production plugin.
+sources.set('problem_tag_stat.html', tagStatTemplate)
+sources.set('problem_main.html', problemMainTemplate)
+sources.set('partials/category.html', tagStatCategoryTemplate)
 
 // The app already owns the shared <nav>/<footer> shell. Page templates continue
 // to extend the upstream layout so their block structure stays untouched, but

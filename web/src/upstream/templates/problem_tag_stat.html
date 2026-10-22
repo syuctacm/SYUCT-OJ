@@ -1,0 +1,162 @@
+{% extends "layout/basic.html" %}
+{% import "components/paginator.html" as paginator with context %}
+{% import "components/nothing.html" as nothing with context %}
+{% import "components/user.html" as user with context %}
+
+{% block title %}{{ tag }} - {{ model.system.get('server.name') }}{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="medium-12 columns">
+    <div class="section">
+      <div class="section__header" style="min-height: 52px;">
+        <h1 class="section__title">{{ tag }}</h1>
+        <div class="section__tools" style="display: flex; align-items: center; gap: 8px; top: 10px;">
+          <select class="select filter" id="tagSelectBox" data-url-template="{{ url('problem_tag_stat', tag='__TAG__') }}" style="margin-bottom: 0;">
+            <option value="" disabled>切换标签...</option>
+            {% if allTags and allTags.length %}
+              <optgroup label="算法知识点">
+                {% for t in allTags %}
+                  {% if not t.isSource %}
+                    <option value="{{ t.tag }}" {{ 'selected' if t.tag == tag else '' }}>
+                      {{ t.tag }} ({{ t.count }} 题)
+                    </option>
+                  {% endif %}
+                {% endfor %}
+              </optgroup>
+              <optgroup label="题目来源">
+                {% for t in allTags %}
+                  {% if t.isSource %}
+                    <option value="{{ t.tag }}" {{ 'selected' if t.tag == tag else '' }}>
+                      {{ t.tag }} ({{ t.count }} 题)
+                    </option>
+                  {% endif %}
+                {% endfor %}
+              </optgroup>
+            {% endif %}
+          </select>
+          <a href="{{ url('problem_main') }}" class="button" style="margin-bottom: 0; white-space: nowrap;">
+            <span class="icon icon-arrow-left"></span> 返回题库
+          </a>
+        </div>
+      </div>
+
+      <!-- Search & Export Toolbar -->
+      <div class="section__body" style="padding-top: 14px; padding-bottom: 14px; border-bottom: 1px solid #e4e4e4;">
+        <form method="get" action="{{ url('problem_tag_stat', tag=tag) }}">
+          <div class="row">
+            <div class="medium-5 columns">
+              <div class="search">
+                <input name="q" type="text" value="{{ q }}" placeholder="搜索账号 / 用户名 / UID">
+                <button type="submit">
+                  <span class="icon icon-search"></span>
+                </button>
+              </div>
+            </div>
+            <div class="medium-7 columns text-right" style="line-height: 32px;">
+              {% if q %}
+                <span class="supplementary" style="margin-right: 12px;">
+                  匹配到 <strong>{{ matchedCount }}</strong> 个账号（全站上榜 {{ totalUsers }} 人）
+                </span>
+                <a href="{{ url('problem_tag_stat', tag=tag) }}" class="button" style="margin-right: 8px; margin-bottom: 0;">重置搜索</a>
+              {% else %}
+                <span class="supplementary" style="margin-right: 16px;">
+                  题库收录 {{ problemCount }} 题 · 共 {{ totalUsers }} 人有过题记录
+                </span>
+              {% endif %}
+              <a href="{{ url('problem_tag_stat_export', tag=tag, query={q: q} if q else {}) }}" class="button" style="margin-bottom: 0; white-space: nowrap;">
+                <span class="icon icon-download"></span> 导出表格 (CSV)
+              </a>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Table Body -->
+      <div class="section__body no-padding">
+        {% if not rankList.length %}
+          {% if q %}
+            <div style="padding: 40px 20px; text-align: center;" class="typo">
+              <p class="supplementary">未找到与账号「<strong>{{ q }}</strong>」匹配的上榜记录。</p>
+              <a href="{{ url('problem_tag_stat', tag=tag) }}" class="primary button">查看完整榜单</a>
+            </div>
+          {% else %}
+            {{ nothing.render('暂无用户在该标签下有过题记录。') }}
+          {% endif %}
+        {% else %}
+          <table class="data-table">
+            <colgroup>
+              <col class="col--rank">
+              <col class="col--user">
+              <col class="col--ac">
+              <col class="col--tried" style="width: 7rem; text-align: center;">
+              <col class="col--rate" style="width: 7rem; text-align: center;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="col--rank">{{ _('Rank') }}</th>
+                <th class="col--user">{{ _('Username') }}</th>
+                <th class="col--ac" style="text-align: center;">{{ _('Accept') }}</th>
+                <th class="col--tried" style="text-align: center;">{{ _('Tried') }}</th>
+                <th class="col--rate" style="text-align: center;">通过率</th>
+              </tr>
+            </thead>
+            <tbody>
+              {%- for item in rankList -%}
+                {% set _rate = ((item.solved / item.submissions) * 100)|round(1) if item.submissions > 0 else 0 %}
+                <tr>
+                  <td class="col--rank">
+                    {% if item.rank == 1 %}
+                      <strong style="color: #e6a23c;">1</strong>
+                    {% elif item.rank == 2 %}
+                      <strong style="color: #909399;">2</strong>
+                    {% elif item.rank == 3 %}
+                      <strong style="color: #b88230;">3</strong>
+                    {% else %}
+                      {{ item.rank }}
+                    {% endif %}
+                  </td>
+                  <td class="col--user">
+                    {{ user.render_inline(item.udoc) }}
+                  </td>
+                  <td class="col--ac" style="text-align: center; font-weight: 600;">{{ item.solved }}</td>
+                  <td class="col--tried" style="text-align: center;">{{ item.submissions }}</td>
+                  <td class="col--rate" style="text-align: center;">{{ _rate }}%</td>
+                </tr>
+              {%- endfor -%}
+            </tbody>
+          </table>
+          <div style="padding: 12px 16px; text-align: center;">
+            {{ paginator.render(page, ppcount, add_qs='q=' + q if q else '') }}
+            <div class="supplementary" style="margin-top: 8px; font-size: 13px;">
+              {% if q %}
+                共找到 <strong>{{ matchedCount }}</strong> 名与「<strong>{{ q }}</strong>」匹配的账号（该标签全站上榜 {{ totalUsers }} 人），每页 {{ pageSize }} 人
+              {% else %}
+                共 <strong>{{ totalUsers }}</strong> 名用户在「<strong>{{ tag }}</strong>」标签下有过题记录，每页 {{ pageSize }} 人
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const selectBox = document.getElementById('tagSelectBox');
+  if (selectBox) {
+    selectBox.addEventListener('change', function() {
+      const val = this.value;
+      if (!val) return;
+      const tpl = this.getAttribute('data-url-template');
+      if (tpl) {
+        window.location.href = tpl.replace('__TAG__', encodeURIComponent(val));
+      } else {
+        window.location.href = '/problem/tag/' + encodeURIComponent(val) + '/stat';
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}
