@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"mime"
 	"net/http"
 	"strconv"
 	"strings"
@@ -38,6 +40,9 @@ func (h *SubmissionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/submissions", h.create)
 	router.GET("/api/v1/submissions", h.list)
 	router.GET("/api/v1/submissions/:rid", h.get)
+	router.GET("/api/v1/submissions/:rid/code", h.downloadCode)
+	router.POST("/api/v1/submissions/:rid/rejudge", h.rejudge)
+	router.POST("/api/v1/submissions/:rid/cancel", h.cancel)
 }
 
 func (h *SubmissionHandler) create(c *gin.Context) {
@@ -144,10 +149,93 @@ func (h *SubmissionHandler) get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "submission not found"})
 		return
 	}
-	if uid, ok := h.currentUser(c); !ok || uid != record.UID {
+	if uid, ok := h.currentUser(c); !ok || !h.canReadCode(c, uid, record) {
 		record.Code = ""
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": record})
+}
+
+func (h *SubmissionHandler) canReadCode(c *gin.Context, uid int64, record *submission.Record) bool {
+	if uid == record.UID {
+		return true
+	}
+	u, err := h.users.FindByID(c.Request.Context(), uid)
+	return err == nil && u.Priv&1 != 0
+}
+
+func (h *SubmissionHandler) requireAdmin(c *gin.Context) (*user.User, bool) {
+	uid, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, false
+	}
+	u, err := h.users.FindByID(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, false
+	}
+	if u.Priv&1 == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return nil, false
+	}
+	return u, true
+}
+
+func (h *SubmissionHandler) rejudge(c *gin.Context) {
+	if _, ok := h.requireAdmin(c); !ok {
+		return
+	}
+	record, err := h.repo.RejudgeRecord(c.Request.Context(), c.Param("rid"))
+	if err != nil {
+		if errors.Is(err, submission.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "submission not found"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": record})
+}
+
+func (h *SubmissionHandler) cancel(c *gin.Context) {
+	if _, ok := h.requireAdmin(c); !ok {
+		return
+	}
+	record, err := h.repo.CancelRecord(c.Request.Context(), c.Param("rid"))
+	if err != nil {
+		if errors.Is(err, submission.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "submission not found"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": record})
+}
+
+func (h *SubmissionHandler) downloadCode(c *gin.Context) {
+	uid, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	record, err := h.repo.Get(c.Request.Context(), c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "submission not found"})
+		return
+	}
+	if !h.canReadCode(c, uid, record) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	ext := ".txt"
+	if record.Lang != "" {
+		ext = "." + strings.ReplaceAll(record.Lang, " ", "_")
+	}
+	filename := "submission-" + record.ID.Hex() + ext
+	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	_, _ = c.Writer.WriteString(record.Code)
 }
 
 func (h *SubmissionHandler) currentUser(c *gin.Context) (int64, bool) {
