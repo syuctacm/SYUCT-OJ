@@ -8,6 +8,23 @@ import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 
+const MONACO_LANGUAGES: Record<string, string> = {
+  cpp: 'cpp',
+  c: 'c',
+  python3: 'python',
+  python: 'python',
+  java: 'java',
+  go: 'go',
+  rust: 'rust',
+  pascal: 'pascal',
+  nodejs: 'javascript',
+  javascript: 'javascript',
+}
+
+function monacoLanguage(language: string) {
+  return MONACO_LANGUAGES[language] ?? 'plaintext'
+}
+
 function configSummary(problem: ProblemDetail) {
   return {
     type: problem.problemType || 'default',
@@ -51,6 +68,7 @@ export function SubmitPage() {
 
     const fallback = root.querySelector('.hasjs--hide')
     fallback?.remove()
+    let languageSelect: HTMLSelectElement | null = null
     const selector = root.querySelector<HTMLElement>('#codelang-selector')
     if (selector) {
       selector.classList.remove('nojs--hide')
@@ -72,24 +90,69 @@ export function SubmitPage() {
         select.appendChild(option)
       }
       select.value = languages[0]?._id ?? 'cpp'
+      languageSelect = select
       container.appendChild(select)
       label.appendChild(container)
       field.appendChild(label)
       selector.appendChild(field)
     }
 
-    const fileRow = root.querySelector<HTMLInputElement>('input[name="file"]')?.closest('.row')
-    fileRow?.remove()
+    const codeTextarea = root.querySelector<HTMLTextAreaElement>('textarea[name="code"]')
+    const fileInput = root.querySelector<HTMLInputElement>('input[name="file"]')
+    let disposed = false
+    let editorController: { dispose: () => void; setValue: (value: string) => void; setLanguage: (language: string) => void; focus: () => void } | null = null
+    let currentLanguage = monacoLanguage(languageSelect?.value ?? languages[0]?._id ?? 'cpp')
+
+    if (codeTextarea) {
+      void import('../upstream/monaco/textarea.ts')
+        .then(({ mountMonacoTextarea }) => {
+          if (disposed) return
+          editorController = mountMonacoTextarea(codeTextarea, currentLanguage)
+        })
+        .catch((err: unknown) => {
+          if (!disposed) setError(err instanceof Error ? err.message : '代码编辑器加载失败')
+        })
+    }
+
+    const onLanguageChange = () => {
+      currentLanguage = monacoLanguage(languageSelect?.value ?? 'cpp')
+      editorController?.setLanguage(currentLanguage)
+    }
+    languageSelect?.addEventListener('change', onLanguageChange)
+
+    const onFileChange = async () => {
+      const file = fileInput?.files?.[0]
+      if (!file) return
+      try {
+        const content = await file.text()
+        if (editorController) {
+          editorController.setValue(content)
+          editorController.focus()
+        } else if (codeTextarea) {
+          codeTextarea.value = content
+          codeTextarea.dispatchEvent(new Event('input', { bubbles: true }))
+          codeTextarea.dispatchEvent(new Event('change', { bubbles: true }))
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '代码文件读取失败')
+      }
+    }
+    fileInput?.addEventListener('change', onFileChange)
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.key !== 'Enter') return
       event.preventDefault()
       form?.requestSubmit()
     }
-    form?.addEventListener('keydown', onKeyDown)
+    if (!codeTextarea) form?.addEventListener('keydown', onKeyDown)
+
     return () => {
+      disposed = true
+      editorController?.dispose()
       form?.removeEventListener('submit', onSubmit)
       form?.removeEventListener('keydown', onKeyDown)
+      languageSelect?.removeEventListener('change', onLanguageChange)
+      fileInput?.removeEventListener('change', onFileChange)
       selector?.replaceChildren()
     }
   }, [languages])

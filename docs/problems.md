@@ -78,7 +78,7 @@
 - `partials/problem_description.html`：题面 Markdown 输出
 - `partials/problem_sidebar.html`：提交入口和题目信息侧栏
 
-题面使用与 Hydro 编辑器一致的 markdown-it 插件链（KaTeX、脚注、高亮、图片尺寸、媒体和 XSS）。提交页的 React 适配层只负责语言下拉、提交请求和 Ctrl+Enter；代码文件上传和 Monaco/CodeMirror 编辑器尚未接入。
+题面使用与 Hydro 编辑器一致的 markdown-it 插件链（KaTeX、脚注、高亮、图片尺寸、媒体和 XSS）。提交页的代码框由 Monaco 挂载，语言切换会同步语法模式，文本文件会读入编辑器；React 适配层负责语言下拉、提交请求和 Ctrl/Cmd+Enter。
 
 详情 API 额外返回 `problemType`、`timeLimit` 和 `memoryLimit`，由 Hydro 题目 `config` 生成展示信息。
 

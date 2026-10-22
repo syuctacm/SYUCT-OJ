@@ -73,7 +73,7 @@ export function TrainingEditPage({ mode }: { mode: 'create' | 'edit' }) {
     if (jsonTextarea) {
       void import('../upstream/monaco/textarea.ts')
         .then(({ mountMonacoTextarea }) => {
-          if (!disposed) stopJsonEditor = mountMonacoTextarea(jsonTextarea, 'json')
+          if (!disposed) stopJsonEditor = mountMonacoTextarea(jsonTextarea, 'json').dispose
         })
         .catch((err: unknown) => {
           if (!disposed) setError(err instanceof Error ? err.message : 'JSON 编辑器加载失败')

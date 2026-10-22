@@ -18,6 +18,8 @@ Nunjucks sources in the pinned `@hydrooj/ui-default` package (AGPL-3.0):
 - `monaco/textarea.ts` replaces upstream `textarea[data-json]` and
   `textarea[data-yaml]` autoload behavior with a small reusable Monaco mount.
   It is dynamically imported so Monaco stays out of the initial route bundle.
+- The same mount also backs the submit-page code editor and switches Monaco
+  language modes when the submission language changes.
 
 Do not duplicate a migrated page's markup in TSX or add handwritten CSS to
 approximate it. Page fixes belong in the adapter context or in an upstream
