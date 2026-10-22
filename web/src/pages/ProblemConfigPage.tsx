@@ -1,31 +1,43 @@
 // Page markup is rendered from the pinned Hydro ui-default template
 // (problem_config.html). The `#ProblemConfig` container is filled by
-// ProblemConfigPanel; see that file for the remaining editor deviation.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+// ProblemConfigPanel, which ports the upstream Monaco/form/subtask editor.
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { clearRendered, renderInto } from '../upstream/roots.ts'
 import { useParams } from 'react-router-dom'
 import {
-  getProblemAssets, uploadProblemAssets,
+  getProblemAssets, getProblemEditor, uploadProblemAssets,
   type ProblemAssetList,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
-import { ProblemConfigPanel } from '../components/ProblemConfigPanel.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
+
+const ProblemConfigPanel = lazy(() => import('../components/ProblemConfigPanel.tsx').then((module) => ({ default: module.ProblemConfigPanel })))
 
 export function ProblemConfigPage() {
   const { pid = '' } = useParams()
   const { user } = useAuth()
   const [data, setData] = useState<ProblemAssetList | null>(null)
+  const [configText, setConfigText] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
+  const reload = useCallback(async () => {
     setError('')
-    getProblemAssets(pid)
-      .then(setData)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : '题目文件加载失败'))
+    try {
+      const [assets, editor] = await Promise.all([getProblemAssets(pid), getProblemEditor(pid)])
+      setData(assets)
+      setConfigText(editor.config)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '题目文件加载失败')
+    }
   }, [pid])
+
+  useEffect(() => {
+    setData(null)
+    setConfigText(null)
+    void reload()
+  }, [reload])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = []
@@ -53,7 +65,8 @@ export function ProblemConfigPage() {
           setBusy(true)
           setError('')
           try {
-            setData(await uploadProblemAssets(pid, 'testdata', chosen))
+            await uploadProblemAssets(pid, 'testdata', chosen)
+            await reload()
           } catch (err) {
             setError(err instanceof Error ? err.message : '文件上传失败')
           } finally {
@@ -71,14 +84,23 @@ export function ProblemConfigPage() {
       container.replaceChildren()
       const host = document.createElement('div')
       container.appendChild(host)
-      renderInto(host, <ProblemConfigPanel pid={pid} />)
+      renderInto(host, (
+        <Suspense fallback={<div className="loader-container"><div className="loader" /></div>}>
+          <ProblemConfigPanel
+            pid={pid}
+            assets={data as ProblemAssetList}
+            config={configText ?? ''}
+            onSaved={reload}
+          />
+        </Suspense>
+      ))
       cleanups.push(() => {
         clearRendered(host)
         host.remove()
       })
     }
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [data, pid])
+  }, [configText, data, pid, reload])
 
   const context = useMemo(() => {
     if (!data) return null
@@ -168,12 +190,12 @@ export function ProblemConfigPage() {
       user_detail: `/user/${encodeURIComponent(String(args.uid ?? ''))}`,
     }
     return routes[name] ?? '/'
-  }, [data, pid])
+  }, [configText, data, pid, reload])
 
   if (error && !data) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   }
-  if (!data || !context) {
+  if (!data || configText === null || !context) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
   }
   return (

@@ -1,35 +1,93 @@
-// The judge config editor is mounted into the upstream `#ProblemConfig`
-// container. The upstream implementation is the Monaco based
-// `components/problemconfig` bundle (Monaco + Redux + Mantine form), which this
-// rewrite has not ported yet; this panel keeps the same mount point and stores
-// the YAML through the existing problem API.
-import { useEffect, useState } from 'react'
-import { getProblemEditor, updateProblem, type ProblemDetail, type ProblemEditInput } from '../api.ts'
+import { normalizeSubtasks, readSubtasksFromFiles } from '../upstream/problemconfig/subtask.ts'
+import { MantineProvider } from '@mantine/core'
+import * as yaml from 'js-yaml'
+import { useEffect, useRef, useState } from 'react'
+import { Provider } from 'react-redux'
+import { legacy_createStore as createStore, type Store } from 'redux'
+import { updateProblem, type ProblemAssetList, type ProblemEditInput } from '../api.ts'
+import ProblemConfig from '../upstream/problemconfig/index.tsx'
+import { configYamlFormat } from '../upstream/problemconfig/ProblemConfigEditor.tsx'
+import reducer from '../upstream/problemconfig/reducer/index.ts'
 
-export function ProblemConfigPanel({ pid }: { pid: string }) {
-  const [problem, setProblem] = useState<ProblemDetail | null>(null)
-  const [config, setConfig] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+type ProblemConfigState = ReturnType<typeof reducer>
+type ProblemConfigStore = Store<ProblemConfigState>
+
+type Props = {
+  pid: string
+  assets: ProblemAssetList
+  config: string
+  onSaved: () => Promise<void> | void
+}
+
+function testdataForEditor(assets: ProblemAssetList) {
+  return assets.testdata.map((file) => ({ ...file, _id: file.name }))
+}
+
+function initializeStore(assets: ProblemAssetList, config: string): ProblemConfigStore {
+  const store = createStore(reducer)
+  store.dispatch({
+    type: 'CONFIG_LOAD_FULFILLED',
+    payload: {
+      config: config || '{}',
+      testdata: testdataForEditor(assets),
+    },
+  })
+  const state = store.getState()
+  if (state.config.cases) {
+    const cases = state.config.cases as Array<{ input: string; output: string }>
+    const score = Number(state.config.score || 0) * cases.length
+    store.dispatch({
+      type: 'CONFIG_FORM_UPDATE',
+      key: 'subtasks',
+      value: [{
+        type: 'sum',
+        score: score && score < 100 ? score : 100,
+        cases,
+        id: 1,
+      }],
+    })
+    store.dispatch({ type: 'CONFIG_FORM_UPDATE', key: 'cases', value: undefined })
+    store.dispatch({ type: 'CONFIG_FORM_UPDATE', key: 'score', value: undefined })
+  }
+  const current = store.getState().config
+  if (current.__valid !== false && !current.subtasks?.length) {
+    const subtasks = readSubtasksFromFiles(
+      testdataForEditor(assets).map((file) => file.name),
+      current,
+    )
+    if (subtasks.length) {
+      store.dispatch({
+        type: 'CONFIG_AUTOCASES_UPDATE',
+        subtasks: normalizeSubtasks(subtasks, (name) => name, current.time, current.memory, true),
+      })
+    }
+  }
+  return store
+}
+
+export function ProblemConfigPanel({ pid, assets, config, onSaved }: Props) {
+  const storeRef = useRef<ProblemConfigStore | null>(null)
   const [error, setError] = useState('')
-  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  if (!storeRef.current) {
+    storeRef.current = initializeStore(assets, config)
+  }
+  const store = storeRef.current
 
   useEffect(() => {
-    setLoading(true)
-    getProblemEditor(pid)
-      .then((data) => {
-        setProblem(data.problem)
-        setConfig(data.config)
-      })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : '判题配置加载失败'))
-      .finally(() => setLoading(false))
-  }, [pid])
+    store.dispatch({ type: 'CONFIG_TESTDATA_REPLACE', value: testdataForEditor(assets) })
+  }, [assets, store])
 
   async function save() {
-    if (!problem) return
+    const state = store.getState().config
+    if (state.__valid === false) {
+      setError('配置存在错误，请先在 Errors 中修复后再保存')
+      return
+    }
     setSaving(true)
     setError('')
-    setSaved(false)
+    const problem = assets.problem
     const input: ProblemEditInput = {
       pid: problem.pid,
       title: problem.title,
@@ -37,11 +95,11 @@ export function ProblemConfigPanel({ pid }: { pid: string }) {
       tags: problem.tags ?? [],
       difficulty: problem.difficulty ?? 0,
       hidden: Boolean(problem.hidden),
-      config,
+      config: yaml.dump(configYamlFormat(state), { noRefs: true, lineWidth: -1 }),
     }
     try {
       await updateProblem(pid, input)
-      setSaved(true)
+      await onSaved()
     } catch (err) {
       setError(err instanceof Error ? err.message : '判题配置保存失败')
     } finally {
@@ -49,28 +107,13 @@ export function ProblemConfigPanel({ pid }: { pid: string }) {
     }
   }
 
-  if (loading) {
-    return <div className="loader-container"><div className="loader" /></div>
-  }
   return (
-    <div>
-      <textarea
-        className="textbox auto-resize"
-        value={config}
-        onChange={(event) => {
-          setConfig(event.target.value)
-          setSaved(false)
-        }}
-        spellCheck={false}
-        style={{ minHeight: 520, width: '100%', fontFamily: 'var(--code-font-family)' }}
-      />
+    <MantineProvider>
       {error ? <blockquote className="warn"><p>{error}</p></blockquote> : null}
-      {saved ? <blockquote className="note"><p>配置已保存。</p></blockquote> : null}
-      <div className="row"><div className="columns">
-        <button type="button" className="rounded primary button" disabled={saving} onClick={() => void save()}>
-          {saving ? '保存中...' : '保存'}
-        </button>
-      </div></div>
-    </div>
+      {saving ? <blockquote className="note"><p>正在保存判题配置...</p></blockquote> : null}
+      <Provider store={store}>
+        <ProblemConfig onSave={() => void save()} />
+      </Provider>
+    </MantineProvider>
   )
 }

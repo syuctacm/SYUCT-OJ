@@ -93,9 +93,11 @@
 
 判题配置页对应 `problem_config.html`：
 
-- `/p/:pid/config`
-- 直接编辑 YAML 配置
-- 保存前校验 YAML 对象
+- `/p/:pid/config` 直接渲染上游 `problem_config.html`
+- 复用上游 `components/problemconfig` 的 Monaco YAML 编辑器、基础表单、题目类型和子任务树
+- YAML 与表单双向同步，非法配置进入 Errors 页签
+- 保存仍走现有 `PATCH /api/v1/problems/:pid`，不新增配置存储
+- 测试数据侧栏继续接入上传、删除和全部下载接口
 
 题目文件页由 `HydroTemplate` 直接渲染 `problem_files.html` / `partials/problem_files.html`：
 
@@ -192,7 +194,7 @@
 
 `/p/:pid/config` 由 `HydroTemplate` 渲染上游 `problem_config.html`：标题「评测设置(Beta)」、testdata 侧栏（`partials/problem_files.html`，支持上传）和题目侧栏都来自原模板。
 
-`#ProblemConfig` 是上游留给编辑器的挂载点，当前由 `web/src/components/ProblemConfigPanel.tsx` 填充：YAML 文本编辑 + 保存，走现有的题目编辑接口。上游那块编辑器是 `components/problemconfig`（Monaco + Redux + Mantine 表单 + `allotment` 分栏，约 1600 行，另需 `monaco-editor` / `monaco-yaml` / `react-redux` / `mantine-contextmenu` 等依赖），尚未移植——这是最后一个已知的页面内差异。
+`#ProblemConfig` 是上游留给编辑器的挂载点，当前由 `web/src/components/ProblemConfigPanel.tsx` 填充，内部直接复用 `web/src/upstream/problemconfig/` 中从 `@hydrooj/ui-default@4.58.5` 迁移的编辑器、表单、子任务树和 reducer。Monaco 使用 `monaco-yaml` 和上游 schema；编辑器只挂载在配置页，并通过动态 import 隔离到独立 chunk，避免影响首屏。
 
 ## 语言列表
 
