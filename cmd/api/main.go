@@ -31,6 +31,7 @@ import (
 func main() {
 	_ = godotenv.Load()
 	cfg := config.Load()
+	auth.SetCookieSecure(cfg.CookieSecure)
 
 	slog.Info("starting syuct-oj api", "port", cfg.Port)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

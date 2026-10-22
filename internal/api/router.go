@@ -19,7 +19,15 @@ import (
 
 func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handler, authHandler *auth.Handler, problemRepo *problem.Repository, submissionHandler *handler.SubmissionHandler, contestRepo *contest.Repository, trainingRepo *training.Repository, discussionRepo *discussion.Repository, userRepo *user.Repository, adminHandler *handler.AdminHandler, sessions *auth.SessionManager) *gin.Engine {
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery(), middleware.CORS(cfg.CORSOrigins))
+	router.Use(
+		gin.Logger(),
+		gin.Recovery(),
+		middleware.CORS(cfg.CORSOrigins),
+		middleware.SecurityHeaders(),
+		middleware.BodyLimit(middleware.DefaultBodyLimit),
+		middleware.RateLimit(cfg.LoginRateLimit, cfg.LoginRateWindow,
+			"/api/v1/auth/login", "/api/v1/user/security/password"),
+	)
 
 	v1 := router.Group("/api/v1")
 	{
