@@ -77,6 +77,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		handler.NewUserHandler(userRepo, sessions, problemRepo).RegisterRoutes(router.Group("/"))
 		handler.NewMessageHandler(message.NewRepository(db), sessions, userRepo).RegisterRoutes(router.Group("/"))
 		handler.NewUserFileHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
+		handler.NewUserAvatarHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
 	}
 	if adminHandler != nil {
 		adminHandler.RegisterRoutes(router.Group("/"))

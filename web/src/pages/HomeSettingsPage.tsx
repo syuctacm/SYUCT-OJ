@@ -3,7 +3,7 @@
 // packages/hydrooj/src/model/setting.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { updateUserSettings, type UserSettingsInput } from '../api.ts'
+import { updateUserSettings, uploadUserAvatar, type UserSettingsInput } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
@@ -48,7 +48,7 @@ const ACCOUNT_SETTINGS: SettingSchema[] = [
 const EDITABLE_KEYS = ['avatar', 'qq', 'bio', 'school', 'studentId', 'backgroundImage'] as const
 
 export function HomeSettingsPage() {
-  const { user, loading } = useAuth()
+  const { user, loading, refresh } = useAuth()
   const navigate = useNavigate()
   const [saved, setSaved] = useState('')
   const [error, setError] = useState('')
@@ -60,16 +60,35 @@ export function HomeSettingsPage() {
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = [hydrateHydroEditForm(root)]
-    // Uploading an avatar needs a user file store that this rewrite does not
-    // have yet; the avatar text field below still accepts provider values.
-    root.querySelector('#upload_avatar')?.remove()
+    const avatarButton = root.querySelector<HTMLButtonElement>('button.change-avatar')
+    const onAvatarClick = () => {
+      const picker = document.createElement('input')
+      picker.type = 'file'
+      picker.accept = '.jpg,.jpeg,.png,image/jpeg,image/png'
+      picker.onchange = async () => {
+        const file = picker.files?.[0]
+        if (!file) return
+        setSaved('')
+        setError('')
+        try {
+          await uploadUserAvatar(file)
+          await refresh()
+          setSaved('头像已更新')
+        } catch (err) {
+          setError(err instanceof Error ? err.message : '头像上传失败')
+        }
+      }
+      picker.click()
+    }
+    avatarButton?.addEventListener('click', onAvatarClick)
+    cleanups.push(() => avatarButton?.removeEventListener('click', onAvatarClick))
     for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
       const onSubmit = (event: SubmitEvent) => submitRef.current(event)
       form.addEventListener('submit', onSubmit)
       cleanups.push(() => form.removeEventListener('submit', onSubmit))
     }
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [])
+  }, [refresh])
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()

@@ -1491,6 +1491,16 @@ export async function revokeAllSecuritySessions(): Promise<void> {
   await request<Envelope<Record<string, unknown>>>('/api/v1/user/security/sessions', { method: 'DELETE' })
 }
 
+export async function uploadUserAvatar(file: File): Promise<string> {
+  const body = new FormData()
+  body.set('file', file)
+  const result = await request<Envelope<{ avatar: string }>>('/api/v1/user/avatar', {
+    method: 'POST',
+    body,
+  })
+  return result.data.avatar
+}
+
 export async function changePassword(current: string, password: string, verifyPassword: string): Promise<void> {
   await request<Envelope<Record<string, unknown>>>('/api/v1/user/security/password', {
     method: 'POST',
