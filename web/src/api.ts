@@ -391,6 +391,20 @@ export async function getSubmission(rid: string): Promise<Submission> {
   return result.data
 }
 
+export async function rejudgeSubmission(rid: string): Promise<Submission> {
+  const result = await request<Envelope<Submission>>(`/api/v1/submissions/${encodeURIComponent(rid)}/rejudge`, { method: 'POST' })
+  return result.data
+}
+
+export async function cancelSubmission(rid: string): Promise<Submission> {
+  const result = await request<Envelope<Submission>>(`/api/v1/submissions/${encodeURIComponent(rid)}/cancel`, { method: 'POST' })
+  return result.data
+}
+
+export function submissionCodeUrl(rid: string) {
+  return `/api/v1/submissions/${encodeURIComponent(rid)}/code`
+}
+
 export type SubmissionPage = {
   items: Submission[]
   total: number

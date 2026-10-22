@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,9 +17,12 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/problem"
 )
 
+var ErrNotFound = errors.New("record not found")
+
 const (
 	StatusWaiting   = 0
 	StatusAccepted  = 1
+	StatusCanceled  = 9
 	StatusJudging   = 20
 	StatusCompiling = 21
 )
@@ -223,6 +227,93 @@ func (r *Repository) RejudgeProblem(ctx context.Context, pid string) (int64, err
 		}
 	}
 	return int64(len(records)), nil
+}
+
+// RejudgeRecord resets one record and queues a new judge task, mirroring the
+// upstream record detail Rejudge action.
+func (r *Repository) RejudgeRecord(ctx context.Context, rid string) (*Record, error) {
+	oid, err := bson.ObjectIDFromHex(rid)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	var current struct {
+		UID     int64          `bson:"uid"`
+		PID     int64          `bson:"pid"`
+		Lang    string         `bson:"lang"`
+		Code    string         `bson:"code"`
+		Status  int            `bson:"status"`
+		Contest *bson.ObjectID `bson:"contest"`
+	}
+	if err := r.records.FindOne(ctx, bson.M{"_id": oid}).Decode(&current); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	pdoc, err := r.problems.GetForEditor(ctx, strconv.FormatInt(current.PID, 10))
+	if err != nil {
+		return nil, err
+	}
+	task, err := buildJudgeTask(pdoc, oid, current.UID, current.Lang, current.Code, current.Contest)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := r.records.UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$set": bson.M{
+		"status": StatusWaiting, "score": 0, "time": 0, "memory": 0,
+		"judgeTexts": []any{}, "compilerTexts": []string{}, "testCases": []any{}, "subtasks": bson.M{},
+		"judger": nil, "judgeAt": nil, "rejudged": true, "progress": 0,
+	}}); err != nil {
+		return nil, err
+	}
+	if _, err := r.tasks.DeleteMany(ctx, bson.M{"rid": oid}); err != nil {
+		return nil, err
+	}
+	if _, err := r.tasks.InsertOne(ctx, task); err != nil {
+		return nil, err
+	}
+	if current.Status == StatusAccepted {
+		if err := r.problems.IncStats(ctx, current.PID, 0, -1); err != nil {
+			slog.Warn("unable to adjust problem accept counter after record rejudge", "pid", current.PID, "error", err)
+		}
+	}
+	return r.Get(ctx, rid)
+}
+
+// CancelRecord marks one record as canceled and removes its pending judge task.
+func (r *Repository) CancelRecord(ctx context.Context, rid string) (*Record, error) {
+	oid, err := bson.ObjectIDFromHex(rid)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	var current struct {
+		PID    int64 `bson:"pid"`
+		Status int   `bson:"status"`
+	}
+	if err := r.records.FindOne(ctx, bson.M{"_id": oid}, options.FindOne().SetProjection(bson.M{"pid": 1, "status": 1})).Decode(&current); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if _, err := r.records.UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$set": bson.M{
+		"status": StatusCanceled, "score": 0, "time": 0, "memory": 0,
+		"testCases": []any{bson.M{
+			"id": 0, "subtaskId": 0, "status": StatusCanceled,
+			"score": 0, "time": 0, "memory": 0, "message": "score canceled",
+		}},
+		"subtasks": bson.M{},
+	}}); err != nil {
+		return nil, err
+	}
+	if _, err := r.tasks.DeleteMany(ctx, bson.M{"rid": oid}); err != nil {
+		return nil, err
+	}
+	if current.Status == StatusAccepted {
+		if err := r.problems.IncStats(ctx, current.PID, 0, -1); err != nil {
+			slog.Warn("unable to adjust problem accept counter after record cancel", "pid", current.PID, "error", err)
+		}
+	}
+	return r.Get(ctx, rid)
 }
 
 func (r *Repository) List(ctx context.Context, opts ListFilter) (*ListResult, error) {

@@ -1,8 +1,8 @@
 // Page markup is rendered from the pinned Hydro ui-default template. Keep this
 // file limited to polling and mapping the submission API to Hydro rdoc fields.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getSubmission, type Submission } from '../api.ts'
+import { cancelSubmission, getSubmission, rejudgeSubmission, submissionCodeUrl, type Submission } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -52,6 +52,10 @@ export function SubmissionPage() {
   const { user } = useAuth()
   const [submission, setSubmission] = useState<Submission | null>(null)
   const [error, setError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [actionBusy, setActionBusy] = useState(false)
+  const [reloadToken, setReloadToken] = useState(0)
+  const actionRef = useRef<(event: SubmitEvent) => void>(() => {})
 
   useEffect(() => {
     let cancelled = false
@@ -72,12 +76,44 @@ export function SubmissionPage() {
       cancelled = true
       if (timer) window.clearTimeout(timer)
     }
-  }, [rid])
+  }, [reloadToken, rid])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
-    root.querySelector('a[href="?download=true"]')?.closest('.section__tools')?.remove()
+    const cleanups: Array<() => void> = []
+    const download = root.querySelector<HTMLAnchorElement>('a[href="?download=true"]')
+    if (download) {
+      download.href = submissionCodeUrl(rid)
+      download.setAttribute('download', '')
+    }
+    for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
+      const onSubmit = (event: SubmitEvent) => actionRef.current(event)
+      form.addEventListener('submit', onSubmit)
+      cleanups.push(() => form.removeEventListener('submit', onSubmit))
+    }
     root.querySelectorAll('.compiler-text-mask').forEach((element) => element.remove())
-  }, [])
+    return () => cleanups.forEach((cleanup) => cleanup())
+  }, [rid])
+
+  async function handleAction(event: SubmitEvent) {
+    event.preventDefault()
+    if (actionBusy) return
+    const form = event.target as HTMLFormElement
+    const submitter = event.submitter as HTMLButtonElement | null
+    const operation = submitter?.value || String(new FormData(form).get('operation') ?? '')
+    if (operation !== 'rejudge' && operation !== 'cancel') return
+    setActionBusy(true)
+    setActionError('')
+    try {
+      const next = operation === 'rejudge' ? await rejudgeSubmission(rid) : await cancelSubmission(rid)
+      setSubmission(next)
+      setReloadToken((value) => value + 1)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : '操作失败')
+    } finally {
+      setActionBusy(false)
+    }
+  }
+  actionRef.current = (event) => void handleAction(event)
 
   const context = useMemo(() => {
     if (!submission) return null
@@ -164,7 +200,7 @@ export function SubmissionPage() {
           _id: user?.id ?? 0,
           viewLang: 'zh',
           _dudoc: { join: true },
-          hasPerm: (permission: number) => Boolean(user) && permission === 2,
+          hasPerm: (permission: number) => permission === 1 ? isAdmin : Boolean(user) && permission === 2,
           hasPriv: () => Boolean(user),
           own: () => Boolean(user && isAdmin),
         },
@@ -213,20 +249,24 @@ export function SubmissionPage() {
   if (!submission || !context) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
 
   return (
-    <HydroTemplate
-      template="record_detail.html"
-      context={context}
-      onReady={handleReady}
-      url={(name, args = {}) => {
-        if (name === 'record_detail') return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
-        if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
-        if (name === 'problem_hack') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
-        if (name === 'user_detail') return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
-        if (name === 'contest_detail' || name === 'homework_detail') {
-          return `/${name === 'contest_detail' ? 'contest' : 'homework'}/${encodeURIComponent(String(args.tid ?? ''))}`
-        }
-        return '/'
-      }}
-    />
+    <>
+      {actionError ? <div className="row"><div className="columns"><blockquote className="warn"><p>{actionError}</p></blockquote></div></div> : null}
+      {actionBusy ? <div className="row"><div className="columns"><blockquote className="note"><p>正在处理记录...</p></blockquote></div></div> : null}
+      <HydroTemplate
+        template="record_detail.html"
+        context={context}
+        onReady={handleReady}
+        url={(name, args = {}) => {
+          if (name === 'record_detail') return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
+          if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
+          if (name === 'problem_hack') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
+          if (name === 'user_detail') return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+          if (name === 'contest_detail' || name === 'homework_detail') {
+            return `/${name === 'contest_detail' ? 'contest' : 'homework'}/${encodeURIComponent(String(args.tid ?? ''))}`
+          }
+          return '/'
+        }}
+      />
+    </>
   )
 }
