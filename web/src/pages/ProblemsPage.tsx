@@ -2,7 +2,7 @@
 // file limited to query state, data mapping and small interactions.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { getProblems, type ProblemPage } from '../api.ts'
+import { getProblemTags, getProblems, type ProblemPage, type ProblemTagStat } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { statusClass, statusLabels } from '../status.ts'
@@ -40,14 +40,18 @@ export function ProblemsPage() {
   const sort = searchParams.get('sort') === 'recent' ? 'recent' : 'default'
   const pageNumber = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
   const [page, setPage] = useState<ProblemPage | null>(null)
+  const [tagStats, setTagStats] = useState<ProblemTagStat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     setLoading(true)
     setError('')
-    getProblems(query, pageNumber, sort, tag)
-      .then(setPage)
+    Promise.all([getProblems(query, pageNumber, sort, tag), getProblemTags()])
+      .then(([problems, tags]) => {
+        setPage(problems)
+        setTagStats(tags)
+      })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '题目加载失败'))
       .finally(() => setLoading(false))
   }, [query, pageNumber, sort, tag])
@@ -63,6 +67,11 @@ export function ProblemsPage() {
       const params = new URLSearchParams()
       const q = String(data.get('q') ?? '').trim()
       const nextSort = String(data.get('sort') ?? 'default')
+      if (q.startsWith('category:')) {
+        const nextTag = q.slice('category:'.length).trim()
+        navigate(`/p${nextTag ? `?tag=${encodeURIComponent(nextTag)}` : ''}`)
+        return
+      }
       if (q) params.set('q', q)
       if (tag) params.set('tag', tag)
       if (nextSort === 'recent') params.set('sort', 'recent')
@@ -73,17 +82,31 @@ export function ProblemsPage() {
     const onSort = () => form?.requestSubmit()
     sortSelect?.addEventListener('change', onSort)
 
-    const toggleTags = () => {
-      const table = root.querySelector<HTMLElement>('table.data-table')
+    const toggleProblemTags = () => {
+      const table = root.querySelector<HTMLElement>('.section.display-mode table.data-table')
       if (table) table.classList.toggle('hide-problem-tag')
     }
     const tagButtons = Array.from(root.querySelectorAll<HTMLElement>('.toggle-tag'))
-    tagButtons.forEach((button) => button.addEventListener('click', toggleTags))
+    tagButtons.forEach((button) => button.addEventListener('click', toggleProblemTags))
+
+    const tagStatToggle = root.querySelector<HTMLAnchorElement>('#tagStatToggleBtn')
+    const tagStatExtras = Array.from(root.querySelectorAll<HTMLElement>('.tag-stat-row.tag-stat-extra'))
+    const onTagStatToggle = (event: Event) => {
+      event.preventDefault()
+      if (!tagStatToggle) return
+      const expanded = tagStatToggle.dataset.expanded === 'true'
+      tagStatExtras.forEach((row) => { row.style.display = expanded ? 'none' : 'table-row' })
+      tagStatToggle.dataset.expanded = expanded ? 'false' : 'true'
+      const total = root.querySelectorAll('.tag-stat-row').length
+      tagStatToggle.textContent = expanded ? `展开全部标签 (${total})` : '收起部分标签'
+    }
+    tagStatToggle?.addEventListener('click', onTagStatToggle)
 
     return () => {
       form?.removeEventListener('submit', onSubmit)
       sortSelect?.removeEventListener('change', onSort)
-      tagButtons.forEach((button) => button.removeEventListener('click', toggleTags))
+      tagButtons.forEach((button) => button.removeEventListener('click', toggleProblemTags))
+      tagStatToggle?.removeEventListener('click', onTagStatToggle)
     }
   }, [navigate, tag])
 
@@ -105,7 +128,8 @@ export function ProblemsPage() {
     ]))
     return {
       page_name: 'problem_main',
-      qs: query,
+      qs: tag ? `category:${tag}` : query,
+      tagStats,
       sort,
       pdocs,
       ppcount,
@@ -163,7 +187,7 @@ export function ProblemsPage() {
       avatarUrl,
       UserContext: user,
     }
-  }, [page, ppcount, query, sort, tag, user])
+  }, [page, ppcount, query, sort, tag, tagStats, user])
 
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   if (loading) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
@@ -185,6 +209,7 @@ export function ProblemsPage() {
         }
         if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
         if (name === 'problem_create') return '/p/new'
+        if (name === 'problem_tag_stat') return `/p/tag/${encodeURIComponent(String(args.tag ?? ''))}`
         if (name === 'problem_import_fps') return '/problem/import/fps'
         if (name === 'problem_import_hydro') return '/problem/import/hydro'
         if (name === 'problem_random') {

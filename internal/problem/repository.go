@@ -112,6 +112,7 @@ type TagRankingItem struct {
 	UID         int64  `json:"uid"`
 	Username    string `json:"username"`
 	DisplayName string `json:"displayName,omitempty"`
+	Avatar      string `json:"avatar,omitempty"`
 	Solved      int64  `json:"solved"`
 	Submissions int64  `json:"submissions"`
 }
@@ -875,6 +876,20 @@ func (r *Repository) TagRanking(ctx context.Context, tag string, page, limit int
 	if limit > 100 {
 		limit = 100
 	}
+	return r.tagRanking(ctx, tag, page, limit, query)
+}
+
+// TagRankingExport returns the complete filtered ranking for CSV export while
+// keeping the paginated API's 100-row cap unchanged.
+func (r *Repository) TagRankingExport(ctx context.Context, tag, query string) ([]TagRankingItem, error) {
+	result, err := r.tagRanking(ctx, tag, 1, 0, query)
+	if err != nil {
+		return nil, err
+	}
+	return result.Items, nil
+}
+
+func (r *Repository) tagRanking(ctx context.Context, tag string, page, limit int, query string) (*TagRanking, error) {
 	tag = strings.TrimSpace(tag)
 	query = strings.TrimSpace(query)
 	result := &TagRanking{Tag: tag, Page: page, Limit: limit, Items: []TagRankingItem{}}
@@ -902,7 +917,11 @@ func (r *Repository) TagRanking(ctx context.Context, tag string, page, limit int
 	}
 	recordCursor, err := r.records.Aggregate(ctx, mongo.Pipeline{
 		{{Key: "$match", Value: bson.M{"domainId": DomainSystem, "pid": bson.M{"$in": docIDs}, "status": 1}}},
-		{{Key: "$group", Value: bson.M{"_id": "$uid", "solved": bson.M{"$sum": 1}}}},
+		{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "$uid"},
+			{Key: "solvedPIDs", Value: bson.M{"$addToSet": "$pid"}},
+		}}},
+		{{Key: "$project", Value: bson.M{"solved": bson.M{"$size": "$solvedPIDs"}}}},
 		{{Key: "$sort", Value: bson.D{{Key: "solved", Value: -1}, {Key: "_id", Value: 1}}}},
 	})
 	if err != nil {
@@ -936,6 +955,18 @@ func (r *Repository) TagRanking(ctx context.Context, tag string, page, limit int
 		ranked = filtered
 	}
 	result.MatchedCount = int64(len(ranked))
+	if limit <= 0 {
+		limit = len(ranked)
+	}
+	result.Limit = limit
+	pageCount := 1
+	if limit > 0 && len(ranked) > 0 {
+		pageCount = (len(ranked) + limit - 1) / limit
+	}
+	if page > pageCount {
+		page = pageCount
+	}
+	result.Page = page
 	start := (page - 1) * limit
 	if start >= len(ranked) {
 		return result, nil
@@ -953,8 +984,9 @@ func (r *Repository) TagRanking(ctx context.Context, tag string, page, limit int
 		ID          int64  `bson:"_id"`
 		Username    string `bson:"uname"`
 		DisplayName string `bson:"displayName"`
+		Avatar      string `bson:"avatar"`
 	}
-	userCursor, err := r.users.Find(ctx, bson.M{"_id": bson.M{"$in": uids}}, options.Find().SetProjection(bson.M{"uname": 1, "displayName": 1}))
+	userCursor, err := r.users.Find(ctx, bson.M{"_id": bson.M{"$in": uids}}, options.Find().SetProjection(bson.M{"uname": 1, "displayName": 1, "avatar": 1}))
 	if err != nil {
 		return nil, err
 	}
@@ -965,7 +997,7 @@ func (r *Repository) TagRanking(ctx context.Context, tag string, page, limit int
 	userCursor.Close(ctx)
 	userMap := make(map[int64]TagRankingItem, len(users))
 	for _, item := range users {
-		userMap[item.ID] = TagRankingItem{UID: item.ID, Username: item.Username, DisplayName: item.DisplayName}
+		userMap[item.ID] = TagRankingItem{UID: item.ID, Username: item.Username, DisplayName: item.DisplayName, Avatar: item.Avatar}
 	}
 	var submissions []struct {
 		UID   int64 `bson:"_id"`
@@ -991,6 +1023,7 @@ func (r *Repository) TagRanking(ctx context.Context, tag string, page, limit int
 		if user, ok := userMap[item.UID]; ok {
 			item.Username = user.Username
 			item.DisplayName = user.DisplayName
+			item.Avatar = user.Avatar
 		}
 		item.Submissions = submissionMap[item.UID]
 		if item.Submissions < item.Solved {

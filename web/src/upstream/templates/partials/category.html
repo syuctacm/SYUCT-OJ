@@ -1,0 +1,104 @@
+<style>
+  /* Fix HydroOJ problem tags toggle */
+  .hide-problem-tag .problem__tags {
+    display: none !important;
+  }
+  .toggle-tag {
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: 8px;
+    font-weight: normal;
+  }
+  .toggle-tag:hover {
+    text-decoration: underline;
+  }
+
+  .tag-stat-table {
+    width: 100%;
+    margin-bottom: 0;
+  }
+  .tag-stat-table td {
+    padding: 6px 8px;
+    vertical-align: middle;
+  }
+</style>
+
+<div id="tagStatWidget">
+  <table class="data-table tag-stat-table">
+    <tbody>
+      {% if tagStats and tagStats.length %}
+        {%- for item in tagStats -%}
+          {% set _active = qs and ('category:' + item.tag) in qs %}
+          {% set _isExtra = loop.index > 12 %}
+          <tr class="tag-stat-row {% if _active %}highlight{% endif %} {% if _isExtra %}tag-stat-extra{% endif %}" {% if _isExtra %}style="display: none;"{% endif %}>
+            <td>
+              <a class="typo-a {% if _active %}font-bold text-blue{% endif %}" href="{{ url('problem_main', query={q:'category:'+item.tag}) }}">
+                {{ item.tag }}
+              </a>
+              {% if item.isSource %}
+                <span class="supplementary" style="font-size: 11px;">(来源)</span>
+              {% endif %}
+            </td>
+            <td class="supplementary text-right" style="width: 58px; font-size: 12px;">
+              {{ item.count }} 题
+            </td>
+            <td class="text-right" style="width: 48px; font-size: 12px;">
+              <a class="typo-a" href="{{ url('problem_tag_stat', tag=item.tag) }}" title="查看「{{ item.tag }}」榜单">榜单</a>
+            </td>
+          </tr>
+        {%- endfor -%}
+      {% endif %}
+    </tbody>
+  </table>
+
+  {% if tagStats and tagStats.length > 12 %}
+    <div style="padding-top: 8px;">
+      <a href="javascript:;" class="button expanded text-center" id="tagStatToggleBtn" data-expanded="false" style="margin-bottom: 0; font-size: 12px; padding: 6px;">
+        展开全部标签 ({{ tagStats.length }})
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+(function() {
+  // 1. Ensure sidebar header is "标签统计"
+  const sideTitles = document.querySelectorAll('.section.side .section__title');
+  sideTitles.forEach(t => {
+    const text = t.textContent.trim();
+    if (text === '分类' || text === 'Categories' || text === 'Category') {
+      t.textContent = '标签统计';
+    }
+  });
+
+  // 2. Fix HydroOJ problem tags toggle
+  document.addEventListener('click', function(e) {
+    const toggle = e.target.closest('.toggle-tag');
+    if (toggle) {
+      const table = document.querySelector('table.data-table');
+      if (table) {
+        table.classList.toggle('hide-problem-tag');
+      }
+    }
+  });
+
+  // 3. Expand / collapse tags
+  const toggleBtn = document.getElementById('tagStatToggleBtn');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const isExpanded = toggleBtn.getAttribute('data-expanded') === 'true';
+      const extras = document.querySelectorAll('.tag-stat-row.tag-stat-extra');
+      if (isExpanded) {
+        extras.forEach(el => el.style.display = 'none');
+        toggleBtn.setAttribute('data-expanded', 'false');
+        toggleBtn.textContent = '展开全部标签 (' + (extras.length + 12) + ')';
+      } else {
+        extras.forEach(el => el.style.display = 'table-row');
+        toggleBtn.setAttribute('data-expanded', 'true');
+        toggleBtn.textContent = '收起部分标签';
+      }
+    });
+  }
+})();
+</script>

@@ -1145,6 +1145,7 @@ export type TagRankingItem = {
   uid: number
   username: string
   displayName?: string
+  avatar?: string
   solved: number
   submissions: number
 }
