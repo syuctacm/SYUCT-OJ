@@ -11,6 +11,7 @@ export type User = {
   gender?: number
   school?: string
   backgroundImage?: string
+  tfa?: boolean
 }
 
 export type PublicSettings = { bulletin: string }
@@ -340,10 +341,10 @@ export async function getMe(): Promise<User> {
   return result.user
 }
 
-export async function login(username: string, password: string): Promise<User> {
+export async function login(username: string, password: string, tfa = ''): Promise<User> {
   const result = await request<LoginResponse>('/api/v1/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, tfa }),
   })
   return result.user
 }
@@ -1489,6 +1490,29 @@ export async function revokeSecuritySession(digest: string): Promise<void> {
 
 export async function revokeAllSecuritySessions(): Promise<void> {
   await request<Envelope<Record<string, unknown>>>('/api/v1/user/security/sessions', { method: 'DELETE' })
+}
+
+export type TFASetup = { secret: string; uri: string; qr: string }
+
+export async function setupTFA(): Promise<TFASetup> {
+  const result = await request<Envelope<TFASetup>>('/api/v1/user/security/tfa/setup', {
+    method: 'POST',
+  })
+  return result.data
+}
+
+export async function enableTFA(secret: string, code: string): Promise<void> {
+  await request<Envelope<{ tfa: boolean }>>('/api/v1/user/security/tfa/enable', {
+    method: 'POST',
+    body: JSON.stringify({ secret, code }),
+  })
+}
+
+export async function disableTFA(current: string): Promise<void> {
+  await request<void>('/api/v1/user/security/tfa/disable', {
+    method: 'POST',
+    body: JSON.stringify({ current }),
+  })
 }
 
 export async function uploadUserAvatar(file: File): Promise<string> {

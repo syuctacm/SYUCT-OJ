@@ -35,6 +35,9 @@ func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.DELETE("/api/v1/user/security/sessions", h.securityRevokeAll)
 	router.DELETE("/api/v1/user/security/sessions/:digest", h.securityRevokeSession)
 	router.POST("/api/v1/user/security/password", h.securityChangePassword)
+	router.POST("/api/v1/user/security/tfa/setup", h.tfaSetup)
+	router.POST("/api/v1/user/security/tfa/enable", h.tfaEnable)
+	router.POST("/api/v1/user/security/tfa/disable", h.tfaDisable)
 }
 
 type userChoice struct {
