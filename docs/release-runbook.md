@@ -9,7 +9,7 @@
 - 新版本镜像已构建，且本地回归通过（见 [前端视觉与交互对照清单](./parity-checklist.md)、[首页](./homepage.md) 等文档）
 - 迁移演练通过：`./scripts/migration-drill.sh`
 - 维护窗口、回滚负责人、判题机切换方式已确认
-- `hydrojudge` 的 `server_url` 已准备指向新 API（生产建议 `http://api:8080/`）
+- `hydrojudge` 的 `server_url` 已准备指向新站点 URL（nginx 转发 `/login`、`/judge/*`、`/d/*/judge/files` 与 WebSocket）
 - 判题机版本已按 [判题沙箱安全评审](./judge-security.md) 确认（`sandbox --version` 不低于 `v1.11.0`，建议 `v1.13.3`）
 
 ## 1. 生产备份
@@ -80,10 +80,18 @@ cp .env.prod.example .env.prod   # 填写真实值（不要提交）
 docker compose -f deploy/compose.prod.yaml up -d --build
 ```
 
-6. 前端流量切到 `web` 服务；`hydrojudge` 的 `server_url` 切到新 API。
+6. 前端流量切到 `web` 服务；`hydrojudge` 的 `server_url` 切到**站点 URL**（nginx 已代理 `POST /login`、`/judge/*` 和 `POST /d/*/judge/files`，WebSocket `/judge/conn` 也已转发）。
 7. 执行第 4 节验证清单。
 
 ## 4. 验证清单
+
+生产形态栈起来后先跑一遍自动冒烟：
+
+```bash
+BASE_URL=https://oj.example.com scripts/prod-stack-smoke.sh
+```
+
+脚本会检查 SPA、健康检查、安全头、SPA 路由回退、判题机登录、判题文件接口和 WebSocket 升级。
 
 - [ ] `GET /api/v1/health` 返回 healthy
 - [ ] 首页、题库、题目详情
@@ -123,7 +131,17 @@ docker compose -f deploy/compose.prod.yaml up -d --build
 
 限流是单进程内存实现；如果 API 水平扩容到多实例，需要换成共享存储（Redis 等）。
 
-## 7. 已知限制
+## 7. 本地生产形态演练记录（2026-10-22）
+
+在本地 Docker 上完整构建并启动 `deploy/compose.prod.yaml`（API 镜像 + Web 镜像 + nginx，MongoDB 复用本地 dev 容器，judge 文件目录挂载宿主机）：
+
+- 两个镜像构建成功，api 健康检查通过，web 等待 api 健康后启动
+- `scripts/prod-stack-smoke.sh` 全部通过：SPA、健康检查、安全头、`/p/P201` 回退、判题机 `POST /login`、`GET /judge/files`、`/judge/conn` 101 升级
+- Playwright 在**生产构建产物**上跑 23 条路由（题库、题解、统计、判题配置、比赛榜单/气球、作业、训练、讨论、用户、记录、后台、消息、安全、设置、文件、FPS/Hydro 导入、登录），无模板渲染错误
+- 演练中发现并修复：nginx 只代理了 `/api/`，外部 `hydrojudge` 无法通过站点 URL 连接；现在补齐 `/judge/*`、`POST /login`、`POST /d/*/judge/files` 与 WebSocket 转发
+- 演练中发现并修复：nginx 与 API 重复下发安全头；现在 SPA 响应由 nginx 加头，`/api/` 只保留 API 自己的头
+
+## 8. 已知限制
 
 - 迁移只重写逻辑存储路径（`storage.path`），不移动物理文件；存储后端必须保持相同布局。
 - 迁移后统一使用 `domainId=system`，旧多域 URL 依赖前端重定向。
