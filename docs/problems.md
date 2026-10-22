@@ -116,6 +116,29 @@
 |---|---|---|
 | GET | `/api/v1/problems/:pid/statistics` | `page` / `limit` / `sort` / `direction` / `lang` |
 
+## Hydro 压缩包导入
+
+迁移自上游核心的 `problem_import_hydro`（`/problem/import/hydro`，仅管理员）：
+
+- 支持 Hydro 导出格式（每个子目录一份 `problem.yaml`）和 ICPC 题包格式（根目录 `problem.yaml`）
+- 题面取 `problem.md`、`problem_<lang>.md`（优先 `zh`）或 `problem.yaml` 的 `content`
+- 判题配置合并 `testdata/config.yaml`、`domjudge-problem.ini`（`timelimit` / `externalid`）与 `problem.yaml` 的 `limits`
+- 目录映射沿用上游：
+  - `testdata/`、`attachments/`、`generators/`、`include/`、`data/<case>/` → 测试数据
+  - `additional_file/`、`attachments/`、`statement/`、`problem_statement/`、`data/sample/` → 附加文件
+  - `output_validators/checker/`、`interactor/` → 测试数据并写入 `checker_type` / `type`
+  - `solution/` → 题解
+- 支持 `preferredPrefix`（替换 pid 前缀）、`hidden`、`keepUser`（保留原 owner，仅管理员）
+- pid 冲突时自动改用 `P<docId>`，与上游默认行为一致
+
+接口：
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| POST | `/api/v1/problems/import/hydro` | multipart `file`（zip）+ `preferredPrefix` / `hidden` / `keepUser`，返回 `{items, failures}` |
+
+隐藏题目在导入后仍可被管理员和其 owner 通过详情接口查看（对齐上游 `PERM_VIEW_PROBLEM_HIDDEN` 行为）。
+
 ## FPS 导入
 
 迁移自上游 `fps-importer` 插件（`/problem/import/fps`，仅管理员）：
