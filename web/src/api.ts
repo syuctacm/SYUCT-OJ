@@ -1442,3 +1442,21 @@ export async function changePassword(current: string, password: string, verifyPa
     body: JSON.stringify({ current, password, verifyPassword }),
   })
 }
+
+export type HydroImportResult = FPSImportResult
+
+export async function importHydroProblems(
+  file: File,
+  options: { preferredPrefix?: string; hidden?: boolean; keepUser?: boolean } = {},
+): Promise<HydroImportResult> {
+  const body = new FormData()
+  body.set('file', file)
+  if (options.preferredPrefix) body.set('preferredPrefix', options.preferredPrefix)
+  if (options.hidden) body.set('hidden', 'on')
+  if (options.keepUser) body.set('keepUser', 'on')
+  const result = await request<Envelope<HydroImportResult>>('/api/v1/problems/import/hydro', {
+    method: 'POST',
+    body,
+  })
+  return result.data
+}

@@ -110,7 +110,7 @@
 路由清单：
 
 ```text
-/  /p  /p/tag/:tag  /p/:pid  /p/:pid/submit  /p/:pid/solution  /p/:pid/statistics  /p/:pid/edit  /p/:pid/config  /p/:pid/files  /problem/import/fps
+/  /p  /p/tag/:tag  /p/:pid  /p/:pid/submit  /p/:pid/solution  /p/:pid/statistics  /p/:pid/edit  /p/:pid/config  /p/:pid/files  /problem/import/fps  /problem/import/hydro
 /contest  /contest/:tid  /contest/:tid/problems  /contest/:tid/scoreboard
 /contest/:tid/management  /contest/:tid/clarification  /contest/:tid/user
 /contest/new  /contest/:tid/edit
@@ -154,7 +154,6 @@
 | a11y | 无需迁移 | 上游 `a11y` 包是安装器辅助脚本（自动设置超管、nexus 布局迁移），与无障碍功能无关 |
 | 判题配置 Monaco 编辑器 | 未迁移 | 上游 `components/problemconfig` 共 800+ 行（Monaco + Redux + Mantine 表单 + 分支树），需要先移植 `vj/*` 运行时 |
 | TagRanking 模板 | 阻塞 | `tag-stat` 插件源码只存在于生产备份，本地拿不到，现用等价 React 页面代替 |
-| Hydro zip 题目导入 | 未迁移 | 上游核心的 `problem_import_hydro`（ICPC 包格式 + domjudge ini 兼容），当前只支持 FPS 导入 |
 
 已完成的对应记录：
 
@@ -164,4 +163,5 @@
 - FPS 导入：见 `docs/problems.md` 的“FPS 导入”一节
 - 题目统计页：见 `docs/problems.md` 的“题目统计”一节
 - 修改密码与活动会话：见 `docs/security.md`
+- Hydro 压缩包导入：见 `docs/problems.md` 的“Hydro 压缩包导入”一节
 - 标签统计、活跃日历：见 `docs/tag-stat.md`、`docs/activity-calendar.md`

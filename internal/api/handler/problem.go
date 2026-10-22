@@ -51,6 +51,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/problem-tags/:tag/ranking", h.tagRanking)
 	router.POST("/api/v1/problems", h.create)
 	router.POST("/api/v1/problems/import/fps", h.importFPS)
+	router.POST("/api/v1/problems/import/hydro", h.importHydro)
 	router.GET("/api/v1/problems/:pid/edit", h.editData)
 	router.PATCH("/api/v1/problems/:pid", h.update)
 	router.GET("/api/v1/problems/:pid/statistics", h.statistics)
@@ -306,6 +307,18 @@ func (h *ProblemHandler) tagRanking(c *gin.Context) {
 
 func (h *ProblemHandler) get(c *gin.Context) {
 	pdoc, err := h.repo.Get(c.Request.Context(), c.Param("pid"))
+	if err != nil {
+		// Hidden problems stay visible to their owner and to administrators,
+		// mirroring Hydro's PERM_VIEW_PROBLEM_HIDDEN check.
+		if uid, ok := h.currentUser(c); ok {
+			if hiddenDoc, hiddenErr := h.repo.GetForEditor(c.Request.Context(), c.Param("pid")); hiddenErr == nil {
+				account, accountErr := h.users.FindByID(c.Request.Context(), uid)
+				if accountErr == nil && (hiddenDoc.Owner == uid || account.Priv&1 != 0) {
+					pdoc, err = hiddenDoc, nil
+				}
+			}
+		}
+	}
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
 		return
