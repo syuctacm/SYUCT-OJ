@@ -130,9 +130,25 @@ func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code stri
 		return nil, err
 	}
 
-	config, err := configMap(pdoc.Config)
+	task, err := buildJudgeTask(pdoc, rid, uid, lang, code, contestObjectID)
 	if err != nil {
 		_, _ = r.records.DeleteOne(ctx, bson.M{"_id": rid})
+		return nil, err
+	}
+	if _, err := r.tasks.InsertOne(ctx, task); err != nil {
+		_, _ = r.records.DeleteOne(ctx, bson.M{"_id": rid})
+		return nil, err
+	}
+	if err := r.problems.IncStats(ctx, pdoc.DocID, 1, 0); err != nil {
+		slog.Warn("unable to update problem submission counter", "pid", pdoc.DocID, "error", err)
+	}
+	return r.Get(ctx, rid.Hex())
+}
+
+// buildJudgeTask assembles the hydrojudge task shared by submit and rejudge.
+func buildJudgeTask(pdoc *problem.Problem, rid bson.ObjectID, uid int64, lang, code string, contest *bson.ObjectID) (bson.M, error) {
+	config, err := configMap(pdoc.Config)
+	if err != nil {
 		return nil, err
 	}
 	task := bson.M{
@@ -143,17 +159,70 @@ func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code stri
 		"meta": bson.M{"problemOwner": pdoc.Owner}, "priority": 0,
 		"trusted": false,
 	}
-	if contestObjectID != nil {
-		task["contest"] = *contestObjectID
+	if contest != nil {
+		task["contest"] = *contest
 	}
-	if _, err := r.tasks.InsertOne(ctx, task); err != nil {
-		_, _ = r.records.DeleteOne(ctx, bson.M{"_id": rid})
-		return nil, err
+	return task, nil
+}
+
+// RejudgeProblem resets every record of a problem and queues a fresh judge task
+// for each one, mirroring Hydro's record.rejudge.
+func (r *Repository) RejudgeProblem(ctx context.Context, pid string) (int64, error) {
+	// Administrators may rejudge hidden problems, so resolve through the editor
+	// lookup that includes them.
+	pdoc, err := r.problems.GetForEditor(ctx, pid)
+	if err != nil {
+		return 0, err
 	}
-	if err := r.problems.IncStats(ctx, pdoc.DocID, 1, 0); err != nil {
-		slog.Warn("unable to update problem submission counter", "pid", pdoc.DocID, "error", err)
+	cursor, err := r.records.Find(ctx,
+		bson.M{"domainId": "system", "pid": pdoc.DocID},
+		options.Find().SetProjection(bson.M{"_id": 1, "uid": 1, "lang": 1, "code": 1, "status": 1, "contest": 1}))
+	if err != nil {
+		return 0, err
 	}
-	return r.Get(ctx, rid.Hex())
+	defer cursor.Close(ctx)
+	var records []struct {
+		ID      bson.ObjectID  `bson:"_id"`
+		UID     int64          `bson:"uid"`
+		Lang    string         `bson:"lang"`
+		Code    string         `bson:"code"`
+		Status  int            `bson:"status"`
+		Contest *bson.ObjectID `bson:"contest"`
+	}
+	if err := cursor.All(ctx, &records); err != nil {
+		return 0, err
+	}
+	var accepted int64
+	for _, record := range records {
+		if record.Status == StatusAccepted {
+			accepted++
+		}
+	}
+	if _, err := r.records.UpdateMany(ctx,
+		bson.M{"domainId": "system", "pid": pdoc.DocID},
+		bson.M{"$set": bson.M{
+			"status": StatusWaiting, "score": 0, "time": 0, "memory": 0,
+			"judgeTexts": []any{}, "compilerTexts": []string{}, "testCases": []any{},
+			"judger": nil, "judgeAt": nil, "rejudged": true, "progress": 0,
+		}}); err != nil {
+		return 0, err
+	}
+	for _, record := range records {
+		task, err := buildJudgeTask(pdoc, record.ID, record.UID, record.Lang, record.Code, record.Contest)
+		if err != nil {
+			return 0, err
+		}
+		_, _ = r.tasks.DeleteMany(ctx, bson.M{"rid": record.ID})
+		if _, err := r.tasks.InsertOne(ctx, task); err != nil {
+			return 0, err
+		}
+	}
+	if accepted > 0 {
+		if err := r.problems.IncStats(ctx, pdoc.DocID, 0, -accepted); err != nil {
+			slog.Warn("unable to adjust problem accept counter after rejudge", "pid", pdoc.DocID, "error", err)
+		}
+	}
+	return int64(len(records)), nil
 }
 
 func (r *Repository) List(ctx context.Context, opts ListFilter) (*ListResult, error) {

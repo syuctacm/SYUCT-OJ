@@ -86,6 +86,15 @@
 - `next` 续租，`end` 持久化成功后才删除 task
 - 判题机断线后，lease 到期自动重投
 
+## 重测（rejudge）
+
+题目侧栏的“重测整题”对应 `POST /api/v1/problems/:pid/rejudge`（仅管理员）：
+
+- 把该题所有记录重置为 `status=waiting`、`score/time/memory=0`、清空判题输出，并标记 `rejudged=true`
+- 为每条记录重建一条判题任务（复用提交时的任务构造逻辑）
+- 重置前统计已 AC 的记录数，同步回退 `nAccept`；判题结果回来后再按 AC 迁移加回
+- 隐藏题目也可以重测（管理员通过 `GetForEditor` 解析）
+
 ## 已知差异
 
 - 记录详情暂未接入 rejudge/cancel 和代码下载
