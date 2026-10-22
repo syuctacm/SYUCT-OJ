@@ -466,10 +466,20 @@ export async function updateContest(tid: string, input: ContestEditInput): Promi
   return result.data
 }
 
+export type ContestStatus = {
+  uid: number
+  attend: number
+  unrank?: boolean
+  startAt?: string
+  endAt?: string
+}
+
 export type Contest = {
   id: string
   docId: string
   attended?: boolean
+  requiresInvitationCode?: boolean
+  status?: ContestStatus
   title: string
   content?: string
   beginAt: string
@@ -522,8 +532,16 @@ export async function unlockContest(tid: string): Promise<Contest> {
   return result.data
 }
 
-export async function attendContest(tid: string): Promise<{ attended: boolean; changed: boolean }> {
-  const result = await request<Envelope<{ attended: boolean; changed: boolean }>>(`/api/v1/contests/${encodeURIComponent(tid)}/attend`, {
+export async function attendContest(tid: string, code = ''): Promise<{ attended: boolean; changed: boolean; status?: ContestStatus }> {
+  const result = await request<Envelope<{ attended: boolean; changed: boolean; status?: ContestStatus }>>(`/api/v1/contests/${encodeURIComponent(tid)}/attend`, {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  })
+  return result.data
+}
+
+export async function earlyEndContest(tid: string): Promise<ContestStatus> {
+  const result = await request<Envelope<ContestStatus>>(`/api/v1/contests/${encodeURIComponent(tid)}/early-end`, {
     method: 'POST',
   })
   return result.data
@@ -537,6 +555,7 @@ export type ProblemStatus = {
 
 export type ContestProblemPage = {
   contest: Contest
+  status?: ContestStatus
   problems: ProblemSummary[]
   attended: boolean
   statuses: Record<string, ProblemStatus>

@@ -62,8 +62,27 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "contest not found"})
 			return
 		}
+		status, err := h.contests.Status(c.Request.Context(), request.ContestID, uid)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest status"})
+			return
+		}
+		if status == nil || status.Attend == 0 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "attend the contest first"})
+			return
+		}
 		now := time.Now()
-		if now.Before(item.BeginAt) || now.After(item.EndAt) {
+		deadline := item.EndAt
+		if status.EndAt != nil && status.EndAt.Before(deadline) {
+			deadline = *status.EndAt
+		}
+		if item.Duration > 0 && status.StartAt != nil {
+			personalDeadline := status.StartAt.Add(time.Duration(item.Duration) * time.Hour)
+			if personalDeadline.Before(deadline) {
+				deadline = personalDeadline
+			}
+		}
+		if now.Before(item.BeginAt) || !now.Before(deadline) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "contest is not running"})
 			return
 		}

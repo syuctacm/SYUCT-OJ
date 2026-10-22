@@ -33,6 +33,7 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.PATCH("/api/v1/contests/:tid", h.update)
 	router.GET("/api/v1/contests/:tid", h.get)
 	router.POST("/api/v1/contests/:tid/attend", h.attend)
+	router.POST("/api/v1/contests/:tid/early-end", h.earlyEnd)
 	router.GET("/api/v1/contests/:tid/problems", h.problems)
 	router.GET("/api/v1/contests/:tid/scoreboard", h.scoreboard)
 	router.POST("/api/v1/contests/:tid/unlock", h.unlock)
@@ -96,7 +97,13 @@ func (h *ContestHandler) editData(c *gin.Context) {
 	if !ok {
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": item})
+	// The invitation code is sensitive and is only exposed by this
+	// owner/administrator-only endpoint.
+	response := struct {
+		*contest.Contest
+		InvitationCode string `json:"invitationCode,omitempty"`
+	}{Contest: item, InvitationCode: item.InvitationCode}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": response})
 }
 
 func (h *ContestHandler) update(c *gin.Context) {
@@ -132,10 +139,16 @@ func (h *ContestHandler) problems(c *gin.Context) {
 	}
 	attended := false
 	statuses := map[int64]contest.ProblemStatus{}
+	var attendeeStatus *contest.AttendeeStatus
 	if u, ok := h.currentUser(c); ok {
 		attended, err = h.repo.Attended(c.Request.Context(), c.Param("tid"), u.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest attendance"})
+			return
+		}
+		attendeeStatus, err = h.repo.Status(c.Request.Context(), c.Param("tid"), u.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest status"})
 			return
 		}
 		statuses, err = h.repo.UserProblemStatus(c.Request.Context(), u.ID, item.PIDs)
@@ -146,7 +159,10 @@ func (h *ContestHandler) problems(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
-		"data": gin.H{"contest": item, "problems": problems, "attended": attended, "statuses": statuses},
+		"data": gin.H{
+			"contest": item, "problems": problems, "attended": attended,
+			"status": attendeeStatus, "statuses": statuses,
+		},
 	})
 }
 
@@ -161,7 +177,9 @@ func (h *ContestHandler) scoreboard(c *gin.Context) {
 
 type contestDetailResponse struct {
 	*contest.Contest
-	Attended bool `json:"attended"`
+	Attended               bool                    `json:"attended"`
+	RequiresInvitationCode bool                    `json:"requiresInvitationCode,omitempty"`
+	Status                 *contest.AttendeeStatus `json:"status,omitempty"`
 	// PrivateFiles holds contest materials, only filled in for owners,
 	// administrators and participants after the contest started.
 	PrivateFiles []filemeta.File `json:"privateFiles,omitempty"`
@@ -200,11 +218,18 @@ func (h *ContestHandler) get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
 		return
 	}
-	response := contestDetailResponse{Contest: item}
+	response := contestDetailResponse{
+		Contest: item, RequiresInvitationCode: item.InvitationCode != "",
+	}
 	if u, ok := h.currentUser(c); ok {
 		response.Attended, err = h.repo.Attended(c.Request.Context(), c.Param("tid"), u.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest attendance"})
+			return
+		}
+		response.Status, err = h.repo.Status(c.Request.Context(), c.Param("tid"), u.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest status"})
 			return
 		}
 		if allowed, err := h.repo.CanReadPrivateFiles(c.Request.Context(), c.Param("tid"), u.ID); err == nil && (allowed || u.Priv&1 != 0) {
@@ -225,19 +250,61 @@ func (h *ContestHandler) attend(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	changed, err := h.repo.Attend(c.Request.Context(), c.Param("tid"), u.ID)
-	if err != nil {
-		if errors.Is(err, contest.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+	var request struct {
+		Code string `json:"code"`
+	}
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to attend contest"})
+	}
+	changed, err := h.repo.AttendContest(c.Request.Context(), c.Param("tid"), u.ID, request.Code)
+	if err != nil {
+		switch {
+		case errors.Is(err, contest.ErrNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+		case errors.Is(err, contest.ErrContestEnded):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "contest has ended"})
+		case errors.Is(err, contest.ErrInvalidInvitationCode):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid invitation code"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to attend contest"})
+		}
+		return
+	}
+	status, err := h.repo.Status(c.Request.Context(), c.Param("tid"), u.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest status"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
-		"data": gin.H{"attended": true, "changed": changed},
+		"data": gin.H{"attended": true, "changed": changed, "status": status},
 	})
+}
+
+func (h *ContestHandler) earlyEnd(c *gin.Context) {
+	u, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	status, err := h.repo.EarlyEnd(c.Request.Context(), c.Param("tid"), u.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, contest.ErrNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+		case errors.Is(err, contest.ErrContestNotAttended):
+			c.JSON(http.StatusForbidden, gin.H{"error": "attend the contest first"})
+		case errors.Is(err, contest.ErrContestEnded), errors.Is(err, contest.ErrContestNotLive):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to end contest"})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": status})
 }
 
 // setScore stores the per-problem score, mirroring the upstream set_score
