@@ -405,6 +405,18 @@ export function submissionCodeUrl(rid: string) {
   return `/api/v1/submissions/${encodeURIComponent(rid)}/code`
 }
 
+export type SubmissionEvent = {
+  rid: string
+  uid: number
+  pid: number
+  lang: string
+  status: number
+  score: number
+  time: number
+  memory: number
+  judgeAt?: string
+}
+
 export type SubmissionPage = {
   items: Submission[]
   total: number

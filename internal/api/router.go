@@ -13,6 +13,7 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/judge"
 	"github.com/syuctacm/syuct-oj/internal/message"
 	"github.com/syuctacm/syuct-oj/internal/problem"
+	"github.com/syuctacm/syuct-oj/internal/submission"
 	"github.com/syuctacm/syuct-oj/internal/training"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
@@ -48,6 +49,9 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		handler.NewSolutionHandler(problemRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
 	}
 	if submissionHandler != nil {
+		hub := submission.NewRecordHub()
+		submissionHandler.SetHub(hub)
+		submissionHandler.Repository().SetUpdateHook(hub.Publish)
 		submissionHandler.RegisterRoutes(router.Group("/"))
 	}
 	var activityStore *judge.FileStore

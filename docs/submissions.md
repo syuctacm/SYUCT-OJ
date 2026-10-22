@@ -10,6 +10,7 @@
 | GET | `/api/v1/submissions/:rid/code` | 下载提交代码（所有者或管理员） |
 | POST | `/api/v1/submissions/:rid/rejudge` | 单条记录重测（管理员） |
 | POST | `/api/v1/submissions/:rid/cancel` | 取消单条记录成绩（管理员） |
+| GET | `/api/v1/submissions/events` | 登录用户记录状态 WebSocket 事件流 |
 
 创建提交和查看记录列表需要用户 Session。列表默认显示单站点全部记录，可用以下参数筛选：
 
@@ -63,7 +64,7 @@
 - `record_detail.html`：由 `HydroTemplate` 直接渲染状态区、编译器/评测输出、测试点、代码和信息侧栏
 - `record_detail_status.html` / `record_detail_summary.html`：状态和统计信息
 
-记录列表的语言下拉和筛选表单由 React 交互岛接入，分页和重置链接保持原模板结构。记录详情在等待/评测中每秒轮询 API，状态和测试点更新后重新渲染原模板；管理员可使用原模板的 Rejudge/Cancel Score，所有者或管理员可通过 Download 下载代码。
+记录列表的语言下拉和筛选表单由 React 交互岛接入，分页和重置链接保持原模板结构。列表页通过 `/api/v1/submissions/events` WebSocket 接收当前可见记录的轻量状态更新，并增量刷新状态、分数、时间和内存；断线后自动重连。记录详情在等待/评测中每秒轮询 API，状态和测试点更新后重新渲染原模板；管理员可使用原模板的 Rejudge/Cancel Score，所有者或管理员可通过 Download 下载代码。
 
 ## 验证
 
@@ -102,7 +103,6 @@
 
 ## 已知差异
 
-- 记录列表暂未接入实时 WebSocket 状态推送
 - 默认 lease 为 `2m`，可通过 `JUDGE_TASK_LEASE` 调整
 
 `time` 使用浮点毫秒，展示时按原模板四舍五入。

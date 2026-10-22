@@ -91,6 +91,7 @@ type Repository struct {
 	users        *mongo.Collection
 	problems     *problem.Repository
 	acceptedHook AcceptedHook
+	updateHook   func(RecordUpdate)
 }
 
 func NewRepository(db *mongo.Database, problems *problem.Repository) *Repository {
@@ -146,7 +147,11 @@ func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code stri
 	if err := r.problems.IncStats(ctx, pdoc.DocID, 1, 0); err != nil {
 		slog.Warn("unable to update problem submission counter", "pid", pdoc.DocID, "error", err)
 	}
-	return r.Get(ctx, rid.Hex())
+	savedRecord, err := r.Get(ctx, rid.Hex())
+	if err == nil {
+		r.emit(savedRecord)
+	}
+	return savedRecord, err
 }
 
 // buildJudgeTask assembles the hydrojudge task shared by submit and rejudge.
@@ -276,7 +281,11 @@ func (r *Repository) RejudgeRecord(ctx context.Context, rid string) (*Record, er
 			slog.Warn("unable to adjust problem accept counter after record rejudge", "pid", current.PID, "error", err)
 		}
 	}
-	return r.Get(ctx, rid)
+	record, err := r.Get(ctx, rid)
+	if err == nil {
+		r.emit(record)
+	}
+	return record, err
 }
 
 // CancelRecord marks one record as canceled and removes its pending judge task.
@@ -313,7 +322,11 @@ func (r *Repository) CancelRecord(ctx context.Context, rid string) (*Record, err
 			slog.Warn("unable to adjust problem accept counter after record cancel", "pid", current.PID, "error", err)
 		}
 	}
-	return r.Get(ctx, rid)
+	record, err := r.Get(ctx, rid)
+	if err == nil {
+		r.emit(record)
+	}
+	return record, err
 }
 
 func (r *Repository) List(ctx context.Context, opts ListFilter) (*ListResult, error) {
@@ -466,6 +479,28 @@ func (r *Repository) Get(ctx context.Context, rid string) (*Record, error) {
 	return &items[0], nil
 }
 
+// SetUpdateHook registers a callback for lightweight record status updates.
+func (r *Repository) SetUpdateHook(hook func(RecordUpdate)) {
+	r.updateHook = hook
+}
+
+func (r *Repository) emit(record *Record) {
+	if record == nil || r.updateHook == nil {
+		return
+	}
+	r.updateHook(RecordUpdate{
+		RID: record.ID.Hex(), UID: record.UID, PID: record.PID, Lang: record.Lang,
+		Status: record.Status, Score: record.Score, Time: record.Time,
+		Memory: record.Memory, JudgeAt: record.JudgeAt,
+	})
+}
+
+func (r *Repository) emitUpdate(update RecordUpdate) {
+	if r.updateHook != nil {
+		r.updateHook(update)
+	}
+}
+
 // SetAcceptedHook registers the callback fired for accepted submissions.
 func (r *Repository) SetAcceptedHook(hook AcceptedHook) {
 	r.acceptedHook = hook
@@ -481,11 +516,13 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 		return fmt.Errorf("invalid judge result rid: %w", err)
 	}
 	var current struct {
-		PID    int64 `bson:"pid"`
-		Status int   `bson:"status"`
+		UID    int64  `bson:"uid"`
+		PID    int64  `bson:"pid"`
+		Lang   string `bson:"lang"`
+		Status int    `bson:"status"`
 	}
 	if err := r.records.FindOne(ctx, bson.M{"_id": oid},
-		options.FindOne().SetProjection(bson.M{"pid": 1, "status": 1})).Decode(&current); err != nil {
+		options.FindOne().SetProjection(bson.M{"uid": 1, "pid": 1, "lang": 1, "status": 1})).Decode(&current); err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
 			return err
 		}
@@ -536,6 +573,34 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 			}
 		}
 	}
+	event := RecordUpdate{
+		RID: rawRID, UID: current.UID, PID: current.PID, Lang: current.Lang,
+		Status: current.Status, Score: 0, Time: 0, Memory: 0,
+	}
+	if value, ok := set["status"]; ok {
+		if number, ok := toInt(value); ok {
+			event.Status = number
+		}
+	}
+	if value, ok := set["score"]; ok {
+		if number, ok := toInt(value); ok {
+			event.Score = number
+		}
+	}
+	if value, ok := set["memory"]; ok {
+		if number, ok := toInt(value); ok {
+			event.Memory = number
+		}
+	}
+	if value, ok := set["time"]; ok {
+		if number, ok := toFloat(value); ok {
+			event.Time = number
+		}
+	}
+	if value, ok := set["judgeAt"].(time.Time); ok {
+		event.JudgeAt = &value
+	}
+	r.emitUpdate(event)
 	if hook := r.acceptedHook; hook != nil && isAccepted(set["status"]) {
 		var record struct {
 			UID     int64          `bson:"uid"`
@@ -550,6 +615,38 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 		}
 	}
 	return nil
+}
+
+func toInt(value any) (int, bool) {
+	switch number := value.(type) {
+	case int:
+		return number, true
+	case int32:
+		return int(number), true
+	case int64:
+		return int(number), true
+	case float64:
+		return int(number), true
+	default:
+		return 0, false
+	}
+}
+
+func toFloat(value any) (float64, bool) {
+	switch number := value.(type) {
+	case float64:
+		return number, true
+	case float32:
+		return float64(number), true
+	case int:
+		return float64(number), true
+	case int32:
+		return float64(number), true
+	case int64:
+		return float64(number), true
+	default:
+		return 0, false
+	}
 }
 
 func isAccepted(value any) bool {
