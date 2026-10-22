@@ -52,6 +52,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/problems", h.create)
 	router.POST("/api/v1/problems/import/fps", h.importFPS)
 	router.POST("/api/v1/problems/import/hydro", h.importHydro)
+	router.GET("/api/v1/problems/random", h.random)
 	router.GET("/api/v1/problems/:pid/edit", h.editData)
 	router.PATCH("/api/v1/problems/:pid", h.update)
 	router.DELETE("/api/v1/problems/:pid", h.delete)
@@ -254,6 +255,34 @@ func writeProblemEditError(c *gin.Context, err error) {
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}
+}
+
+// random answers the Lucky button: one random visible problem, filtered by the
+// category: tokens of the current search query.
+func (h *ProblemHandler) random(c *gin.Context) {
+	tags := randomTags(c.Query("q"))
+	pid, err := h.repo.Random(c.Request.Context(), tags)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no problem found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"pid": pid}})
+}
+
+func randomTags(query string) []string {
+	tags := make([]string, 0)
+	for _, token := range strings.Fields(query) {
+		if !strings.HasPrefix(token, "category:") {
+			continue
+		}
+		for _, tag := range strings.Split(strings.TrimPrefix(token, "category:"), ",") {
+			tag = strings.Trim(strings.TrimSpace(tag), `"`)
+			if tag != "" {
+				tags = append(tags, tag)
+			}
+		}
+	}
+	return tags
 }
 
 func (h *ProblemHandler) list(c *gin.Context) {

@@ -27,6 +27,13 @@
 
 默认只返回 `domainId=system`、`docType=10` 且未隐藏的题目；管理员登录后列表会包含隐藏题目，模板会显示 “(隐藏)” 标记。
 
+## 随机选题
+
+题库侧栏的“试试手气”对应 `GET /api/v1/problems/random?q=...`：
+
+- 从可见题目中随机取一道，按 `q` 里的 `category:` 标签过滤（与上游 `ProblemRandomHandler` 一致）
+- 前端 `/problem/random` 取到 pid 后跳转题目详情
+
 ## 删除题目
 
 题目编辑页的“删除”按钮对应 `DELETE /api/v1/problems/:pid`（owner 或管理员），会清理：

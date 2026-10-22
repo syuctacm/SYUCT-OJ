@@ -80,19 +80,12 @@ export function ProblemsPage() {
     const tagButtons = Array.from(root.querySelectorAll<HTMLElement>('.toggle-tag'))
     tagButtons.forEach((button) => button.addEventListener('click', toggleTags))
 
-    const lucky = root.querySelector<HTMLAnchorElement>('[data-fragment-id="problem_lucky"] a')
-    if (lucky && page?.items.length) {
-      const picked = page.items[Math.floor(Math.random() * page.items.length)]
-      lucky.href = `/p/${encodeURIComponent(picked.pid || String(picked.docId))}`
-      lucky.target = '_blank'
-    }
-
     return () => {
       form?.removeEventListener('submit', onSubmit)
       sortSelect?.removeEventListener('change', onSort)
       tagButtons.forEach((button) => button.removeEventListener('click', toggleTags))
     }
-  }, [navigate, page, tag])
+  }, [navigate, tag])
 
   const context = useMemo(() => {
     if (!page) return null
@@ -194,7 +187,10 @@ export function ProblemsPage() {
         if (name === 'problem_create') return '/p/new'
         if (name === 'problem_import_fps') return '/problem/import/fps'
         if (name === 'problem_import_hydro') return '/problem/import/hydro'
-        if (name === 'problem_random') return '/p'
+        if (name === 'problem_random') {
+          const q = String(queryArgs.q ?? '')
+          return `/problem/random${q ? `?q=${encodeURIComponent(q)}` : ''}`
+        }
         if (name === 'record_detail') return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
         return '/'
       }}

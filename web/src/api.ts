@@ -1504,3 +1504,9 @@ export async function deleteProblem(pid: string): Promise<void> {
     method: 'DELETE',
   })
 }
+
+export async function getRandomProblem(query = ''): Promise<string> {
+  const params = query ? `?q=${encodeURIComponent(query)}` : ''
+  const result = await request<Envelope<{ pid: string }>>(`/api/v1/problems/random${params}`)
+  return result.data.pid
+}

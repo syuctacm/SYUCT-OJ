@@ -357,6 +357,46 @@ func (r *Repository) Delete(ctx context.Context, docID int64) error {
 	return nil
 }
 
+// Random picks one visible problem, optionally filtered by tags. It returns the
+// pid when the problem has one and the docId otherwise.
+func (r *Repository) Random(ctx context.Context, tags []string) (string, error) {
+	match := bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeProblem,
+		"hidden":   bson.M{"$ne": true},
+	}
+	if len(tags) > 0 {
+		and := make([]bson.M, 0, len(tags))
+		for _, tag := range tags {
+			and = append(and, bson.M{"tag": tag})
+		}
+		match["$and"] = and
+	}
+	cursor, err := r.coll.Aggregate(ctx, []bson.M{
+		{"$match": match},
+		{"$sample": bson.M{"size": 1}},
+		{"$project": bson.M{"pid": 1, "docId": 1}},
+	})
+	if err != nil {
+		return "", err
+	}
+	defer cursor.Close(ctx)
+	var items []struct {
+		PID   string `bson:"pid"`
+		DocID int64  `bson:"docId"`
+	}
+	if err := cursor.All(ctx, &items); err != nil {
+		return "", err
+	}
+	if len(items) == 0 {
+		return "", ErrNotFound
+	}
+	if items[0].PID != "" {
+		return items[0].PID, nil
+	}
+	return strconv.FormatInt(items[0].DocID, 10), nil
+}
+
 // IncStats adjusts the submission counters shown on the problem list and the
 // problem sidebar. The accept counter is clamped at zero so a rejudge cannot
 // drive it negative.

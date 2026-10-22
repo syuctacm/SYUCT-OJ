@@ -14,6 +14,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (/^\/register\/[^/]+\/?$/.test(pathname)) return { name: 'user_register_with_code', layout: 'immersive', title: '注册' }
   if (pathname === '/p') return basic('problem_main', '题库')
   if (pathname === '/p/new') return basic('problem_create', '创建题目')
+  if (pathname === '/problem/random') return basic('problem_random', '随机选题')
   if (pathname === '/problem/import/fps') return basic('problem_import_fps', '从 FPS 文件导入')
   if (pathname === '/problem/import/hydro') return basic('problem_import_hydro', '从 Hydro 压缩包导入')
   if (pathname.startsWith('/p/tag/')) return basic('problem_tag', '标签榜单')

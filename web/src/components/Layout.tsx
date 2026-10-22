@@ -54,7 +54,10 @@ export function Layout() {
                 <li className="nav__list-item"><button type="button" className="nav__item legacy-nav-button" onClick={handleLogout}>退出</button></li>
               </>
             ) : (
-              <li className="nav__list-item"><NavLink to="/login" className={navClass}>登录</NavLink></li>
+              <>
+                <li className="nav__list-item"><NavLink to="/login" className={navClass}>登录</NavLink></li>
+                <li className="nav__list-item"><NavLink to="/register" className="nav__item--round">注册</NavLink></li>
+              </>
             )}
           </ol>
         </div></div>
