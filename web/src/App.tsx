@@ -25,6 +25,7 @@ import { HomeworkDetailPage } from './pages/HomeworkDetailPage.tsx'
 import { HomeworkEditPage } from './pages/HomeworkEditPage.tsx'
 import { HomePage } from './pages/HomePage.tsx'
 import { HomeSettingsPage } from './pages/HomeSettingsPage.tsx'
+import { EmailChangeConfirmPage } from './pages/EmailChangeConfirmPage.tsx'
 import { HomeworksPage } from './pages/HomeworksPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
 import { RegisterPage } from './pages/RegisterPage.tsx'
@@ -113,6 +114,7 @@ export default function App() {
         <Route path="/ranking" element={<RankingPage />} />
         <Route path="/home/messages" element={<MessagesPage />} />
         <Route path="/home/security" element={<SecurityPage />} />
+        <Route path="/home/changeMail/:code" element={<EmailChangeConfirmPage />} />
         <Route path="/home/settings" element={<HomeSettingsPage />} />
         <Route path="/file" element={<UserFilesPage />} />
         <Route path="/login" element={<LoginPage />} />

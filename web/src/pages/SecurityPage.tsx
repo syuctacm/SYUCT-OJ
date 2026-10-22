@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  changePassword, disableTFA, enableTFA, getSecuritySessions, revokeAllSecuritySessions, revokeSecuritySession,
+  changePassword, disableTFA, enableTFA, getSecuritySessions, requestEmailChange, revokeAllSecuritySessions, revokeSecuritySession,
   setupTFA, type SecuritySession, type TFASetup,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
@@ -49,6 +49,12 @@ export function SecurityPage() {
   const [tfaCode, setTfaCode] = useState('')
   const [tfaError, setTfaError] = useState('')
   const [tfaBusy, setTfaBusy] = useState(false)
+  const [mailOpen, setMailOpen] = useState(false)
+  const [mailCurrent, setMailCurrent] = useState('')
+  const [mailAddress, setMailAddress] = useState('')
+  const [mailError, setMailError] = useState('')
+  const [mailBusy, setMailBusy] = useState(false)
+  const [mailLink, setMailLink] = useState('')
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
   const tfaSetupRef = useRef<() => void>(() => {})
 
@@ -186,11 +192,37 @@ export function SecurityPage() {
     }
   }
 
+  async function submitEmailChange() {
+    setMailError('')
+    if (!mailCurrent || !mailAddress.trim()) {
+      setMailError('请输入当前密码和新邮箱')
+      return
+    }
+    setMailBusy(true)
+    try {
+      const result = await requestEmailChange(mailCurrent, mailAddress.trim())
+      setMailOpen(false)
+      setMailCurrent('')
+      setMailAddress('')
+      setMailLink(result.link ?? '')
+      setNotice(result.sent ? '确认邮件已发送，请查收新邮箱' : '未配置 SMTP，请点击下方确认链接完成修改')
+    } catch (err) {
+      setMailError(err instanceof Error ? err.message : '修改邮箱失败')
+    } finally {
+      setMailBusy(false)
+    }
+  }
+
   const handleReady = useCallback((root: HTMLDivElement) => {
-    // Email/OAuth are not part of the rewrite yet; keep the TOTP authenticator
-    // section and remove only the linked-account block.
-    root.querySelector('#linked-accounts')?.closest('.section')?.remove()
     const cleanups: Array<() => void> = []
+    const changeMail = root.querySelector<HTMLButtonElement>('[data-operation="change_mail"]')
+    const onChangeMail = () => {
+      setMailError('')
+      setMailLink('')
+      setMailOpen(true)
+    }
+    changeMail?.addEventListener('click', onChangeMail)
+    if (changeMail) cleanups.push(() => changeMail.removeEventListener('click', onChangeMail))
     const authEnable = root.querySelector<HTMLButtonElement>('[name="auth_enable"]')
     if (user?.tfa) authEnable?.remove()
     const onAuthEnable = () => tfaSetupRef.current()
@@ -223,7 +255,27 @@ export function SecurityPage() {
     <>
       {error ? <div className="row"><div className="columns"><blockquote className="warn"><p>{error}</p></blockquote></div></div> : null}
       {notice ? <div className="row"><div className="columns"><blockquote className="note"><p>{notice}</p></blockquote></div></div> : null}
+      {mailLink ? <div className="row"><div className="columns"><blockquote className="note"><p>本地模式确认链接：<a href={mailLink}>{mailLink}</a></p></blockquote></div></div> : null}
       <HydroTemplate template="home_security.html" context={context()} url={buildUrl} onReady={handleReady} />
+      {mailOpen ? (
+        <Dialog okLabel="发送确认" cancelLabel="取消" onOk={() => void submitEmailChange()} onCancel={() => setMailOpen(false)}>
+          <div className="typo">
+            <p>修改邮箱前需要验证当前密码。</p>
+            <label>当前密码
+              <div className="textbox-container">
+                <input className="textbox" type="password" value={mailCurrent} onChange={(event) => setMailCurrent(event.target.value)} autoFocus />
+              </div>
+            </label>
+            <label>新邮箱
+              <div className="textbox-container">
+                <input className="textbox" type="email" value={mailAddress} onChange={(event) => setMailAddress(event.target.value)} autoComplete="email" />
+              </div>
+            </label>
+            {mailError ? <p className="warn">{mailError}</p> : null}
+            {mailBusy ? <p className="supplementary">正在处理...</p> : null}
+          </div>
+        </Dialog>
+      ) : null}
       {tfaSetup ? (
         <Dialog okLabel="启用" cancelLabel="取消" onOk={() => void confirmTfaSetup()} onCancel={() => setTfaSetup(null)}>
           <div className="typo">

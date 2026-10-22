@@ -56,4 +56,4 @@ Go 实现位于 `internal/user/password.go`。
 ## 当前限制
 
 - 尚未实现找回密码、WebAuthn / Passkey。
-- 注册 token 不走邮件（无 SMTP），直接由接口返回；接入邮件后应改为发送验证链接。
+- 注册 token 仍直接由接口返回；邮箱修改已支持可选 SMTP 发送确认链接，相关配置见 `.env.example`。
