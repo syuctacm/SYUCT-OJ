@@ -121,6 +121,17 @@
 /admin  /admin/users  /home/settings?category=account  /home/messages  /home/security  /file  /login
 ```
 
+## 6.2 全站回归（2026-10-22）
+
+在本地 Docker（MongoDB 容器 + Go API + Vite）上重跑全站冒烟，覆盖 2026-10-21 之后合并的题解、消息、安全、统计和 FPS 导入：
+
+- 匿名 13 条 + 管理员 37 条路由，均无 `Template render error`，`.main` 全部存在
+- 新增页面均已验证：`/p/:pid/solution`、`/p/:pid/statistics`、`/problem/import/fps`、`/home/messages`、`/home/security`
+- 匿名访问 `/record` 显示“请先登录查看评测记录”，`/problem/import/fps` 跳转登录页，符合预期
+- 回归发现并修复两处问题（issue #203）：
+  - 比赛打印页在 `allowPrint=false` 时仍挂载 kiosk 面板并轮询 `/print/tasks`，控制台持续 404；现在与上游一致返回 404 占位
+  - 挂载型组件（活跃日历、讨论历史/表情、消息 pad、判题配置面板、打印面板）在 StrictMode 下重复挂载会打印 createRoot/unmount 告警；改为按容器复用 root（`web/src/upstream/roots.ts`），回归后控制台 0 告警
+
 ## 7. 当前已知差异
 
 ```text
@@ -130,17 +141,20 @@
 差异级别：中
 是否接受：部分接受
 负责人：待定
-后续处理：训练计划的 data-json 编辑器仍待接入；题库批量编辑/删除/复制尚未接入；比赛 / 作业 / 训练列表的团队入口隐藏；判题配置页的 `#ProblemConfig` 编辑器仍是简化版（上游是 Monaco + Redux 表单）；TagRanking 页缺插件源码
+后续处理：训练计划的 data-json 编辑器仍待接入；判题配置页的 `#ProblemConfig` 编辑器仍是简化版（上游是 Monaco + Redux 表单，需要移植 vj/* 运行时，属于大改动）；TagRanking 页缺插件源码，暂用等价 React 页面
 ```
 
-## 8. 尚未迁移的模块（2026-10-21 盘点）
+## 8. 尚未迁移的模块（2026-10-22 更新）
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | `/home/security` 的邮箱 / 2FA / OAuth 部分 | 未迁移 | 修改密码和活动会话已实现；改邮箱依赖邮件服务，2FA 与第三方登录尚未迁移 |
 | 签到 / 倒计时 | 未迁移 | 生产站自定义 addon，上游仓库没有源码，需要先拿到实现或重新设计 |
-| onsite-toolkit | 部分迁移 | 打印站和气球页已实现，其余线下赛工具未迁移 |
-| a11y | 未迁移 | 上游 `a11y` 插件（无障碍增强） |
+| onsite-toolkit | 部分迁移 | 打印站和气球页已实现；IP 自动登录、线下赛模式、队伍快速导入、CDP 导出未迁移 |
+| a11y | 无需迁移 | 上游 `a11y` 包是安装器辅助脚本（自动设置超管、nexus 布局迁移），与无障碍功能无关 |
+| 判题配置 Monaco 编辑器 | 未迁移 | 上游 `components/problemconfig` 共 800+ 行（Monaco + Redux + Mantine 表单 + 分支树），需要先移植 `vj/*` 运行时 |
+| TagRanking 模板 | 阻塞 | `tag-stat` 插件源码只存在于生产备份，本地拿不到，现用等价 React 页面代替 |
+| Hydro zip 题目导入 | 未迁移 | 上游核心的 `problem_import_hydro`（ICPC 包格式 + domjudge ini 兼容），当前只支持 FPS 导入 |
 
 已完成的对应记录：
 

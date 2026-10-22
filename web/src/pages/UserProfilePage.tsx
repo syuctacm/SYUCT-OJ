@@ -1,7 +1,7 @@
 // Page markup is rendered from the pinned Hydro ui-default template. Keep this
 // file limited to data mapping; the activity calendar is mounted as its tab.
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { createRoot } from 'react-dom/client'
+import { clearRendered, renderInto } from '../upstream/roots.ts'
 import { useParams } from 'react-router-dom'
 import { getPublicUser, type PublicUser } from '../api.ts'
 import { ActivityCalendar } from '../components/ActivityCalendar.tsx'
@@ -119,10 +119,9 @@ export function UserProfilePage() {
     item.innerHTML = '<h1 class="section__tab-title">活跃日历</h1><div class="section__tab-main"><div class="section__body"></div></div>'
     tabs.appendChild(item)
     const mount = item.querySelector('.section__body') as HTMLElement
-    const calendar = createRoot(mount)
-    calendar.render(<ActivityCalendar uid={Number(uid)} />)
+    renderInto(mount, <ActivityCalendar uid={Number(uid)} />)
     cleanups.push(() => {
-      calendar.unmount()
+      clearRendered(mount)
       item.remove()
     })
     return () => cleanups.forEach((cleanup) => cleanup())

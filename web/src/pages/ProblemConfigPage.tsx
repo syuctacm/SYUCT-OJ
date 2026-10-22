@@ -2,7 +2,7 @@
 // (problem_config.html). The `#ProblemConfig` container is filled by
 // ProblemConfigPanel; see that file for the remaining editor deviation.
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { createRoot } from 'react-dom/client'
+import { clearRendered, renderInto } from '../upstream/roots.ts'
 import { useParams } from 'react-router-dom'
 import {
   getProblemAssets, uploadProblemAssets,
@@ -60,11 +60,10 @@ export function ProblemConfigPage() {
       container.replaceChildren()
       const host = document.createElement('div')
       container.appendChild(host)
-      const root_ = createRoot(host)
-      root_.render(<ProblemConfigPanel pid={pid} />)
+      renderInto(host, <ProblemConfigPanel pid={pid} />)
       cleanups.push(() => {
+        clearRendered(host)
         host.remove()
-        queueMicrotask(() => root_.unmount())
       })
     }
     return () => cleanups.forEach((cleanup) => cleanup())

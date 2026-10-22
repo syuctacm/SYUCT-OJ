@@ -3,7 +3,7 @@
 // popover keeps the exact upstream markup and classes.
 import { MantineProvider, Popover } from '@mantine/core'
 import { useState } from 'react'
-import { createRoot } from 'react-dom/client'
+import { clearRendered, renderInto } from '../upstream/roots.ts'
 import { reactToDiscussion, type DiscussionReactionNode } from '../api.ts'
 
 const DEFAULT_EMOJI_LIST = '👍 👎 😄 😕 ❤️ 🤔 🤣 🌿 🍋 🕊️ 👀 🤡'
@@ -116,7 +116,7 @@ type MountOptions = {
 }
 
 export function mountDiscussionReactions(root: HTMLElement, options: MountOptions) {
-  const roots: Array<{ unmount: () => void }> = []
+  const containers: HTMLElement[] = []
   root.querySelectorAll<HTMLElement>('[data-op="react"]').forEach((element) => {
     const raw = element.dataset.form
     if (!raw) return
@@ -129,8 +129,8 @@ export function mountDiscussionReactions(root: HTMLElement, options: MountOption
     if (!payload.id || !payload.nodeType) return
     const list = root.querySelector(`.reactions[data-${payload.nodeType}='${payload.id}']`)
     if (!list) return
-    const reactRoot = createRoot(element)
-    reactRoot.render(
+    renderInto(
+      element,
       <ReactionPicker
         did={options.did}
         id={payload.id}
@@ -139,7 +139,7 @@ export function mountDiscussionReactions(root: HTMLElement, options: MountOption
         onError={options.onError}
       />,
     )
-    roots.push(reactRoot)
+    containers.push(element)
   })
 
   const onClick = async (event: Event) => {
@@ -171,6 +171,6 @@ export function mountDiscussionReactions(root: HTMLElement, options: MountOption
   root.addEventListener('click', onClick)
   return () => {
     root.removeEventListener('click', onClick)
-    for (const reactRoot of roots) reactRoot.unmount()
+    containers.forEach(clearRendered)
   }
 }
