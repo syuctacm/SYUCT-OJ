@@ -118,7 +118,7 @@
 /training  /training/:tid  /training/:tid/file  /training/:tid/edit  /training/new
 /discuss  /discuss/node/:name  /discuss/:did  /discuss/:did/edit  /discuss/node/:name/create
 /user/:uid  /ranking  /record  /record/:rid
-/admin  /admin/users  /home/settings?category=account  /file  /login
+/admin  /admin/users  /home/settings?category=account  /home/messages  /home/security  /file  /login
 ```
 
 ## 7. 当前已知差异
@@ -137,7 +137,7 @@
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
-| `/home/security` | 未迁移 | 会话管理、修改密码、修改邮箱、2FA、OAuth 绑定；改邮箱依赖邮件服务 |
+| `/home/security` 的邮箱 / 2FA / OAuth 部分 | 未迁移 | 修改密码和活动会话已实现；改邮箱依赖邮件服务，2FA 与第三方登录尚未迁移 |
 | 签到 / 倒计时 | 未迁移 | 生产站自定义 addon，上游仓库没有源码，需要先拿到实现或重新设计 |
 | onsite-toolkit | 部分迁移 | 打印站和气球页已实现，其余线下赛工具未迁移 |
 | a11y | 未迁移 | 上游 `a11y` 插件（无障碍增强） |
@@ -149,4 +149,5 @@
 - 站内消息：见 `docs/messages.md`
 - FPS 导入：见 `docs/problems.md` 的“FPS 导入”一节
 - 题目统计页：见 `docs/problems.md` 的“题目统计”一节
+- 修改密码与活动会话：见 `docs/security.md`
 - 标签统计、活跃日历：见 `docs/tag-stat.md`、`docs/activity-calendar.md`

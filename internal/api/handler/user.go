@@ -31,6 +31,10 @@ func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/users/:uid/activity", h.activity)
 	router.GET("/api/v1/ranking", h.ranking)
 	router.PATCH("/api/v1/user/settings", h.updateSettings)
+	router.GET("/api/v1/user/security/sessions", h.securitySessions)
+	router.DELETE("/api/v1/user/security/sessions", h.securityRevokeAll)
+	router.DELETE("/api/v1/user/security/sessions/:digest", h.securityRevokeSession)
+	router.POST("/api/v1/user/security/password", h.securityChangePassword)
 }
 
 type userChoice struct {

@@ -98,9 +98,9 @@ export function UserProfilePage() {
       case 'home_settings': return `/home/settings?category=${encodeURIComponent(String(args.category ?? 'account'))}`
       case 'home_files': return '/file'
       case 'home_messages': return '/home/messages'
+      case 'home_security': return '/home/security'
       case 'homepage': return '/'
-      // Security and domain pages are not ported yet.
-      case 'home_security':
+      // Domain pages are not ported yet.
       case 'home_domain':
         return '#'
       case 'problem_detail': return `/p/${encodeURIComponent(String(args.pid ?? ''))}`

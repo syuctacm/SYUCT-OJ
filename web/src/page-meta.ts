@@ -54,6 +54,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (/^\/user\/[^/]+\/?$/.test(pathname)) return basic('user_detail', '用户主页')
   if (pathname === '/ranking') return basic('ranking', '排行榜')
   if (pathname === '/home/messages') return basic('home_messages', '消息')
+  if (pathname === '/home/security') return basic('home_security', '安全设置')
   if (pathname === '/home/settings') return basic('home_account', '账户设置')
   if (pathname === '/file') return basic('home_files', '我的文件')
   if (pathname === '/admin/users') return basic('manage_user_priv', '用户权限')

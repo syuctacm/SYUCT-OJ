@@ -27,8 +27,27 @@ type sessionDocument struct {
 	UserID    int64     `bson:"userId"`
 	Kind      string    `bson:"kind"`
 	CreatedAt time.Time `bson:"createdAt"`
+	UpdateAt  time.Time `bson:"updateAt"`
 	ExpiresAt time.Time `bson:"expiresAt"`
+	CreateIP  string    `bson:"createIp"`
+	CreateUA  string    `bson:"createUa"`
 }
+
+// SessionInfo is one entry of the security page's active session list.
+type SessionInfo struct {
+	ID        string
+	UserID    int64
+	Kind      string
+	CreatedAt time.Time
+	UpdateAt  time.Time
+	ExpiresAt time.Time
+	IP        string
+	UA        string
+}
+
+// ErrSessionNotFound is returned when a session digest does not belong to the
+// caller.
+var ErrSessionNotFound = errors.New("session not found")
 
 type SessionManager struct {
 	mu         sync.RWMutex
@@ -82,6 +101,127 @@ func (s *SessionManager) IssueForUser(uid int64) (string, error) {
 
 func (s *SessionManager) IssueForUserContext(ctx context.Context, uid int64) (string, error) {
 	return s.IssueForContext(ctx, uid, "user")
+}
+
+// IssueForUserMeta issues a browser session and records the client metadata the
+// security page shows.
+func (s *SessionManager) IssueForUserMeta(ctx context.Context, uid int64, ua, ip string) (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	token := base64.RawURLEncoding.EncodeToString(buf)
+	now := s.now().UTC()
+	session := Session{
+		UserID:    uid,
+		Kind:      "user",
+		ExpiresAt: now.Add(s.ttl),
+	}
+	if s.collection == nil {
+		s.mu.Lock()
+		s.sessions[token] = session
+		s.mu.Unlock()
+		return token, nil
+	}
+	if _, err := s.collection.InsertOne(ctx, sessionDocument{
+		ID:        hashToken(token),
+		UserID:    uid,
+		Kind:      "user",
+		CreatedAt: now,
+		UpdateAt:  now,
+		ExpiresAt: session.ExpiresAt,
+		CreateIP:  ip,
+		CreateUA:  ua,
+	}); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+// Digest is the identifier the security page uses instead of the raw token.
+func (s *SessionManager) Digest(token string) string {
+	return hashToken(token)
+}
+
+// ListByUser returns the browser sessions of one user, newest activity first.
+func (s *SessionManager) ListByUser(ctx context.Context, uid int64) ([]SessionInfo, error) {
+	if s.collection == nil {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		result := make([]SessionInfo, 0, len(s.sessions))
+		for token, session := range s.sessions {
+			if session.UserID != uid || session.Kind != "user" {
+				continue
+			}
+			result = append(result, SessionInfo{
+				ID: hashToken(token), UserID: session.UserID, Kind: session.Kind,
+				CreatedAt: session.ExpiresAt.Add(-s.ttl), UpdateAt: session.ExpiresAt.Add(-s.ttl),
+				ExpiresAt: session.ExpiresAt,
+			})
+		}
+		return result, nil
+	}
+	cursor, err := s.collection.Find(ctx, bson.M{"userId": uid, "kind": "user"},
+		options.Find().SetSort(bson.D{{Key: "updateAt", Value: -1}, {Key: "_id", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	result := make([]SessionInfo, 0)
+	for cursor.Next(ctx) {
+		var document sessionDocument
+		if err := cursor.Decode(&document); err != nil {
+			return nil, err
+		}
+		result = append(result, SessionInfo{
+			ID: document.ID, UserID: document.UserID, Kind: document.Kind,
+			CreatedAt: document.CreatedAt, UpdateAt: document.UpdateAt, ExpiresAt: document.ExpiresAt,
+			IP: document.CreateIP, UA: document.CreateUA,
+		})
+	}
+	return result, cursor.Err()
+}
+
+// RevokeDigest deletes one session of the user identified by its digest.
+func (s *SessionManager) RevokeDigest(ctx context.Context, uid int64, digest string) error {
+	if digest == "" {
+		return ErrSessionNotFound
+	}
+	if s.collection == nil {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		for token, session := range s.sessions {
+			if hashToken(token) == digest && session.UserID == uid {
+				delete(s.sessions, token)
+				return nil
+			}
+		}
+		return ErrSessionNotFound
+	}
+	result, err := s.collection.DeleteOne(ctx, bson.M{"_id": digest, "userId": uid})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return ErrSessionNotFound
+	}
+	return nil
+}
+
+// RevokeUser deletes every session of one user, used after a password change.
+func (s *SessionManager) RevokeUser(ctx context.Context, uid int64) error {
+	if s.collection == nil {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		for token, session := range s.sessions {
+			if session.UserID == uid {
+				delete(s.sessions, token)
+			}
+		}
+		return nil
+	}
+	_, err := s.collection.DeleteMany(ctx, bson.M{"userId": uid})
+	return err
 }
 
 func (s *SessionManager) IssueFor(uid int64, kind string) (string, error) {
@@ -154,6 +294,10 @@ func (s *SessionManager) GetContext(ctx context.Context, token string) (Session,
 	if s.now().After(document.ExpiresAt) {
 		_, _ = s.collection.DeleteOne(ctx, bson.M{"_id": hash})
 		return Session{}, false
+	}
+	// Keep "last seen" roughly current without writing on every request.
+	if now := s.now().UTC(); now.Sub(document.UpdateAt) > 10*time.Minute {
+		_, _ = s.collection.UpdateOne(ctx, bson.M{"_id": hash}, bson.M{"$set": bson.M{"updateAt": now}})
 	}
 	return Session{UserID: document.UserID, Kind: document.Kind, ExpiresAt: document.ExpiresAt}, true
 }

@@ -1409,3 +1409,36 @@ export async function getProblemStatistics(
   )
   return result.data
 }
+
+export type SecuritySession = {
+  id: string
+  createdAt: string
+  updateAt: string
+  expiresAt: string
+  ip: string
+  ua: string
+  current: boolean
+}
+
+export async function getSecuritySessions(): Promise<SecuritySession[]> {
+  const result = await request<Envelope<{ items: SecuritySession[] }>>('/api/v1/user/security/sessions')
+  return result.data.items
+}
+
+export async function revokeSecuritySession(digest: string): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>(
+    `/api/v1/user/security/sessions/${encodeURIComponent(digest)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function revokeAllSecuritySessions(): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>('/api/v1/user/security/sessions', { method: 'DELETE' })
+}
+
+export async function changePassword(current: string, password: string, verifyPassword: string): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>('/api/v1/user/security/password', {
+    method: 'POST',
+    body: JSON.stringify({ current, password, verifyPassword }),
+  })
+}

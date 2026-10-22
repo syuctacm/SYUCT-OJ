@@ -51,7 +51,7 @@ func (h *Handler) login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
-	token, err := h.sessions.IssueForUserContext(c.Request.Context(), u.ID)
+	token, err := h.sessions.IssueForUserMeta(c.Request.Context(), u.ID, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "session error"})
 		return

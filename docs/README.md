@@ -19,6 +19,7 @@
 - [比赛 / 作业 / 训练文件](./activity-files.md)
 - [用户主页](./user-profile.md)
 - [站内消息](./messages.md)
+- [安全设置](./security.md)
 - [后台概览](./admin.md)
 - [标签统计与榜单](./tag-stat.md)
 - [活跃日历](./activity-calendar.md)
