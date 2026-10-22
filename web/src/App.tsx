@@ -36,6 +36,7 @@ import { ProblemEditPage } from './pages/ProblemEditPage.tsx'
 import { ProblemImportFpsPage } from './pages/ProblemImportFpsPage.tsx'
 import { ProblemImportHydroPage } from './pages/ProblemImportHydroPage.tsx'
 import { ProblemFilesPage } from './pages/ProblemFilesPage.tsx'
+import { RandomProblemPage } from './pages/RandomProblemPage.tsx'
 import { ProblemSolutionPage } from './pages/ProblemSolutionPage.tsx'
 import { ProblemStatisticsPage } from './pages/ProblemStatisticsPage.tsx'
 import { ProblemsPage } from './pages/ProblemsPage.tsx'
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
         <Route path="/p" element={<ProblemsPage />} />
         <Route path="/p/new" element={<ProblemEditPage mode="create" />} />
+        <Route path="/problem/random" element={<RandomProblemPage />} />
         <Route path="/problem/import/fps" element={<ProblemImportFpsPage />} />
         <Route path="/problem/import/hydro" element={<ProblemImportHydroPage />} />
         <Route path="/p/tag/:tag" element={<TagRankingPage />} />
