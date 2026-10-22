@@ -15,6 +15,9 @@ Nunjucks sources in the pinned `@hydrooj/ui-default` package (AGPL-3.0):
 - `problemconfig/` is the pinned upstream Monaco/problem-config editor ported
   from `components/problemconfig/`; only imports and the Monaco/Vite worker
   loader are adapted. Its schema and reducers remain upstream-derived.
+- `monaco/textarea.ts` replaces upstream `textarea[data-json]` and
+  `textarea[data-yaml]` autoload behavior with a small reusable Monaco mount.
+  It is dynamically imported so Monaco stays out of the initial route bundle.
 
 Do not duplicate a migrated page's markup in TSX or add handwritten CSS to
 approximate it. Page fixes belong in the adapter context or in an upstream
