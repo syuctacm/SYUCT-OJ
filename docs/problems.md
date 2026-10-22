@@ -25,7 +25,7 @@
 
 登录请求会为每题附带 `userStatus`，包含当前用户最近一次提交的 `status` 和 `rid`。
 
-只返回 `domainId=system`、`docType=10` 且未隐藏的题目。
+默认只返回 `domainId=system`、`docType=10` 且未隐藏的题目；管理员登录后列表会包含隐藏题目，模板会显示 “(隐藏)” 标记。
 
 ## 提交计数
 

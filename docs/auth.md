@@ -51,9 +51,9 @@ Go 实现位于 `internal/user/password.go`。
 - `expiresAt` 上有 TTL 索引 `session_ttl`，应用读取时也会立即检查过期。
 - 默认有效期 `24h`，通过 `SESSION_TTL` 配置。
 - API 重启后用户 Cookie 和判题机 Cookie 继续有效。
+- 登录成功会更新 `loginat` / `loginip`（用户主页“最后登录”）。
 
 ## 当前限制
 
 - 尚未实现找回密码、TFA、WebAuthn。
 - 注册 token 不走邮件（无 SMTP），直接由接口返回；接入邮件后应改为发送验证链接。
-- 登录成功后暂不更新 `loginat`、登录 IP 等审计字段。

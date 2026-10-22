@@ -270,14 +270,21 @@ func (h *ProblemHandler) list(c *gin.Context) {
 			difficulty = &value
 		}
 	}
+	includeHidden := false
+	if uid > 0 && h.users != nil {
+		if account, err := h.users.FindByID(c.Request.Context(), uid); err == nil && account.Priv&1 != 0 {
+			includeHidden = true
+		}
+	}
 	result, err := h.repo.List(c.Request.Context(), problem.ListOptions{
-		Page:       page,
-		Limit:      limit,
-		Query:      c.Query("q"),
-		Tag:        c.Query("tag"),
-		Difficulty: difficulty,
-		Sort:       c.Query("sort"),
-		UID:        uid,
+		Page:          page,
+		Limit:         limit,
+		Query:         c.Query("q"),
+		Tag:           c.Query("tag"),
+		Difficulty:    difficulty,
+		Sort:          c.Query("sort"),
+		UID:           uid,
+		IncludeHidden: includeHidden,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list problems"})

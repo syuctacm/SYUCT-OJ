@@ -287,6 +287,19 @@ func (r *Repository) UpdatePassword(ctx context.Context, uid int64, salt, hash s
 	return nil
 }
 
+// RecordLogin updates the last-login timestamp and IP shown on the profile.
+func (r *Repository) RecordLogin(ctx context.Context, uid int64, ip string) error {
+	result, err := r.collection.UpdateOne(ctx, bson.M{"_id": uid},
+		bson.M{"$set": bson.M{"loginat": time.Now().UTC(), "loginip": ip}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *Repository) UpdateSettings(ctx context.Context, uid int64, set bson.M) error {
 	if uid <= 0 {
 		return fmt.Errorf("invalid user id")

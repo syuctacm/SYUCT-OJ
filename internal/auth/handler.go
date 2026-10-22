@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ type UserStore interface {
 	FindByLogin(ctx context.Context, identifier string) (*user.User, error)
 	FindByID(ctx context.Context, id int64) (*user.User, error)
 	FindByMail(ctx context.Context, mail string) (*user.User, error)
+	RecordLogin(ctx context.Context, uid int64, ip string) error
 	Create(ctx context.Context, input user.RegisterInput) (*user.User, error)
 	CreateRegistrationToken(ctx context.Context, mail string, ttl time.Duration) (string, error)
 	RegistrationToken(ctx context.Context, code string) (string, error)
@@ -66,6 +68,9 @@ func (h *Handler) login(c *gin.Context) {
 		return
 	}
 	SetSessionCookie(c, token, h.sessions.TTL())
+	if err := h.users.RecordLogin(c.Request.Context(), u.ID, c.ClientIP()); err != nil {
+		slog.Warn("unable to update login audit fields", "uid", u.ID, "error", err)
+	}
 	c.JSON(http.StatusOK, gin.H{"user": publicUser(u)})
 }
 
