@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/syuctacm/syuct-oj/internal/totp"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
@@ -44,6 +45,7 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 type loginRequest struct {
 	Username string `form:"uname" json:"username"`
 	Password string `form:"password" json:"password"`
+	TFA      string `form:"tfa" json:"tfa"`
 }
 
 func (h *Handler) login(c *gin.Context) {
@@ -61,6 +63,16 @@ func (h *Handler) login(c *gin.Context) {
 	if err != nil || user.VerifyPassword(u, req.Password) != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
+	}
+	if u.TFA != "" {
+		if strings.TrimSpace(req.TFA) == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "2FA required", "tfaRequired": true})
+			return
+		}
+		if !totp.Verify(u.TFA, req.TFA, time.Now()) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid 2FA code", "tfaRequired": true})
+			return
+		}
 	}
 	token, err := h.sessions.IssueForUserMeta(c.Request.Context(), u.ID, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
@@ -123,5 +135,6 @@ func publicUser(u *user.User) gin.H {
 		"gender":          u.Gender,
 		"school":          u.School,
 		"backgroundImage": u.BackgroundImage,
+		"tfa":             u.TFA != "",
 	}
 }

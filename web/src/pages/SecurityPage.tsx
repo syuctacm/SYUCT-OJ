@@ -1,13 +1,14 @@
 // Page markup is rendered from the pinned Hydro ui-default template
-// (home_security.html). Only the password and active-session sections are
-// wired; email, OAuth and authenticator sections are removed below.
+// (home_security.html). Password, TOTP authenticator and active-session
+// sections are wired; email and OAuth remain outside the current scope.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  changePassword, getSecuritySessions, revokeAllSecuritySessions, revokeSecuritySession,
-  type SecuritySession,
+  changePassword, disableTFA, enableTFA, getSecuritySessions, revokeAllSecuritySessions, revokeSecuritySession,
+  setupTFA, type SecuritySession, type TFASetup,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
+import { Dialog } from '../components/Dialog.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 
@@ -38,13 +39,18 @@ function platformIcon(platform: string) {
 }
 
 export function SecurityPage() {
-  const { user, loading } = useAuth()
+  const { user, loading, refresh } = useAuth()
   const navigate = useNavigate()
   const [sessions, setSessions] = useState<SecuritySession[]>([])
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  const [tfaSetup, setTfaSetup] = useState<TFASetup | null>(null)
+  const [tfaCode, setTfaCode] = useState('')
+  const [tfaError, setTfaError] = useState('')
+  const [tfaBusy, setTfaBusy] = useState(false)
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
+  const tfaSetupRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     if (!loading && !user) navigate('/login')
@@ -79,6 +85,7 @@ export function SecurityPage() {
         _id: user?.id ?? 0,
         uname: user?.username ?? '',
         mail: user?.email ?? '',
+        tfa: Boolean(user?.tfa),
         avatar: user?.avatar ?? '',
         viewLang: 'zh',
         hasPriv: (privilege: number) => privilege === 1 && Boolean(user),
@@ -121,6 +128,18 @@ export function SecurityPage() {
       }
       return
     }
+    if (operation === 'disable_tfa') {
+      const current = window.prompt('请输入当前密码以关闭双重验证')
+      if (!current) return
+      try {
+        await disableTFA(current)
+        await refresh()
+        setNotice('双重验证已关闭')
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '关闭双重验证失败')
+      }
+      return
+    }
     if (operation === 'delete_all_tokens') {
       try {
         await revokeAllSecuritySessions()
@@ -132,19 +151,58 @@ export function SecurityPage() {
   }
   submitRef.current = (event) => void handleSubmit(event)
 
+  async function openTfaSetup() {
+    setTfaError('')
+    setTfaBusy(true)
+    try {
+      const setup = await setupTFA()
+      setTfaCode('')
+      setTfaSetup(setup)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '双重验证初始化失败')
+    } finally {
+      setTfaBusy(false)
+    }
+  }
+  tfaSetupRef.current = () => void openTfaSetup()
+
+  async function confirmTfaSetup() {
+    if (!tfaSetup) return
+    if (!/^\d{6}$/.test(tfaCode.trim())) {
+      setTfaError('请输入 6 位验证码')
+      return
+    }
+    setTfaBusy(true)
+    setTfaError('')
+    try {
+      await enableTFA(tfaSetup.secret, tfaCode.trim())
+      setTfaSetup(null)
+      await refresh()
+      setNotice('双重验证已启用')
+    } catch (err) {
+      setTfaError(err instanceof Error ? err.message : '双重验证启用失败')
+    } finally {
+      setTfaBusy(false)
+    }
+  }
+
   const handleReady = useCallback((root: HTMLDivElement) => {
-    // Email/OAuth/2FA are not part of the rewrite yet; drop their sections so
-    // the page does not show dead controls.
+    // Email/OAuth are not part of the rewrite yet; keep the TOTP authenticator
+    // section and remove only the linked-account block.
     root.querySelector('#linked-accounts')?.closest('.section')?.remove()
-    root.querySelector('#authenticator')?.closest('.section')?.remove()
     const cleanups: Array<() => void> = []
+    const authEnable = root.querySelector<HTMLButtonElement>('[name="auth_enable"]')
+    if (user?.tfa) authEnable?.remove()
+    const onAuthEnable = () => tfaSetupRef.current()
+    authEnable?.addEventListener('click', onAuthEnable)
+    if (authEnable) cleanups.push(() => authEnable.removeEventListener('click', onAuthEnable))
     for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
       const onSubmit = (event: SubmitEvent) => submitRef.current(event)
       form.addEventListener('submit', onSubmit)
       cleanups.push(() => form.removeEventListener('submit', onSubmit))
     }
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [])
+  }, [user?.tfa])
 
   const buildUrl = useCallback((name: string) => {
     switch (name) {
@@ -166,6 +224,24 @@ export function SecurityPage() {
       {error ? <div className="row"><div className="columns"><blockquote className="warn"><p>{error}</p></blockquote></div></div> : null}
       {notice ? <div className="row"><div className="columns"><blockquote className="note"><p>{notice}</p></blockquote></div></div> : null}
       <HydroTemplate template="home_security.html" context={context()} url={buildUrl} onReady={handleReady} />
+      {tfaSetup ? (
+        <Dialog okLabel="启用" cancelLabel="取消" onOk={() => void confirmTfaSetup()} onCancel={() => setTfaSetup(null)}>
+          <div className="typo">
+            <p>请使用双因素认证应用扫描下面的二维码：</p>
+            <div style={{ textAlign: 'center' }}>
+              <img src={tfaSetup.qr} width={256} height={256} alt="双重验证二维码" />
+              <p className="supplementary">扫描失败时可手动输入密钥：<code>{tfaSetup.secret}</code></p>
+            </div>
+            <label>6 位验证码
+              <div className="textbox-container">
+                <input className="textbox" value={tfaCode} onChange={(event) => setTfaCode(event.target.value)} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus />
+              </div>
+            </label>
+            {tfaError ? <p className="warn">{tfaError}</p> : null}
+            {tfaBusy ? <p className="supplementary">正在验证...</p> : null}
+          </div>
+        </Dialog>
+      ) : null}
     </>
   )
 }

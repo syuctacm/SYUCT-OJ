@@ -4,7 +4,7 @@
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| POST | `/api/v1/auth/login` | 用户名/邮箱 + 密码登录 |
+| POST | `/api/v1/auth/login` | 用户名/邮箱 + 密码登录，启用 2FA 时还需 `tfa` |
 | GET | `/api/v1/auth/me` | 获取当前登录用户 |
 | POST | `/api/v1/auth/logout` | 退出登录 |
 | POST | `/api/v1/auth/register` | 提交注册邮箱，返回注册 token |
@@ -42,7 +42,7 @@ Go 实现位于 `internal/user/password.go`。
 
 ## 前端
 
-登录页由 `HydroTemplate` 直接渲染 Hydro `ui-default` 的 `user_login.html`，继续使用 `layout--immersive`、`.immersive--content`、`.inverse` 表单样式和原版背景资源。React 只负责登录请求和错误状态；暂不支持找回密码和 OAuth，因此对应入口会从原模板中移除。
+登录页由 `HydroTemplate` 直接渲染 Hydro `ui-default` 的 `user_login.html`，继续使用 `layout--immersive`、`.immersive--content`、`.inverse` 表单样式和原版背景资源。React 只负责登录请求和错误状态；服务端返回 2FA required 时，页面会在原表单中插入 6 位验证码输入框。暂不支持找回密码和 OAuth，因此对应入口会从原模板中移除。
 
 ## Session
 
@@ -55,5 +55,5 @@ Go 实现位于 `internal/user/password.go`。
 
 ## 当前限制
 
-- 尚未实现找回密码、TFA、WebAuthn。
+- 尚未实现找回密码、WebAuthn / Passkey。
 - 注册 token 不走邮件（无 SMTP），直接由接口返回；接入邮件后应改为发送验证链接。

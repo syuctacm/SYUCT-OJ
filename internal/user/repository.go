@@ -40,6 +40,7 @@ type User struct {
 	Gender          *int64          `bson:"gender,omitempty" json:"gender,omitempty"`
 	School          string          `bson:"school,omitempty" json:"school,omitempty"`
 	BackgroundImage string          `bson:"backgroundImage,omitempty" json:"backgroundImage,omitempty"`
+	TFA             string          `bson:"tfa,omitempty" json:"-"`
 	Files           []filemeta.File `bson:"_files,omitempty" json:"-"`
 }
 

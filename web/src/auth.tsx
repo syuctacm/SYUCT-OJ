@@ -5,7 +5,7 @@ import { ensureHydroGlobals } from './upstream/hydro-globals.ts'
 type AuthContextValue = {
   user: User | null
   loading: boolean
-  login: (username: string, password: string) => Promise<User>
+  login: (username: string, password: string, tfa?: string) => Promise<User>
   logout: () => Promise<void>
   refresh: () => Promise<User | null>
 }
@@ -26,8 +26,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
-  async function login(username: string, password: string) {
-    const nextUser = await loginRequest(username, password)
+  async function login(username: string, password: string, tfa = '') {
+    const nextUser = await loginRequest(username, password, tfa)
     ensureHydroGlobals(nextUser.id)
     setUser(nextUser)
     return nextUser
