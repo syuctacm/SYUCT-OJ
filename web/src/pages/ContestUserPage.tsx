@@ -113,6 +113,7 @@ export function ContestUserPage() {
     const query = (args.query ?? {}) as Record<string, unknown>
     switch (name) {
       case 'contest_detail': return `/contest/${encodeURIComponent(id)}`
+      case 'discussion_node': return `/discuss/contest/${encodeURIComponent(id)}`
       case 'contest_manage': return `/contest/${encodeURIComponent(id)}/management`
       case 'contest_edit': return `/contest/${encodeURIComponent(id)}/edit`
       case 'contest_user': return `/contest/${encodeURIComponent(id)}/user`

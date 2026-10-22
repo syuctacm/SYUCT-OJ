@@ -98,6 +98,7 @@ export function ContestPrintPage() {
     const query = (args.query ?? {}) as Record<string, unknown>
     switch (name) {
       case 'contest_detail': return `/contest/${encodeURIComponent(id)}`
+      case 'discussion_node': return `/discuss/contest/${encodeURIComponent(id)}`
       case 'contest_problemlist': return `/contest/${encodeURIComponent(id)}/problems`
       case 'contest_scoreboard': return `/contest/${encodeURIComponent(id)}/scoreboard`
       case 'contest_edit': return `/contest/${encodeURIComponent(id)}/edit`

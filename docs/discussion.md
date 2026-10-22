@@ -5,7 +5,8 @@
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | GET | `/api/v1/discussions` | 讨论列表（支持 `parentType`/`parentId` 过滤） |
-| GET | `/api/v1/discussion-nodes` | Hydro 讨论节点 |
+| GET | `/api/v1/discussion-nodes` | 全局 Hydro 讨论节点 |
+| GET | `/api/v1/discussion-nodes/:type/:name` | 全局/比赛/作业/训练/题目虚拟节点 |
 | POST | `/api/v1/discussions` | 创建讨论主题 |
 | PATCH | `/api/v1/discussions/:did` | 编辑讨论主题 |
 | DELETE | `/api/v1/discussions/:did` | 删除讨论主题及回复 |
@@ -17,12 +18,13 @@
 | PATCH | `/api/v1/discussions/:did/replies/:rid` | 编辑主回复或楼中楼回复 |
 | DELETE | `/api/v1/discussions/:did/replies/:rid` | 删除主回复或楼中楼回复 |
 
-讨论节点、主题和回复分别读取 Hydro `document` 集合中的 `docType=20`、`docType=21`、`docType=22` 文档。节点使用字符串 `docId`，主题通过 `parentType=20`、`parentId=<节点 docId>` 关联。
+全局讨论节点、主题和回复分别读取 Hydro `document` 集合中的 `docType=20`、`docType=21`、`docType=22` 文档。比赛、作业和训练讨论使用虚拟节点：`parentType` 分别为 30/30/40，`parentId` 保存对应 ObjectId；全局节点继续使用字符串 `docId`。
 
 创建主题需要登录 Session，请求体格式：
 
 ```json
 {
+  "nodeType": "node",
   "nodeId": "qa",
   "title": "讨论标题",
   "content": "支持 Markdown 的正文",
@@ -64,8 +66,9 @@
 路由：
 
 - `/discuss`：全部讨论列表
-- `/discuss/node/:name`：讨论节点列表（上游路由）
-- `/discuss/node/:name/create`：在指定讨论节点创建主题（上游路由）
+- `/discuss/node/:name`：全局讨论节点列表（兼容路由）
+- `/discuss/:type/:name`：`node`、`contest`、`homework`、`training`、`problem` 讨论节点
+- `/discuss/:type/:name/create`：在指定节点创建主题
 - `/discuss?node=<name>`：兼容旧链接并跳转到节点路由
 - `/discuss/new?node=<name>`：兼容旧链接并跳转到上游路由
 - `/discuss/:did/edit`：编辑主题
@@ -81,7 +84,6 @@
 
 ## 尚未完成
 
-- 问题/比赛/训练维度的讨论节点路由尚未接入
 - 浏览量暂时不会随访问自增
 - 回复通知和提及
 - 节点管理

@@ -90,6 +90,8 @@ export default function App() {
         <Route path="/discuss/new" element={<DiscussionCreatePage />} />
         <Route path="/discuss/node/:name/create" element={<DiscussionCreatePage />} />
         <Route path="/discuss/node/:name" element={<DiscussionsPage />} />
+        <Route path="/discuss/:type/:name/create" element={<DiscussionCreatePage />} />
+        <Route path="/discuss/:type/:name" element={<DiscussionsPage />} />
         <Route path="/discuss/:did/edit" element={<DiscussionEditPage />} />
         <Route path="/discuss/:did" element={<DiscussionDetailPage />} />
         <Route path="/homework" element={<HomeworksPage />} />

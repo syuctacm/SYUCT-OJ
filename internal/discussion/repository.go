@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,9 +14,12 @@ import (
 )
 
 const (
+	DocumentTypeProblem         = 10
 	DocumentTypeDiscussionNode  = 20
 	DocumentTypeDiscussion      = 21
 	DocumentTypeDiscussionReply = 22
+	DocumentTypeContest         = 30
+	DocumentTypeTraining        = 40
 	DomainSystem                = "system"
 	MaxTitleLength              = 200
 	MaxContentLength            = 64 * 1024
@@ -53,6 +57,9 @@ type Node struct {
 	Title    string `bson:"title" json:"title"`
 	Category string `bson:"content" json:"category"`
 	Pic      string `bson:"pic" json:"pic,omitempty"`
+	Type     int64  `bson:"-" json:"type,omitempty"`
+	Owner    int64  `bson:"owner" json:"owner,omitempty"`
+	Rule     string `bson:"-" json:"rule,omitempty"`
 }
 
 type TailReply struct {
@@ -318,7 +325,22 @@ func (r *Repository) ListFiltered(ctx context.Context, parentType int64, parentI
 		filter["parentType"] = parentType
 	}
 	if parentID = strings.TrimSpace(parentID); parentID != "" {
-		filter["parentId"] = parentID
+		switch parentType {
+		case DocumentTypeProblem:
+			if value, err := strconv.ParseInt(parentID, 10, 64); err == nil {
+				filter["parentId"] = value
+			} else {
+				filter["parentId"] = parentID
+			}
+		case DocumentTypeContest, DocumentTypeTraining:
+			if oid, err := bson.ObjectIDFromHex(parentID); err == nil {
+				filter["parentId"] = oid
+			} else {
+				filter["parentId"] = parentID
+			}
+		default:
+			filter["parentId"] = parentID
+		}
 	}
 	total, err := r.coll.CountDocuments(ctx, filter)
 	if err != nil {
@@ -392,20 +414,122 @@ func (r *Repository) GetNode(ctx context.Context, nodeID string) (*Node, error) 
 	return &node, nil
 }
 
+// ResolveNode resolves both global discussion nodes and virtual nodes backed by
+// problems, contests/homework or trainings, mirroring Hydro.getVnode.
+func (r *Repository) ResolveNode(ctx context.Context, nodeType, nodeID string) (*Node, error) {
+	nodeType = strings.TrimSpace(nodeType)
+	nodeID = strings.TrimSpace(nodeID)
+	if nodeType == "" || nodeType == "node" {
+		node, err := r.GetNode(ctx, nodeID)
+		if err != nil {
+			return nil, err
+		}
+		node.Type = DocumentTypeDiscussionNode
+		return node, nil
+	}
+	var docType int64
+	switch nodeType {
+	case "contest", "homework":
+		docType = DocumentTypeContest
+	case "training":
+		docType = DocumentTypeTraining
+	case "problem":
+		docType = DocumentTypeProblem
+	default:
+		return nil, ErrNodeNotFound
+	}
+	filter := bson.M{"domainId": DomainSystem, "docType": docType}
+	if docType == DocumentTypeProblem {
+		or := []bson.M{{"pid": nodeID}}
+		if value, err := strconv.ParseInt(nodeID, 10, 64); err == nil {
+			or = append(or, bson.M{"docId": value})
+		}
+		filter["$or"] = or
+	} else {
+		oid, err := bson.ObjectIDFromHex(nodeID)
+		if err != nil {
+			return nil, ErrNodeNotFound
+		}
+		filter["$or"] = []bson.M{{"docId": oid}, {"_id": oid}}
+	}
+	var raw bson.M
+	if err := r.coll.FindOne(ctx, filter, options.FindOne().SetProjection(bson.M{
+		"docId": 1, "title": 1, "content": 1, "owner": 1, "pic": 1, "rule": 1,
+	})).Decode(&raw); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, ErrNodeNotFound
+		}
+		return nil, err
+	}
+	if docType == DocumentTypeContest {
+		rule, _ := raw["rule"].(string)
+		if nodeType == "homework" && rule != "homework" {
+			return nil, ErrNodeNotFound
+		}
+		if nodeType == "contest" && rule == "homework" {
+			return nil, ErrNodeNotFound
+		}
+	}
+	var docID string
+	switch value := raw["docId"].(type) {
+	case bson.ObjectID:
+		docID = value.Hex()
+	case int64:
+		docID = strconv.FormatInt(value, 10)
+	case int32:
+		docID = strconv.FormatInt(int64(value), 10)
+	case int:
+		docID = strconv.Itoa(value)
+	case string:
+		docID = value
+	default:
+		docID = fmt.Sprint(value)
+	}
+	var owner int64
+	switch value := raw["owner"].(type) {
+	case int64:
+		owner = value
+	case int32:
+		owner = int64(value)
+	case int:
+		owner = int64(value)
+	case float64:
+		owner = int64(value)
+	}
+	title, _ := raw["title"].(string)
+	category, _ := raw["content"].(string)
+	pic, _ := raw["pic"].(string)
+	rule, _ := raw["rule"].(string)
+	return &Node{
+		DocID: docID, Title: title, Category: category, Pic: pic,
+		Type: docType, Owner: owner, Rule: rule,
+	}, nil
+}
+
 func (r *Repository) Create(ctx context.Context, node *Node, owner int64, title, content string, pin, highlight bool) (*Discussion, error) {
 	now := time.Now()
 	did := bson.NewObjectID()
+	parentType := node.Type
+	if parentType == 0 {
+		parentType = DocumentTypeDiscussionNode
+	}
+	var parentID any = node.DocID
+	if parentType == DocumentTypeProblem {
+		parentID, _ = strconv.ParseInt(node.DocID, 10, 64)
+	} else if parentType == DocumentTypeContest || parentType == DocumentTypeTraining {
+		parentID, _ = bson.ObjectIDFromHex(node.DocID)
+	}
 	item := &Discussion{
 		ID: did, DocID: did, Title: title, Content: content, Owner: owner,
 		UpdateAt: now, Pin: pin, Highlight: highlight,
-		ParentType: DocumentTypeDiscussionNode, ParentID: node.DocID,
+		ParentType: parentType, ParentID: parentID,
 		ParentTitle: node.DisplayTitle(),
 	}
 	_, err := r.coll.InsertOne(ctx, bson.M{
 		"_id": did, "domainId": DomainSystem, "docType": DocumentTypeDiscussion,
 		"docId": did, "title": title, "content": content, "owner": owner,
-		"editor": owner, "parentType": DocumentTypeDiscussionNode,
-		"parentId": node.DocID, "nReply": 0, "views": 0,
+		"editor": owner, "parentType": parentType,
+		"parentId": parentID, "nReply": 0, "views": 0,
 		"pin": pin, "highlight": highlight, "hidden": false,
 		"updateAt": now, "sort": 100,
 	})
