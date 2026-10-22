@@ -87,6 +87,8 @@ type ListOptions struct {
 	Difficulty *int
 	Sort       string
 	UID        int64
+	// IncludeHidden lists hidden problems too; only administrators get it.
+	IncludeHidden bool
 }
 
 type ListResult struct {
@@ -247,7 +249,9 @@ func (r *Repository) List(ctx context.Context, opts ListOptions) (*ListResult, e
 	filter := bson.M{
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeProblem,
-		"hidden":   bson.M{"$ne": true},
+	}
+	if !opts.IncludeHidden {
+		filter["hidden"] = bson.M{"$ne": true}
 	}
 	if opts.Query != "" {
 		pattern := regexp.QuoteMeta(opts.Query)

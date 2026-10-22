@@ -31,6 +31,10 @@ func (f fakeStore) FindByMail(context.Context, string) (*user.User, error) {
 	return f.u, nil
 }
 
+func (f fakeStore) RecordLogin(context.Context, int64, string) error {
+	return nil
+}
+
 func (f fakeStore) Create(context.Context, user.RegisterInput) (*user.User, error) {
 	return f.u, nil
 }
