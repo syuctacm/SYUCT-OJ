@@ -27,6 +27,15 @@
 
 只返回 `domainId=system`、`docType=10` 且未隐藏的题目。
 
+## 提交计数
+
+题目的 `nSubmit` / `nAccept` 实时维护：
+
+- 创建提交成功后 `nSubmit + 1`
+- 判题结果从非 AC 变为 AC 时 `nAccept + 1`，从 AC 变为非 AC（rejudge）时 `nAccept - 1`，且不会小于 0
+
+不再依赖上游 `problemStat` 离线脚本；`problem.Repository.IncStats` 使用聚合管道更新，字段缺失时按 0 处理。
+
 ## 数据来源
 
 直接读取 Hydro MongoDB 的 `document` 集合，不复制题目到新表。用户提交状态读取同库的 `record` 集合。

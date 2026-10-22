@@ -298,6 +298,32 @@ func (r *Repository) List(ctx context.Context, opts ListOptions) (*ListResult, e
 	return &ListResult{Items: items, Total: total, Page: opts.Page, Limit: opts.Limit}, nil
 }
 
+// IncStats adjusts the submission counters shown on the problem list and the
+// problem sidebar. The accept counter is clamped at zero so a rejudge cannot
+// drive it negative.
+func (r *Repository) IncStats(ctx context.Context, docID int64, submitDelta, acceptDelta int64) error {
+	set := bson.M{}
+	if submitDelta != 0 {
+		set["nSubmit"] = bson.M{"$add": []any{
+			bson.M{"$ifNull": []any{"$nSubmit", int64(0)}},
+			submitDelta,
+		}}
+	}
+	if acceptDelta != 0 {
+		set["nAccept"] = bson.M{"$max": []any{int64(0), bson.M{"$add": []any{
+			bson.M{"$ifNull": []any{"$nAccept", int64(0)}},
+			acceptDelta,
+		}}}}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	_, err := r.coll.UpdateOne(ctx,
+		bson.M{"domainId": DomainSystem, "docType": DocumentTypeProblem, "docId": docID},
+		mongo.Pipeline{bson.D{{Key: "$set", Value: set}}})
+	return err
+}
+
 // Star stores the per-user star flag on the problem status document, the same
 // place Hydro keeps `problem.setStar`.
 func (r *Repository) Star(ctx context.Context, docID int64, uid int64, star bool) error {

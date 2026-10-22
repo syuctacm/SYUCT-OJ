@@ -2,7 +2,9 @@ package submission
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -147,6 +149,9 @@ func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code stri
 	if _, err := r.tasks.InsertOne(ctx, task); err != nil {
 		_, _ = r.records.DeleteOne(ctx, bson.M{"_id": rid})
 		return nil, err
+	}
+	if err := r.problems.IncStats(ctx, pdoc.DocID, 1, 0); err != nil {
+		slog.Warn("unable to update problem submission counter", "pid", pdoc.DocID, "error", err)
 	}
 	return r.Get(ctx, rid.Hex())
 }
@@ -315,6 +320,16 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 	if err != nil {
 		return fmt.Errorf("invalid judge result rid: %w", err)
 	}
+	var current struct {
+		PID    int64 `bson:"pid"`
+		Status int   `bson:"status"`
+	}
+	if err := r.records.FindOne(ctx, bson.M{"_id": oid},
+		options.FindOne().SetProjection(bson.M{"pid": 1, "status": 1})).Decode(&current); err != nil {
+		if !errors.Is(err, mongo.ErrNoDocuments) {
+			return err
+		}
+	}
 	set := bson.M{"judgeAt": time.Now().UTC()}
 	for _, key := range []string{"status", "score", "time", "memory", "progress", "judger", "subtasks"} {
 		if value, ok := payload[key]; ok {
@@ -345,6 +360,21 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 	}
 	if _, err = r.records.UpdateOne(ctx, bson.M{"_id": oid}, update); err != nil {
 		return err
+	}
+	if status, ok := set["status"]; ok && current.PID > 0 {
+		wasAccepted := current.Status == StatusAccepted
+		nowAccepted := isAccepted(status)
+		delta := int64(0)
+		if !wasAccepted && nowAccepted {
+			delta = 1
+		} else if wasAccepted && !nowAccepted {
+			delta = -1
+		}
+		if delta != 0 {
+			if err := r.problems.IncStats(ctx, current.PID, 0, delta); err != nil {
+				slog.Warn("unable to update problem accept counter", "pid", current.PID, "error", err)
+			}
+		}
 	}
 	if hook := r.acceptedHook; hook != nil && isAccepted(set["status"]) {
 		var record struct {
