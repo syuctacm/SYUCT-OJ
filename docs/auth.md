@@ -7,8 +7,26 @@
 | POST | `/api/v1/auth/login` | 用户名/邮箱 + 密码登录 |
 | GET | `/api/v1/auth/me` | 获取当前登录用户 |
 | POST | `/api/v1/auth/logout` | 退出登录 |
+| POST | `/api/v1/auth/register` | 提交注册邮箱，返回注册 token |
+| GET | `/api/v1/auth/register/:code` | 校验 token 并返回绑定邮箱 |
+| POST | `/api/v1/auth/register/:code` | 设置用户名/密码，创建账号并自动登录 |
 
 登录成功设置 HttpOnly `sid` Cookie；判题机登录仍使用独立的 `/login` 兼容接口。
+
+## 注册
+
+沿用 Hydro 的邮箱 token 流程（`TokenModel.TYPE_REGISTRATION = 2`）：
+
+1. `POST /api/v1/auth/register` 提交邮箱，在 `token` 集合写入 24h 有效的注册 token
+2. 未配置 SMTP 时（当前实现），接口直接返回 token，前端跳转 `/register/<code>` —— 与上游未配置邮件时的行为一致
+3. `GET /api/v1/auth/register/:code` 校验 token 并返回邮箱
+4. `POST /api/v1/auth/register/:code` 校验用户名（3-31 字符或 2 个汉字）、密码（6-255）与两次输入一致后创建账号：
+   - uid 取当前最大值 +1（最小 2）
+   - `priv` 使用上游 `PRIV_DEFAULT`（16842756）
+   - 写入 `domain.user { domainId: "system", uid, join: true }`
+   - 删除注册 token、创建 Session、设置 Cookie（自动登录）
+
+前端 `/register` 与 `/register/:code` 直接渲染上游 `user_register.html` / `user_register_with_code.html`。
 
 ## 密码兼容
 
@@ -36,5 +54,6 @@ Go 实现位于 `internal/user/password.go`。
 
 ## 当前限制
 
-- 尚未实现注册、找回密码、TFA、WebAuthn。
+- 尚未实现找回密码、TFA、WebAuthn。
+- 注册 token 不走邮件（无 SMTP），直接由接口返回；接入邮件后应改为发送验证链接。
 - 登录成功后暂不更新 `loginat`、登录 IP 等审计字段。

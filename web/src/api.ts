@@ -1460,3 +1460,33 @@ export async function importHydroProblems(
   })
   return result.data
 }
+
+export type RegistrationRequestResult = { mail: string; code: string }
+
+export async function requestRegistration(mail: string): Promise<RegistrationRequestResult> {
+  const result = await request<Envelope<RegistrationRequestResult>>('/api/v1/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ mail }),
+  })
+  return result.data
+}
+
+export async function getRegistration(code: string): Promise<{ mail: string }> {
+  const result = await request<Envelope<{ mail: string }>>(
+    `/api/v1/auth/register/${encodeURIComponent(code)}`,
+  )
+  return result.data
+}
+
+export async function completeRegistration(
+  code: string,
+  uname: string,
+  password: string,
+  verifyPassword: string,
+): Promise<User> {
+  const result = await request<{ user: User }>(`/api/v1/auth/register/${encodeURIComponent(code)}`, {
+    method: 'POST',
+    body: JSON.stringify({ uname, password, verifyPassword }),
+  })
+  return result.user
+}

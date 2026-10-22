@@ -7,6 +7,7 @@ type AuthContextValue = {
   loading: boolean
   login: (username: string, password: string) => Promise<User>
   logout: () => Promise<void>
+  refresh: () => Promise<User | null>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -37,7 +38,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+  async function refresh() {
+    try {
+      const nextUser = await getMe()
+      ensureHydroGlobals(nextUser.id)
+      setUser(nextUser)
+      return nextUser
+    } catch {
+      setUser(null)
+      return null
+    }
+  }
+
+  return <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
