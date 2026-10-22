@@ -187,6 +187,68 @@ fi
 mongo_eval_db "$COLLISION_DB" 'db.dropDatabase()' >/dev/null
 echo "    docId collision correctly refused"
 
+echo "==> Checking docId renumbering"
+RENUMBER_DB="${DRILL_DATABASE}_renumber"
+mongo_eval_db "$RENUMBER_DB" 'db.dropDatabase()' >/dev/null
+mongo_eval_db "$RENUMBER_DB" "$(cat <<'JS'
+db.domain.insertOne({ _id: "contest2025", name: "contest2025" });
+db.document.insertMany([
+  { _id: ObjectId(), domainId: "system", docType: 10, docId: Long(1), pid: "P1", title: "System" },
+  { _id: ObjectId(), domainId: "contest2025", docType: 10, docId: Long(1), pid: "C1", title: "Contest" },
+  { _id: ObjectId(), domainId: "contest2025", docType: 11, parentType: 10, parentId: Long(1), content: "sol" },
+  { _id: ObjectId(), domainId: "contest2025", docType: 30, docId: ObjectId(), pids: [Long(1)] },
+  { _id: ObjectId(), domainId: "contest2025", docType: 40, docId: ObjectId(), dag: [{ pids: [Long(1)] }] },
+]);
+db.record.insertOne({ domainId: "contest2025", pid: Long(1), uid: Long(7) });
+db.getCollection("document.status").insertOne({ domainId: "contest2025", docType: 10, docId: Long(1), uid: Long(7) });
+db.storage.insertOne({ _id: ObjectId(), path: "problem/contest2025/1/testdata/1.in" });
+JS
+)" >/dev/null
+MONGO_DATABASE="$RENUMBER_DB" MONGO_URI="$MONGO_URI" \
+  go run ./cmd/migrate --execute --renumber-doc-ids --report "$TMP_DIR/renumber.json" >/dev/null
+RENUMBER=$(mongo_eval_db "$RENUMBER_DB" 'print(JSON.stringify({
+  problem: (() => { const p = db.document.findOne({docType: 10, pid: "C1"}); return p ? { docId: Number(p.docId), legacyDocId: Number(p.legacyDocId), domainId: p.domainId } : null; })(),
+  recordPid: Number(db.record.findOne({}).pid),
+  statusDocId: Number(db.getCollection("document.status").findOne({}).docId),
+  solutionParent: Number(db.document.findOne({docType: 11}).parentId),
+  contestPids: db.document.findOne({docType: 30}).pids.map(Number),
+  trainingPids: db.document.findOne({docType: 40}).dag[0].pids.map(Number),
+  storagePath: db.storage.findOne({}).path,
+}))' | tail -1)
+echo "$RENUMBER"
+python3 - "$RENUMBER" "$TMP_DIR/renumber.json" <<'PY'
+import json
+import sys
+
+data = json.loads(sys.argv[1])
+report = json.load(open(sys.argv[2]))
+errors = []
+problem = data.get("problem") or {}
+if problem.get("docId") != 2 or problem.get("legacyDocId") != 1 or problem.get("domainId") != "system":
+    errors.append(f"problem not renumbered: {problem}")
+if data["recordPid"] != 2:
+    errors.append(f"record pid = {data['recordPid']}")
+if data["statusDocId"] != 2:
+    errors.append(f"status docId = {data['statusDocId']}")
+if data["solutionParent"] != 2:
+    errors.append(f"solution parent = {data['solutionParent']}")
+if data["contestPids"] != [2]:
+    errors.append(f"contest pids = {data['contestPids']}")
+if data["trainingPids"] != [2]:
+    errors.append(f"training pids = {data['trainingPids']}")
+if data["storagePath"] != "problem/system/2/testdata/1.in":
+    errors.append(f"storage path = {data['storagePath']}")
+if len(report.get("problems_renumbered") or []) != 1:
+    errors.append(f"report problems_renumbered = {report.get('problems_renumbered')}")
+if errors:
+    print("Renumber drill FAILED:", file=sys.stderr)
+    for error in errors:
+        print("  -", error, file=sys.stderr)
+    sys.exit(1)
+print("    docId renumbering correct")
+PY
+mongo_eval_db "$RENUMBER_DB" 'db.dropDatabase()' >/dev/null
+
 if [[ "$KEEP" != "1" ]]; then
   echo "==> Dropping drill database"
   mongo_eval 'db.dropDatabase()' >/dev/null

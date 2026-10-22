@@ -42,14 +42,27 @@ MONGO_DATABASE=syuct_oj_rehearsal MONGO_URI=... \
   go run ./cmd/migrate --dry-run --report /tmp/migrate-dry-run.json
 ```
 
-关注：每个集合/域的 `matched`、`users_merged`、`warnings`、残留项（dry-run 阶段应只有预期内的匹配数据）。
+关注：每个集合/域的 `matched`、`users_merged`、`warnings`、残留项（dry-run 阶段应只有预期内的匹配数据），以及 `conflicts`。
 
-3. 对副本执行迁移并验证：
+如果 `conflicts` 里有 `docId` 冲突，先跑一次带重编号计划的 dry-run：
 
 ```bash
 MONGO_DATABASE=syuct_oj_rehearsal MONGO_URI=... \
-  go run ./cmd/migrate --execute --report /tmp/migrate-execute.json
+  go run ./cmd/migrate --dry-run --renumber-doc-ids --report /tmp/migrate-plan.json
 ```
+
+检查 `problems_renumbered` 的数量与 old/new docId 是否符合预期。
+
+3. 对副本执行迁移并验证（有 docId 冲突时加上重编号参数）：
+
+```bash
+MONGO_DATABASE=syuct_oj_rehearsal MONGO_URI=... \
+  go run ./cmd/migrate --execute --renumber-doc-ids \
+  --file-root /path/to/rehearsal/judge-files \
+  --report /tmp/migrate-execute.json
+```
+
+`--file-root` 会把本地 `problem/<domain>/<docId>` 目录一并移动到新 docId；没有本地文件时省略。
 
 验收：
 

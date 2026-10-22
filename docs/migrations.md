@@ -43,21 +43,41 @@
 
 Hydro 的题目 `docId` 是按域自增的（`ProblemModel.add` 取该域最大 docId + 1），三个域压平后可能出现重复。迁移工具的处理：
 
-| 冲突类型 | 行为 |
-|---|---|
-| 题目 `docId` 重复 | **中止迁移**，不写任何数据；报告 `conflicts[kind=docId]`，CLI 退出码非 0 |
-| 题目 `pid` 重复 | 自动把来源域的冲突题目改名为 `P<docId>`，写 `legacyPids`；报告 `conflicts[kind=pid]` 与 `problems_renamed` |
+| 冲突类型 | 默认行为 | `--renumber-doc-ids` |
+|---|---|---|
+| 题目 `docId` 重复 | **中止迁移**，不写任何数据；报告 `conflicts[kind=docId]`，CLI 退出码非 0 | 为冲突题目分配新 docId（从全局最大值继续递增），写 `legacyDocId`，报告 `problems_renumbered` |
+| 题目 `pid` 重复 | 自动改名为 `P<docId>`，写 `legacyPids`，报告 `conflicts[kind=pid]` 与 `problems_renamed` | 同左（重编号后按新 docId 命名） |
 
-`docId` 被 `record.pid`、`contest.pids`、`training.dag[].pids`、`document.status.docId`、`storage.path` 和物理文件目录引用；重编号必须同时重写这些引用，风险高，所以工具选择拒绝执行而不是猜测。
+`--renumber-doc-ids` 会同时改写这些引用（都在来源域内完成，再统一压平）：
 
-生产切换前必须先用备份副本跑 dry-run 并检查 `conflicts`：
+- `document`（docType 10）的 `docId`
+- `record` / `record.stat` / `task` 的 `pid`
+- `document.status`（docType 10）的 `docId`
+- 题解（docType 11）与讨论（docType 21）的 `parentId`
+- 比赛 / 作业（docType 30）的 `pids` 数组
+- 训练（docType 40）的 `dag[].pids`
+- `storage.path` 中 `problem/<domain>/<docId>/...` 的前缀
+
+如果本地题目文件目录使用默认布局，再加 `--file-root <dir>` 会把 `problem/<domain>/<旧 docId>` 目录移动到新 docId（不传则只改数据库，物理文件需要自行迁移）。
+
+推荐流程：
 
 ```bash
+# 1. 先看有没有冲突（默认行为）
 MONGO_URI=... MONGO_DATABASE=syuct_oj_restore \
   go run ./cmd/migrate --dry-run --report /tmp/migrate-dry.json
+
+# 2. 冲突存在时，先 dry-run 看重编号计划
+MONGO_URI=... MONGO_DATABASE=syuct_oj_restore \
+  go run ./cmd/migrate --dry-run --renumber-doc-ids --report /tmp/migrate-plan.json
+
+# 3. 确认后执行（含物理文件移动）
+MONGO_URI=... MONGO_DATABASE=syuct_oj_restore \
+  go run ./cmd/migrate --execute --renumber-doc-ids --file-root /path/to/judge-files \
+  --report /tmp/migrate-exec.json
 ```
 
-如果出现 `docId` 冲突，需要先实现并执行题目重编号（docId + 所有引用 + 存储路径），再跑正式迁移。
+生产切换前必须先用备份副本跑上述 1、2 步，确认 `problems_renumbered` 数量与预期一致。
 
 ## 5. URL 兼容
 
