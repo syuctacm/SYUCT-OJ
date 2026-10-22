@@ -3,23 +3,15 @@ import { diffLines } from 'diff'
 import 'monaco-editor/min/vs/editor/editor.main.css'
 import * as yaml from 'js-yaml'
 import { isEqual } from 'lodash'
-import * as monaco from 'monaco-editor/editor'
 import { createWebWorker } from 'monaco-editor/internal/common/workers.js'
-import EditorWorker from 'monaco-editor/editor/editor.worker?worker'
 import { configureMonacoYaml } from 'monaco-yaml'
 import { useEffect, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import YamlWorker from '../../workers/yaml.worker?worker'
+import { monaco } from '../monaco/base.ts'
 import schema from '../monaco/schema/problemconfig.ts'
 import type { RootState } from './reducer/index.ts'
 import type { ProblemConfigFile, TestCaseConfig } from './types.ts'
 
-;(self as unknown as { MonacoEnvironment: unknown }).MonacoEnvironment = {
-  getWorker(_workerId: string, label: string) {
-    if (label === 'yaml') return new YamlWorker()
-    return new EditorWorker()
-  },
-}
 
 let yamlConfigured = false
 
