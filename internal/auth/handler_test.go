@@ -27,6 +27,26 @@ func (f fakeStore) FindByID(context.Context, int64) (*user.User, error) {
 	return f.u, nil
 }
 
+func (f fakeStore) FindByMail(context.Context, string) (*user.User, error) {
+	return f.u, nil
+}
+
+func (f fakeStore) Create(context.Context, user.RegisterInput) (*user.User, error) {
+	return f.u, nil
+}
+
+func (f fakeStore) CreateRegistrationToken(context.Context, string, time.Duration) (string, error) {
+	return "code", nil
+}
+
+func (f fakeStore) RegistrationToken(context.Context, string) (string, error) {
+	return "alice@example.com", nil
+}
+
+func (f fakeStore) DeleteRegistrationToken(context.Context, string) error {
+	return nil
+}
+
 func TestAuthHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	u := &user.User{

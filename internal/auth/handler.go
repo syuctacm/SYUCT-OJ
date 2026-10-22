@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -13,6 +14,11 @@ import (
 type UserStore interface {
 	FindByLogin(ctx context.Context, identifier string) (*user.User, error)
 	FindByID(ctx context.Context, id int64) (*user.User, error)
+	FindByMail(ctx context.Context, mail string) (*user.User, error)
+	Create(ctx context.Context, input user.RegisterInput) (*user.User, error)
+	CreateRegistrationToken(ctx context.Context, mail string, ttl time.Duration) (string, error)
+	RegistrationToken(ctx context.Context, code string) (string, error)
+	DeleteRegistrationToken(ctx context.Context, code string) error
 }
 
 type Handler struct {
@@ -28,6 +34,9 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/auth/login", h.login)
 	router.GET("/api/v1/auth/me", h.me)
 	router.POST("/api/v1/auth/logout", h.logout)
+	router.POST("/api/v1/auth/register", h.registerRequest)
+	router.GET("/api/v1/auth/register/:code", h.registerInfo)
+	router.POST("/api/v1/auth/register/:code", h.registerComplete)
 }
 
 type loginRequest struct {
