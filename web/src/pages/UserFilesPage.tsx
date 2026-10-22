@@ -158,7 +158,7 @@ export function UserFilesPage() {
         template="home_files.html"
         context={context}
         url={buildUrl}
-        urlForFile={(name) => `/api/v1/user/files/${encodeURIComponent(name)}`}
+        urlForFile={(name) => `/api/v1/users/${user.id}/files/${encodeURIComponent(name)}`}
         onReady={handleReady}
       />
     </>

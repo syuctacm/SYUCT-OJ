@@ -102,7 +102,7 @@ func TestUserFilesIntegration(t *testing.T) {
 	cookies := loginAssetUser(t, server.URL, "alice", "secret")
 
 	status, body := upload("note.txt", "hello", cookies)
-	if status != http.StatusCreated || !bytes.Contains(body, []byte(`"name":"note.txt"`)) || !bytes.Contains(body, []byte(`"size":5`)) {
+	if status != http.StatusCreated || !bytes.Contains(body, []byte(`"name":"note.txt"`)) || !bytes.Contains(body, []byte(`"size":5`)) || !bytes.Contains(body, []byte(`"downloadUrl":"/api/v1/users/7/files/note.txt"`)) {
 		t.Fatalf("upload = %d: %s", status, body)
 	}
 	if data, err := os.ReadFile(filepath.Join(root, "user", "7", "note.txt")); err != nil || string(data) != "hello" {
@@ -119,7 +119,26 @@ func TestUserFilesIntegration(t *testing.T) {
 	downloaded, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("anonymous download = %d", resp.StatusCode)
+		t.Fatalf("anonymous own download = %d", resp.StatusCode)
+	}
+
+	resp, err = http.Get(server.URL + "/api/v1/users/7/files/note.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	downloaded, _ = io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || string(downloaded) != "hello" || resp.Header.Get("Cache-Control") != "public" {
+		t.Fatalf("public download = %d %q cache=%q", resp.StatusCode, downloaded, resp.Header.Get("Cache-Control"))
+	}
+
+	resp, err = http.Get(server.URL + "/api/v1/users/not-a-number/files/note.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid public owner = %d", resp.StatusCode)
 	}
 
 	req, _ = http.NewRequest(http.MethodGet, server.URL+"/api/v1/user/files/note.txt", nil)
@@ -152,6 +171,14 @@ func TestUserFilesIntegration(t *testing.T) {
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete = %d", resp.StatusCode)
+	}
+	resp, err = http.Get(server.URL + "/api/v1/users/7/files/note.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("deleted public file = %d", resp.StatusCode)
 	}
 	if _, err := os.Stat(filepath.Join(root, "user", "7", "note.txt")); !os.IsNotExist(err) {
 		t.Fatalf("deleted file still exists: %v", err)

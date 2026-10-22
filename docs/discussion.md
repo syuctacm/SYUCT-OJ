@@ -82,12 +82,23 @@
 
 登录用户可在详情页回复，支持 `Ctrl+Enter` 提交。讨论创建/编辑页由 `HydroTemplate` 直接渲染上游 `discussion_create.html`、`discussion_edit.html` 和 `partials/discussion_edit_form.html`，React 只负责加载数据、提交/删除和快捷键挂载；原版删除按钮会调用现有 DELETE API。创建入口只在该讨论节点页面出现，与原站一致。
 
+### 图片上传
+
+创建主题、编辑主题、主回复以及动态打开的楼中楼回复/编辑框都挂载原版 Markdown 编辑器，并开启图片按钮。上传使用个人文件接口 `POST /api/v1/user/files`，沿用「我的文件」的存储和配额；编辑器会生成随机文件名，避免多次上传同名图片时冲突。
+
+上传成功后编辑器插入个人文件的公开下载地址：
+
+```text
+/api/v1/users/<uid>/files/<filename>
+```
+
+该地址无需登录即可访问，便于讨论图片对匿名访客展示；上传、列表和删除接口仍然要求本人 Session。旧的 `GET /api/v1/user/files/:name` 保留为登录用户访问自己文件的兼容入口。
+
 ## 尚未完成
 
 - 浏览量暂时不会随访问自增
 - 回复通知和提及
 - 节点管理
-- 讨论编辑器暂不提供图片上传，只能插入外链图片
 
 ## 历史版本
 

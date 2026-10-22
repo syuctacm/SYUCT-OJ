@@ -40,6 +40,7 @@ export function DiscussionDetailPage() {
   const [actionError, setActionError] = useState('')
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
   const clickRef = useRef<(event: Event) => void>(() => {})
+  const inlineEditorCleanups = useRef(new Map<HTMLFormElement, () => void>())
 
   const load = useCallback(async () => {
     const [ddoc, drdocs, vnodes] = await Promise.all([
@@ -231,7 +232,7 @@ export function DiscussionDetailPage() {
   }, [replies])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
-    const cleanups: Array<() => void> = [hydrateHydroEditForm(root)]
+    const cleanups: Array<() => void> = [hydrateHydroEditForm(root, { uploadToUserFiles: true })]
     cleanups.push(mountDiscussionHistory(root))
     cleanups.push(mountDiscussionReactions(root, {
       did,
@@ -247,17 +248,28 @@ export function DiscussionDetailPage() {
     const onClick = (event: Event) => clickRef.current(event)
     root.addEventListener('click', onClick)
     cleanups.push(() => root.removeEventListener('click', onClick))
-    return () => cleanups.forEach((cleanup) => cleanup())
+    return () => {
+      cleanups.forEach((cleanup) => cleanup())
+      for (const cleanup of inlineEditorCleanups.current.values()) cleanup()
+      inlineEditorCleanups.current.clear()
+    }
   }, [did, navigate, user])
 
   // Inline boxes created for reply/edit follow the same markup the upstream JS
   // builds at runtime.
+  function closeInlineForm(form: HTMLFormElement) {
+    inlineEditorCleanups.current.get(form)?.()
+    inlineEditorCleanups.current.delete(form)
+    form.remove()
+  }
+
   function buildInlineForm(kind: 'reply' | 'edit', drid: string, drrid: string, initial = '') {
     const form = document.createElement('form')
     form.className = 'dczcomments__box'
     form.method = 'post'
+    form.dataset.hotkey = 'ctrl+enter:submit,esc:vjCommentBoxCancel'
     form.innerHTML = `
-      <div><textarea class="textbox" name="content" required></textarea></div>
+      <div><textarea class="textbox" name="content" data-markdown required></textarea></div>
       <div>
         <input type="submit" class="rounded primary button" value="${kind === 'reply' ? '回复 (Ctrl+Enter)' : '更新 (Ctrl+Enter)'}">
         <input type="button" class="rounded button" name="cancel" value="取消 (Esc)">
@@ -276,11 +288,13 @@ export function DiscussionDetailPage() {
         if (kind === 'reply') await createDiscussionReply(did, content, drid)
         else await updateDiscussionReply(did, drrid || drid, content)
         await load()
+        closeInlineForm(form)
       })
     })
     form.querySelector<HTMLInputElement>('input[name="cancel"]')?.addEventListener('click', () => {
-      form.remove()
+      closeInlineForm(form)
     })
+    inlineEditorCleanups.current.set(form, hydrateHydroEditForm(form, { uploadToUserFiles: true }))
     return form
   }
 
@@ -294,9 +308,9 @@ export function DiscussionDetailPage() {
       const item = target.closest('.dczcomments__item')
       const holder = item?.querySelector('.commentbox-reply-target')
       if (!holder) return
-      const existing = holder.querySelector('form.dczcomments__box')
+      const existing = holder.querySelector<HTMLFormElement>('form.dczcomments__box')
       if (existing) {
-        existing.remove()
+        closeInlineForm(existing)
         return
       }
       const box = document.createElement('li')
@@ -307,9 +321,9 @@ export function DiscussionDetailPage() {
       const mediaBody = target.closest('.media__body')
       const content = mediaBody?.querySelector('.typo.richmedia')
       if (!mediaBody || !content) return
-      const existing = mediaBody.querySelector('form.dczcomments__box')
+      const existing = mediaBody.querySelector<HTMLFormElement>('form.dczcomments__box')
       if (existing) {
-        existing.remove()
+        closeInlineForm(existing)
         return
       }
       const drid = String(data.drid ?? '')

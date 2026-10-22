@@ -34,7 +34,7 @@ export function DiscussionEditPage() {
     const form = root.querySelector('form')
     const onSubmit = (event: SubmitEvent) => submitRef.current(event)
     form?.addEventListener('submit', onSubmit)
-    const stopHydration = hydrateHydroEditForm(root)
+    const stopHydration = hydrateHydroEditForm(root, { uploadToUserFiles: true })
     return () => {
       form?.removeEventListener('submit', onSubmit)
       stopHydration()

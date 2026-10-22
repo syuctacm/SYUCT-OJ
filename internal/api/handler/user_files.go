@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -45,7 +46,8 @@ func (h *UserFileHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/user/files", h.list)
 	router.POST("/api/v1/user/files", h.upload)
 	router.DELETE("/api/v1/user/files", h.delete)
-	router.GET("/api/v1/user/files/:name", h.download)
+	router.GET("/api/v1/user/files/:name", h.downloadOwn)
+	router.GET("/api/v1/users/:uid/files/:name", h.downloadPublic)
 }
 
 func (h *UserFileHandler) list(c *gin.Context) {
@@ -59,7 +61,7 @@ func (h *UserFileHandler) list(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
-		"items": userFileViews(files), "total": len(files),
+		"items": userFileViews(uid, files), "total": len(files),
 	}})
 }
 
@@ -142,7 +144,7 @@ func (h *UserFileHandler) upload(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": gin.H{
-		"items": userFileViews(files), "total": len(files),
+		"items": userFileViews(uid, files), "total": len(files),
 	}})
 }
 
@@ -179,18 +181,32 @@ func (h *UserFileHandler) delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// download is public, matching the upstream fs_download handler which only
-// checks that the file exists.
-func (h *UserFileHandler) download(c *gin.Context) {
+func (h *UserFileHandler) downloadOwn(c *gin.Context) {
 	uid, ok := h.requireUser(c)
 	if !ok {
 		return
 	}
+	h.serve(c, uid, c.Param("name"))
+}
+
+// downloadPublic matches the upstream fs_download handler: user files are
+// addressable by owner id and can be embedded from public pages such as
+// discussions without requiring a browser session.
+func (h *UserFileHandler) downloadPublic(c *gin.Context) {
+	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
+	if err != nil || uid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+	h.serve(c, uid, c.Param("name"))
+}
+
+func (h *UserFileHandler) serve(c *gin.Context, uid int64, rawName string) {
 	if h.store == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "file storage is unavailable"})
 		return
 	}
-	name, err := sanitizeAssetName(c.Param("name"))
+	name, err := sanitizeAssetName(rawName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -223,6 +239,7 @@ func (h *UserFileHandler) download(c *gin.Context) {
 	}
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", path.Base(name)))
+	c.Header("Cache-Control", "public")
 	c.Status(http.StatusOK)
 	_, _ = io.Copy(c.Writer, reader)
 }
@@ -240,12 +257,12 @@ func (h *UserFileHandler) requireUser(c *gin.Context) (int64, bool) {
 	return session.UserID, true
 }
 
-func userFileViews(files []filemeta.File) []activityFile {
+func userFileViews(uid int64, files []filemeta.File) []activityFile {
 	items := make([]activityFile, 0, len(files))
 	for _, file := range files {
 		items = append(items, activityFile{
 			ID: file.ID, Name: file.Name, Size: file.Size, ETag: file.ETag, LastModified: file.LastModified,
-			DownloadURL: "/api/v1/user/files/" + url.PathEscape(file.Name),
+			DownloadURL: fmt.Sprintf("/api/v1/users/%d/files/%s", uid, url.PathEscape(file.Name)),
 		})
 	}
 	return items
