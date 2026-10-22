@@ -3,10 +3,8 @@ package auth
 import (
 	"errors"
 	"net/http"
-	"net/mail"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/gin-gonic/gin"
 
@@ -28,7 +26,7 @@ func (h *Handler) registerRequest(c *gin.Context) {
 		return
 	}
 	address := strings.TrimSpace(request.Mail)
-	if !validEmail(address) {
+	if !user.ValidEmail(address) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请输入有效的邮箱地址"})
 		return
 	}
@@ -75,11 +73,11 @@ func (h *Handler) registerComplete(c *gin.Context) {
 		return
 	}
 	username := strings.TrimSpace(request.Username)
-	if !validUsername(username) {
+	if !user.ValidUsername(username) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名需为 3-31 个字符（或 2 个汉字）"})
 		return
 	}
-	if !validPassword(request.Password) {
+	if !user.ValidPassword(request.Password) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "密码长度需为 6-255 个字符"})
 		return
 	}
@@ -112,35 +110,4 @@ func (h *Handler) registerComplete(c *gin.Context) {
 	}
 	SetSessionCookie(c, token, h.sessions.TTL())
 	c.JSON(http.StatusCreated, gin.H{"user": publicUser(account)})
-}
-
-func validEmail(value string) bool {
-	address, err := mail.ParseAddress(value)
-	if err != nil {
-		return false
-	}
-	return strings.EqualFold(address.Address, value) && strings.Contains(value, "@")
-}
-
-// validUsername mirrors Hydro's Types.Username: 3..31 characters, or exactly
-// two Chinese characters.
-func validUsername(value string) bool {
-	runes := []rune(value)
-	if len(runes) >= 3 && len(runes) <= 31 {
-		return true
-	}
-	if len(runes) != 2 {
-		return false
-	}
-	for _, char := range runes {
-		if !unicode.Is(unicode.Han, char) {
-			return false
-		}
-	}
-	return true
-}
-
-func validPassword(value string) bool {
-	size := len([]byte(value))
-	return size >= 6 && size <= 255
 }
