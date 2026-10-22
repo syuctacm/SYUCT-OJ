@@ -1,11 +1,17 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 )
+
+type CountdownDate struct {
+	Name string `json:"name"`
+	Date string `json:"date"`
+}
 
 type Config struct {
 	Port            string
@@ -25,6 +31,9 @@ type Config struct {
 	MailUsername    string
 	MailPassword    string
 	MailFrom        string
+	CountdownTitle  string
+	CountdownMax    int
+	CountdownDates  []CountdownDate
 }
 
 func Load() Config {
@@ -53,7 +62,22 @@ func Load() Config {
 		MailUsername:    env("MAIL_USERNAME", ""),
 		MailPassword:    env("MAIL_PASSWORD", ""),
 		MailFrom:        env("MAIL_FROM", ""),
+		CountdownTitle:  env("COUNTDOWN_TITLE", "倒计时"),
+		CountdownMax:    intEnv("COUNTDOWN_MAX", 5),
+		CountdownDates:  countdownDatesEnv("COUNTDOWN_DATES"),
 	}
+}
+
+func countdownDatesEnv(key string) []CountdownDate {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return nil
+	}
+	var dates []CountdownDate
+	if err := json.Unmarshal([]byte(raw), &dates); err != nil {
+		return nil
+	}
+	return dates
 }
 
 func env(key, fallback string) string {

@@ -1,10 +1,10 @@
 // Page markup is rendered from the pinned Hydro ui-default template. The section
 // list mirrors the upstream `hydrooj.homepage` config for the parts backed by
 // this backend.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  getContests, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getPublicSettings, getRanking, getStarredProblems, getTrainings, getUsersByIDs,
-  type Contest, type Discussion, type DiscussionNode, type ProblemSummary, type RankingUser, type Training, type UserChoice,
+  getCheckin, getContests, getCountdown, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getPublicSettings, getRanking, getStarredProblems, getTrainings, getUsersByIDs, submitCheckin,
+  type CheckinState, type Contest, type Countdown, type Discussion, type DiscussionNode, type ProblemSummary, type RankingUser, type Training, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -29,7 +29,19 @@ type HomeData = {
   ranking: RankingUser[]
   bulletin: string
   starred: ProblemSummary[]
+  checkin: CheckinState | null
+  countdown: Countdown
 }
+
+const LUCK_TYPES = [
+  { text: '大吉', color: '#FF0000' },
+  { text: '中吉', color: '#FF6600' },
+  { text: '小吉', color: '#FFAA00' },
+  { text: '吉', color: '#00AA00' },
+  { text: '末吉', color: '#0066FF' },
+  { text: '凶', color: '#6600FF' },
+  { text: '大凶', color: '#333333' },
+]
 
 function withDates<T extends { beginAt: string; endAt: string; lockAt?: string; penaltySince?: string }>(item: T) {
   return {
@@ -54,6 +66,7 @@ export function HomePage() {
   const [data, setData] = useState<HomeData | null>(null)
   const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
+  const checkinRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     setError('')
@@ -67,8 +80,10 @@ export function HomePage() {
       getRanking(1, 10),
       getPublicSettings(),
       user ? getStarredProblems(50).catch(() => []) : Promise.resolve([]),
+      getCountdown(),
+      user ? getCheckin() : Promise.resolve(null),
     ])
-      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes, ranking, settings, starred]) => {
+      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes, ranking, settings, starred, countdown, checkin]) => {
         setData({
           contests: contestPage.items,
           homeworks: homeworkPage.items,
@@ -79,6 +94,8 @@ export function HomePage() {
           ranking: ranking.items,
           bulletin: settings.bulletin,
           starred,
+          countdown,
+          checkin,
         })
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '首页加载失败'))
@@ -141,6 +158,15 @@ export function HomePage() {
       title: problem.title,
       hidden: false,
     }))
+    const luck = LUCK_TYPES[Math.max(0, Math.min(LUCK_TYPES.length - 1, data.checkin?.luck ?? 0))]
+    const checkinPayload = {
+      loggedIn: Boolean(user),
+      checkedIn: Boolean(data.checkin?.checkedIn),
+      luckText: luck.text,
+      luckColor: luck.color,
+      countNow: data.checkin?.countNow ?? 0,
+      countAll: data.checkin?.countAll ?? 0,
+    }
     const recentProblems = data.problems.slice(0, 10).map((problem) => ({
       _id: problem.id,
       docId: problem.docId,
@@ -185,6 +211,8 @@ export function HomePage() {
         {
           width: 3,
           sections: [
+            ['checkin', checkinPayload],
+            ['countdown', data.countdown],
             ['hitokoto', true],
             ['starred_problems', [starredProblems]],
             ['recent_problems', [recentProblems, {}]],
@@ -213,7 +241,26 @@ export function HomePage() {
     }
   }, [data, user, users])
 
-  const handleReady = useCallback((root: HTMLDivElement) => mountHitokoto(root), [])
+  async function doCheckin() {
+    try {
+      const next = await submitCheckin()
+      setData((current) => current ? { ...current, checkin: next } : current)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '签到失败')
+    }
+  }
+  checkinRef.current = () => void doCheckin()
+
+  const handleReady = useCallback((root: HTMLDivElement) => {
+    const stopHitokoto = mountHitokoto(root)
+    const button = root.querySelector<HTMLButtonElement>('[data-checkin]')
+    const onClick = () => checkinRef.current()
+    button?.addEventListener('click', onClick)
+    return () => {
+      stopHitokoto()
+      button?.removeEventListener('click', onClick)
+    }
+  }, [])
 
   const buildUrl = useMemo(() => (name: string, args: Record<string, unknown> = {}) => {
     switch (name) {

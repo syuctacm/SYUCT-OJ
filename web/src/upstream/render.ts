@@ -7,6 +7,8 @@ import zhYaml from '@hydrooj/ui-default/locales/zh.yaml?raw'
 import tagStatTemplate from './templates/problem_tag_stat.html?raw'
 import problemMainTemplate from './templates/problem_main.html?raw'
 import tagStatCategoryTemplate from './templates/partials/category.html?raw'
+import checkinHomeTemplate from './templates/partials/homepage/checkin.html?raw'
+import countdownHomeTemplate from './templates/partials/homepage/countdown.html?raw'
 import { size } from './format.ts'
 import { renderMarkdown } from './markdown.ts'
 import { datetimeSpan } from './datetime.ts'
@@ -42,6 +44,8 @@ const sources = new Map<string, string>(
 sources.set('problem_tag_stat.html', tagStatTemplate)
 sources.set('problem_main.html', problemMainTemplate)
 sources.set('partials/category.html', tagStatCategoryTemplate)
+sources.set('partials/homepage/checkin.html', checkinHomeTemplate)
+sources.set('partials/homepage/countdown.html', countdownHomeTemplate)
 
 // The app already owns the shared <nav>/<footer> shell. Page templates continue
 // to extend the upstream layout so their block structure stays untouched, but

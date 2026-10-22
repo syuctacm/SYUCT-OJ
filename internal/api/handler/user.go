@@ -38,6 +38,8 @@ func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/user/security/tfa/setup", h.tfaSetup)
 	router.POST("/api/v1/user/security/tfa/enable", h.tfaEnable)
 	router.POST("/api/v1/user/security/tfa/disable", h.tfaDisable)
+	router.GET("/api/v1/user/checkin", h.checkinInfo)
+	router.POST("/api/v1/user/checkin", h.checkin)
 }
 
 type userChoice struct {

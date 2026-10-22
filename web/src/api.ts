@@ -14,6 +14,32 @@ export type User = {
   tfa?: boolean
 }
 
+export type CheckinState = {
+  checkedIn: boolean
+  luck: number
+  time?: string
+  countNow: number
+  countAll: number
+}
+
+export async function getCheckin(): Promise<CheckinState> {
+  const result = await request<Envelope<CheckinState>>('/api/v1/user/checkin')
+  return result.data
+}
+
+export async function submitCheckin(): Promise<CheckinState> {
+  const result = await request<Envelope<CheckinState>>('/api/v1/user/checkin', { method: 'POST' })
+  return result.data
+}
+
+export type CountdownItem = { name: string; date: string; days: number }
+export type Countdown = { title: string; items: CountdownItem[] }
+
+export async function getCountdown(): Promise<Countdown> {
+  const result = await request<Envelope<Countdown>>('/api/v1/home/countdown')
+  return result.data
+}
+
 export type PublicSettings = { bulletin: string }
 
 export async function getPublicSettings(): Promise<PublicSettings> {
