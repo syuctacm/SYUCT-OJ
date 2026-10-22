@@ -37,6 +37,8 @@ gravatar 需要 MD5，浏览器没有同步实现，因此在 `web/src/upstream/
 
 所有页面和两个用户自动补全组件都使用同一个 `avatarUrl()`，不再各自内联 `value || '/logo.png'`。
 
+上传头像使用 `POST /api/v1/user/avatar`，只接受 JPG/PNG 且不超过 8 MiB，按上游路径保存为 `user/<uid>/.avatar.<ext>`，并把 `avatar` 写成带版本参数的公开地址。`GET /api/v1/users/:uid/avatar` 不依赖 `_files` 元数据，匿名即可读取；上传新格式时会清理旧的 `.avatar.*` 文件。
+
 ## 复制联系方式
 
 联系方式栏的 `[data-copy]` 按钮由 `web/src/upstream/clipboard.ts` 接管（移植自 `components/clipboard.page.ts`）：base64 解码后写入剪贴板，成功/失败都通过 Mantine 通知提示（`web/src/components/Notification.tsx`，移植自 `components/notification/index.ts`，`NotificationsHost` 挂在 `Layout` 上）。
@@ -52,7 +54,7 @@ gravatar 需要 MD5，浏览器没有同步实现，因此在 `web/src/upstream/
 
 `school` 和 `studentId` 按上游 `FLAG_PRIVATE` 处理：只有本人和管理员能从 `/api/v1/users/:uid` 读到；`qq`、`gender`、`backgroundImage`、`bio` 公开。
 
-账号侧栏复用上游 `components/home.html`，只删掉了两个多域入口（重写版已删除多域），`/home/messages`、`/file`、`/home/security` 尚未实现，链接为占位。头像上传区块（`#upload_avatar`）未接入，页面会移除；头像仍可用 provider 文本填写。
+账号侧栏复用上游 `components/home.html`，只删除了多域入口；站内消息、我的文件、账户设置和安全设置都已接入。头像上传区块保留上游 `#upload_avatar`，点击“Change avatar”打开 JPG/PNG 选择器；provider 文本字段仍可继续使用。
 
 ## 我的文件
 
@@ -72,9 +74,5 @@ gravatar 需要 MD5，浏览器没有同步实现，因此在 `web/src/upstream/
 ## 尚未完成
 
 - 微信图标
-- 头像上传（`#upload_avatar`）
-- 站内消息和安全设置两个账户页
-- 消息中心和账号安全页（`/home/messages`、`/home/security`）尚未迁移
-- 个人主页的账号自助侧栏（消息、设置、文件）暂不显示
 - 在线状态（当前统一显示离线）
 - 用户主页的题目/比赛历史
