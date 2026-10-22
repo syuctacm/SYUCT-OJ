@@ -41,6 +41,10 @@ type User struct {
 	School          string          `bson:"school,omitempty" json:"school,omitempty"`
 	BackgroundImage string          `bson:"backgroundImage,omitempty" json:"backgroundImage,omitempty"`
 	TFA             string          `bson:"tfa,omitempty" json:"-"`
+	CheckinTime     string          `bson:"checkin_time,omitempty" json:"-"`
+	CheckinLuck     int64           `bson:"checkin_luck,omitempty" json:"-"`
+	CheckinCountNow int64           `bson:"checkin_cnt_now,omitempty" json:"-"`
+	CheckinCountAll int64           `bson:"checkin_cnt_all,omitempty" json:"-"`
 	Files           []filemeta.File `bson:"_files,omitempty" json:"-"`
 }
 

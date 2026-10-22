@@ -1,0 +1,21 @@
+{% if payload.items and payload.items.length %}
+<div class="section side">
+  <div class="section__header">
+    <h1 class="section__title">{{ payload.title }}</h1>
+  </div>
+  <div class="section__body">
+    <ol class="section__list">
+      {% for item in payload.items %}
+      <li class="section__list__item">
+        <div class="media">
+          <div class="media__body">
+            <p style="margin-bottom:4px;">{{ item.name }}</p>
+            <p class="supplementary" style="margin-bottom:0;">距目标还有 {{ item.days }} 天</p>
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+</div>
+{% endif %}

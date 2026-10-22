@@ -1,0 +1,19 @@
+<div class="section side">
+  <div class="section__header">
+    <h1 class="section__title">今日运势</h1>
+  </div>
+  <div class="section__body typo">
+    {% if payload.loggedIn %}
+      {% if payload.checkedIn %}
+        <p style="font-size:24px;font-weight:600;color:{{ payload.luckColor }};margin-bottom:8px;">{{ payload.luckText }}</p>
+        <p class="supplementary">连续签到 {{ payload.countNow }} 天 · 累计签到 {{ payload.countAll }} 天</p>
+      {% else %}
+        <p class="supplementary">今天还没有签到，抽一签看看今天的运势。</p>
+        <p><button type="button" class="primary rounded button" data-checkin>抽取今日运势</button></p>
+      {% endif %}
+    {% else %}
+      <p class="supplementary">登录后可抽取今日运势。</p>
+      <p><a class="button rounded" href="/login">登录</a></p>
+    {% endif %}
+  </div>
+</div>
