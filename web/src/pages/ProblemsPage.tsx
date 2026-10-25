@@ -1,12 +1,24 @@
 // Page markup is rendered from the pinned Hydro ui-default template. Keep this
-// file limited to query state, data mapping and small interactions.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+// file limited to query state, data mapping and the page's interactions.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { getProblemTags, getProblems, type ProblemPage, type ProblemTagStat } from '../api.ts'
+import {
+  deleteProblem,
+  getProblemEditor,
+  getProblemTags,
+  getProblems,
+  updateProblem,
+  type ProblemPage,
+  type ProblemTagStat,
+} from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
+import { notifyError, notifySuccess } from '../components/Notification.tsx'
 import { statusClass, statusLabels } from '../status.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
+import { ProblemSelection } from '../upstream/problem-selection.tsx'
+import { clearRendered, renderInto } from '../upstream/roots.ts'
 
 const statusCodes = Object.fromEntries(Object.keys(statusLabels).map((status) => [
   status,
@@ -31,6 +43,22 @@ const statusShortTexts: Record<number, string> = {
   30: 'Ignored',
 }
 
+type BatchOperation = 'hide' | 'unhide' | 'delete'
+
+async function setProblemHidden(pid: string, hidden: boolean) {
+  const editor = await getProblemEditor(pid)
+  const problem = editor.problem
+  await updateProblem(pid, {
+    pid: problem.pid,
+    title: problem.title,
+    content: problem.content,
+    tags: problem.tags ?? [],
+    difficulty: problem.difficulty ?? 0,
+    hidden,
+    config: editor.config,
+  })
+}
+
 export function ProblemsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -43,23 +71,132 @@ export function ProblemsPage() {
   const [tagStats, setTagStats] = useState<ProblemTagStat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const selectedPidsRef = useRef<string[]>([])
+  const clearSelectionRef = useRef<() => void>(() => {})
+  const operationBusyRef = useRef(false)
+
+  const load = useCallback(async () => {
+    const [problems, tags] = await Promise.all([
+      getProblems(query, pageNumber, sort, tag),
+      getProblemTags(),
+    ])
+    setPage(problems)
+    setTagStats(tags)
+  }, [pageNumber, query, sort, tag])
 
   useEffect(() => {
     setLoading(true)
     setError('')
-    Promise.all([getProblems(query, pageNumber, sort, tag), getProblemTags()])
-      .then(([problems, tags]) => {
-        setPage(problems)
-        setTagStats(tags)
-      })
+    load()
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '题目加载失败'))
       .finally(() => setLoading(false))
-  }, [query, pageNumber, sort, tag])
+  }, [load])
+
+  useEffect(() => () => {
+    document.body.classList.remove('display-mode', 'edit-mode')
+  }, [])
 
   const ppcount = page ? Math.max(1, Math.ceil(page.total / page.limit)) : 0
 
+  const handleSelectionChange = useCallback((pids: string[]) => {
+    selectedPidsRef.current = pids
+  }, [])
+
+  const handleSelectionClear = useCallback((handler: () => void) => {
+    clearSelectionRef.current = handler
+  }, [])
+
+  const handleOperation = useCallback(async (operation: BatchOperation) => {
+    if (operationBusyRef.current) return
+    const pids = [...selectedPidsRef.current]
+    if (!pids.length) {
+      notifyError('请至少选择一道题目。')
+      return
+    }
+    if (operation === 'delete' && !(await confirmDialog(`确认删除选中的 ${pids.length} 道题目？`))) {
+      return
+    }
+    operationBusyRef.current = true
+    try {
+      const results = await Promise.allSettled(pids.map(async (pid) => {
+        if (operation === 'delete') await deleteProblem(pid)
+        else await setProblemHidden(pid, operation === 'hide')
+      }))
+      const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+      clearSelectionRef.current()
+      selectedPidsRef.current = []
+      await load()
+      if (failures.length) {
+        const message = failures[0].reason instanceof Error ? failures[0].reason.message : String(failures[0].reason)
+        notifyError(`${failures.length} 道题目操作失败：${message}`)
+        return
+      }
+      const labels: Record<BatchOperation, string> = {
+        hide: '已隐藏',
+        unhide: '已取消隐藏',
+        delete: '已删除',
+      }
+      notifySuccess(`${labels[operation]} ${pids.length} 道题目。`)
+    } catch (err) {
+      notifyError(err instanceof Error ? err.message : '批量操作失败')
+    } finally {
+      operationBusyRef.current = false
+    }
+  }, [load])
+
   const handleReady = useCallback((root: HTMLDivElement) => {
-    root.querySelector('.section.side.nojs--hide')?.remove()
+    const cleanups: Array<() => void> = []
+    const listen = (element: Element, type: string, listener: EventListener) => {
+      element.addEventListener(type, listener)
+      cleanups.push(() => element.removeEventListener(type, listener))
+    }
+
+    if (!document.body.classList.contains('display-mode') && !document.body.classList.contains('edit-mode')) {
+      document.body.classList.add('display-mode')
+    }
+    root.querySelector('.section.display-mode')?.classList.remove('display-mode')
+
+    const enterEdit = root.querySelector<HTMLElement>('[name="enter-edit-mode"]')
+    const leaveEdit = root.querySelector<HTMLElement>('[name="leave-edit-mode"]')
+    const onEnterEdit = (event: Event) => {
+      event.preventDefault()
+      document.body.classList.remove('display-mode')
+      document.body.classList.add('edit-mode')
+    }
+    const onLeaveEdit = (event: Event) => {
+      event.preventDefault()
+      document.body.classList.remove('edit-mode')
+      document.body.classList.add('display-mode')
+    }
+    if (enterEdit) listen(enterEdit, 'click', onEnterEdit)
+    if (leaveEdit) listen(leaveEdit, 'click', onLeaveEdit)
+
+    for (const [name, operation] of [
+      ['hide_selected_problems', 'hide'],
+      ['unhide_selected_problems', 'unhide'],
+      ['delete_selected_problems', 'delete'],
+    ] as const) {
+      const button = root.querySelector<HTMLElement>(`[name="${name}"]`)
+      if (!button) continue
+      listen(button, 'click', (event) => {
+        event.preventDefault()
+        void handleOperation(operation)
+      })
+    }
+
+    const selection = root.querySelector<HTMLElement>('#problem_selection')
+    if (selection) {
+      renderInto(
+        selection,
+        <ProblemSelection
+          initialPids={selectedPidsRef.current}
+          onChange={handleSelectionChange}
+          onClear={handleSelectionClear}
+        />,
+      )
+      cleanups.push(() => clearRendered(selection))
+    }
+
     const form = root.querySelector<HTMLFormElement>('form#searchForm')
     const onSubmit = (event: SubmitEvent) => {
       event.preventDefault()
@@ -78,16 +215,18 @@ export function ProblemsPage() {
       navigate(`/p${params.toString() ? `?${params.toString()}` : ''}`)
     }
     form?.addEventListener('submit', onSubmit)
+    cleanups.push(() => form?.removeEventListener('submit', onSubmit))
     const sortSelect = root.querySelector<HTMLSelectElement>('select[name="sort"]')
     const onSort = () => form?.requestSubmit()
     sortSelect?.addEventListener('change', onSort)
+    cleanups.push(() => sortSelect?.removeEventListener('change', onSort))
 
     const toggleProblemTags = () => {
       const table = root.querySelector<HTMLElement>('.section.display-mode table.data-table')
       if (table) table.classList.toggle('hide-problem-tag')
     }
     const tagButtons = Array.from(root.querySelectorAll<HTMLElement>('.toggle-tag'))
-    tagButtons.forEach((button) => button.addEventListener('click', toggleProblemTags))
+    tagButtons.forEach((button) => listen(button, 'click', toggleProblemTags))
 
     const tagStatToggle = root.querySelector<HTMLAnchorElement>('#tagStatToggleBtn')
     const tagStatExtras = Array.from(root.querySelectorAll<HTMLElement>('.tag-stat-row.tag-stat-extra'))
@@ -100,15 +239,10 @@ export function ProblemsPage() {
       const total = root.querySelectorAll('.tag-stat-row').length
       tagStatToggle.textContent = expanded ? `展开全部标签 (${total})` : '收起部分标签'
     }
-    tagStatToggle?.addEventListener('click', onTagStatToggle)
+    if (tagStatToggle) listen(tagStatToggle, 'click', onTagStatToggle)
 
-    return () => {
-      form?.removeEventListener('submit', onSubmit)
-      sortSelect?.removeEventListener('change', onSort)
-      tagButtons.forEach((button) => button.removeEventListener('click', toggleProblemTags))
-      tagStatToggle?.removeEventListener('click', onTagStatToggle)
-    }
-  }, [navigate, tag])
+    return () => cleanups.forEach((cleanup) => cleanup())
+  }, [handleOperation, handleSelectionChange, handleSelectionClear, navigate, tag])
 
   const context = useMemo(() => {
     if (!page) return null
@@ -142,8 +276,8 @@ export function ProblemsPage() {
           _id: user?.id ?? 0,
           viewLang: 'zh',
           _dudoc: { join: true },
-          hasPerm: (permission: number) => permission === 1 && isAdmin,
-          hasPriv: () => Boolean(user),
+          hasPerm: (permission: number) => isAdmin && (permission === 1 || permission === 2),
+          hasPriv: (privilege: number) => privilege === 1 && Boolean(user),
           own: () => false,
         },
         args: { domainId: 'system' },
