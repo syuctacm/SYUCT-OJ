@@ -44,10 +44,16 @@ db.domain.insertMany([
 db.document.insertMany([
   { _id: ObjectId(), domainId: "system", docType: 10, docId: Long(1), pid: "P1", title: "System Problem" },
   { _id: ObjectId(), domainId: "contest2025", docType: 10, docId: Long(2), pid: "P1", title: "Contest Problem" },
+  { _id: ObjectId(), domainId: "select2025", docType: 10, docId: Long(3), pid: "P3", title: "Select Problem" },
   { _id: ObjectId(), domainId: "select2025", docType: 30, docId: ObjectId(), title: "Select Contest", rule: "acm" },
 ]);
 db.getCollection("document.status").insertOne({ domainId: "contest2025", docType: 40, docId: ObjectId(), uid: Long(7), enroll: 1 });
-db.record.insertOne({ _id: ObjectId(), domainId: "contest2025", uid: Long(7), pid: Long(2), status: 1, score: 100 });
+const drillContest = ObjectId();
+db.record.insertMany([
+  { _id: ObjectId(), domainId: "contest2025", contest: drillContest, uid: Long(7), pid: Long(2), status: 1, score: 100 },
+  { _id: ObjectId(), domainId: "select2025", contest: drillContest, uid: Long(7), pid: Long(3), status: 2, score: 50 },
+  { _id: ObjectId(), domainId: "select2025", contest: drillContest, uid: Long(8), pid: Long(3), status: 1, score: 100 },
+]);
 db.getCollection("record.stat").insertOne({ domainId: "select2025", uid: Long(8), nSubmit: Long(1) });
 db.getCollection("record.history").insertOne({ domainId: "contest2025", docId: Long(2), uid: Long(7) });
 db.getCollection("task").insertOne({ domainId: "select2025", type: "judge" });
@@ -65,6 +71,27 @@ db.getCollection("domain.user").insertMany([
   { _id: ObjectId(), domainId: "select2025", uid: Long(7), nSubmit: Long(2), rp: 1600, level: 4 },
   { _id: ObjectId(), domainId: "select2025", uid: Long(8), nSubmit: Long(1) },
 ]);
+db.user.insertMany([
+  {
+    _id: Long(7),
+    uname: "drill7",
+    authenticators: [{
+      name: "Drill Passkey",
+      regat: NumberLong("1700000000000"),
+      fmt: "none",
+      counter: NumberLong("1"),
+      aaguid: "00112233-4455-6677-8899-aabbccddeeff",
+      credentialID: BinData(0, "AQIDBA=="),
+      credentialPublicKey: BinData(0, "BQYHCA=="),
+      credentialDeviceType: "singleDevice",
+      credentialBackedUp: false,
+      userVerified: true,
+      authenticatorAttachment: "platform",
+      transports: ["internal"],
+    }],
+  },
+  { _id: Long(8), uname: "drill8" },
+]);
 JS
 )"
 
@@ -76,6 +103,27 @@ run_migrate() {
     go run ./cmd/migrate "$@" --report "$TMP_DIR/$name.json" >/dev/null
 }
 
+run_webauthn_import() {
+  local name=$1
+  shift
+  echo "==> Running legacy WebAuthn import: $name"
+  MONGO_DATABASE="$DRILL_DATABASE" MONGO_URI="$MONGO_URI" \
+    go run ./cmd/migrate-webauthn --sources=contest2025,select2025 "$@" \
+    --report "$TMP_DIR/webauthn-$name.json" >/dev/null
+}
+
+run_stats_rebuild() {
+  local name=$1
+  shift
+  echo "==> Running statistics rebuild: $name"
+  MONGO_DATABASE="$DRILL_DATABASE" MONGO_URI="$MONGO_URI" \
+    go run ./cmd/recompute-stats --domain=system "$@" \
+    --report "$TMP_DIR/stats-$name.json" >/dev/null
+}
+
+run_webauthn_import dry-run --dry-run
+run_webauthn_import execute --execute
+run_webauthn_import repeat --execute
 run_migrate dry-run --dry-run
 run_migrate execute --execute
 run_migrate repeat --execute
@@ -95,11 +143,29 @@ VERIFY=$(mongo_eval 'print(JSON.stringify({
     const p = db.document.findOne({domainId: "system", docType: 10, docId: Long(2)});
     return p ? { pid: p.pid, legacyPids: p.legacyPids } : null;
   })(),
+  selectProblem: (() => {
+    const p = db.document.findOne({domainId: "system", docType: 10, docId: Long(3)});
+    return p ? { pid: p.pid, legacyDomains: p.legacyDomains } : null;
+  })(),
   mergedUsers: db.getCollection("domain.user").countDocuments({domainId: "system"}),
   mergedUid7: (() => {
     const u = db.getCollection("domain.user").findOne({domainId: "system", uid: Long(7)});
     if (!u) return null;
     return { nSubmit: Number(u.nSubmit), rp: Number(u.rp), level: Number(u.level), legacyDomains: u.legacyDomains };
+  })(),
+  webauthnCredentials: db.webauthn_credentials.countDocuments({uid: Long(7)}),
+  webauthnCredentialName: (() => {
+    const c = db.webauthn_credentials.findOne({uid: Long(7)});
+    return c ? c.name : null;
+  })(),
+  webauthnHandleOK: db.user.countDocuments({_id: Long(7), webauthnId: BinData(0, "Nw==")}),
+  webauthnImportedIDs: (() => {
+    const u = db.user.findOne({_id: Long(7)});
+    return u && u.legacyWebAuthnImported ? u.legacyWebAuthnImported.length : 0;
+  })(),
+  webauthnUid8Handle: (() => {
+    const u = db.user.findOne({_id: Long(8)});
+    return u && u.webauthnId ? 1 : 0;
   })(),
 }))' | tail -1)
 echo "$VERIFY"
@@ -123,10 +189,10 @@ def check(condition, message):
 check(verify["liveDomains"] == 0, f"live domains should be archived, got {verify['liveDomains']}")
 check(verify["archivedDomains"] == 2, f"expected 2 archived domains, got {verify['archivedDomains']}")
 check(verify["residualDocuments"] == 0, f"source documents remain: {verify['residualDocuments']}")
-check(verify["legacyDocuments"] == 2, f"expected 2 documents with legacyDomains, got {verify['legacyDocuments']}")
-check(verify["systemDocuments"] == 3, f"expected 3 system documents, got {verify['systemDocuments']}")
+check(verify["legacyDocuments"] == 3, f"expected 3 documents with legacyDomains, got {verify['legacyDocuments']}")
+check(verify["systemDocuments"] == 4, f"expected 4 system documents, got {verify['systemDocuments']}")
 check(verify["residualRecords"] == 0, f"source records remain: {verify['residualRecords']}")
-check(verify["systemRecords"] == 1, f"expected 1 system record, got {verify['systemRecords']}")
+check(verify["systemRecords"] == 3, f"expected 3 system records, got {verify['systemRecords']}")
 check(verify["residualStorage"] == 0, f"source storage paths remain: {verify['residualStorage']}")
 check(verify["systemStorage"] == 2, f"expected 2 system storage paths, got {verify['systemStorage']}")
 check(verify["mergedUsers"] == 2, f"expected 2 merged domain users, got {verify['mergedUsers']}")
@@ -137,8 +203,23 @@ check(uid7.get("level") == 4, f"uid 7 level should use max 4, got {uid7.get('lev
 contest = verify["contestProblem"] or {}
 check(contest.get("pid") == "P2", f"colliding pid should be renamed to P2, got {contest.get('pid')}")
 check(contest.get("legacyPids") == ["P1"], f"legacyPids should keep P1, got {contest.get('legacyPids')}")
+select_problem = verify["selectProblem"] or {}
+check(select_problem.get("pid") == "P3", f"select problem pid should stay P3, got {select_problem.get('pid')}")
+check(select_problem.get("legacyDomains") == ["select2025"], f"select legacyDomains: {select_problem.get('legacyDomains')}")
 check(len(execute.get("problems_renamed") or []) == 1, f"problems_renamed should have 1 entry, got {execute.get('problems_renamed')}")
 check(sorted(uid7.get("legacyDomains") or []) == ["contest2025", "select2025"], f"uid 7 legacyDomains: {uid7.get('legacyDomains')}")
+check(verify["webauthnCredentials"] == 1, f"expected 1 imported WebAuthn credential, got {verify['webauthnCredentials']}")
+check(verify["webauthnCredentialName"] == "Drill Passkey", f"WebAuthn credential name: {verify['webauthnCredentialName']}")
+check(verify["webauthnHandleOK"] == 1, f"uid 7 should use the legacy decimal handle, got {verify['webauthnHandleOK']}")
+check(verify["webauthnImportedIDs"] == 1, f"uid 7 imported marker count: {verify['webauthnImportedIDs']}")
+check(verify["webauthnUid8Handle"] == 0, "uid 8 should not receive a WebAuthn handle")
+
+wa_dry = json.load(open(f"{tmp_dir}/webauthn-dry-run.json"))
+wa_execute = json.load(open(f"{tmp_dir}/webauthn-execute.json"))
+wa_repeat = json.load(open(f"{tmp_dir}/webauthn-repeat.json"))
+check(wa_dry["ok"] and wa_dry["users"] == 1 and wa_dry["credentials"] == 1 and wa_dry["planned_imports"] == 1, f"WebAuthn dry report: {wa_dry}")
+check(wa_execute["ok"] and wa_execute.get("imported") == 1 and wa_execute.get("users_updated") == 1, f"WebAuthn execute report: {wa_execute}")
+check(wa_repeat["ok"] and wa_repeat.get("imported", 0) == 0 and wa_repeat.get("existing") == 1 and wa_repeat["planned_imports"] == 0, f"WebAuthn repeat report: {wa_repeat}")
 
 check(dry["dry_run"] is True, "dry-run report should set dry_run")
 check(execute["dry_run"] is False, "execute report should not be a dry run")
@@ -156,6 +237,76 @@ if errors:
     sys.exit(1)
 
 print("==> Migration drill passed")
+PY
+
+run_stats_rebuild dry-run --dry-run
+run_stats_rebuild execute --execute
+run_stats_rebuild repeat --execute
+
+echo "==> Verifying rebuilt statistics"
+STATS_VERIFY=$(mongo_eval 'print(JSON.stringify({
+  uid7: (() => {
+    const u = db.getCollection("domain.user").findOne({domainId: "system", uid: Long(7)});
+    return u ? { nSubmit: Number(u.nSubmit || 0), nAccept: Number(u.nAccept || 0), nLiked: Number(u.nLiked || 0), rp: Number(u.rp || 0), level: Number(u.level || 0) } : null;
+  })(),
+  uid8: (() => {
+    const u = db.getCollection("domain.user").findOne({domainId: "system", uid: Long(8)});
+    return u ? { nSubmit: Number(u.nSubmit || 0), nAccept: Number(u.nAccept || 0), nLiked: Number(u.nLiked || 0) } : null;
+  })(),
+  problem2: (() => {
+    const p = db.document.findOne({domainId: "system", docType: 10, docId: Long(2)});
+    return p ? { nSubmit: Number(p.nSubmit || 0), nAccept: Number(p.nAccept || 0), AC: Number(p.stats && p.stats.AC || 0), s100: Number(p.stats && p.stats.s100 || 0) } : null;
+  })(),
+  problem3: (() => {
+    const p = db.document.findOne({domainId: "system", docType: 10, docId: Long(3)});
+    return p ? { nSubmit: Number(p.nSubmit || 0), nAccept: Number(p.nAccept || 0), AC: Number(p.stats && p.stats.AC || 0), WA: Number(p.stats && p.stats.WA || 0), s50: Number(p.stats && p.stats.s50 || 0), s100: Number(p.stats && p.stats.s100 || 0) } : null;
+  })(),
+}))' | tail -1)
+echo "$STATS_VERIFY"
+
+python3 - "$TMP_DIR" "$STATS_VERIFY" <<'PY'
+import json
+import sys
+
+tmp_dir, stats_raw = sys.argv[1], sys.argv[2]
+verify = json.loads(stats_raw)
+errors = []
+
+def check(condition, message):
+    if not condition:
+        errors.append(message)
+
+dry = json.load(open(f"{tmp_dir}/stats-dry-run.json"))
+execute = json.load(open(f"{tmp_dir}/stats-execute.json"))
+repeat = json.load(open(f"{tmp_dir}/stats-repeat.json"))
+
+check(dry["records"] == 3, f"stats dry records: {dry['records']}")
+check(dry["user_stats_matched"] == 2, f"stats dry user_stats_matched: {dry['user_stats_matched']}")
+check(dry["problems_matched"] == 2, f"stats dry problems_matched: {dry['problems_matched']}")
+check(dry.get("problems_missing", 0) == 0 and dry.get("users_missing", 0) == 0, f"stats dry missing targets: {dry}")
+check(dry.get("user_docs_updated", 0) == 0 and dry.get("problem_docs_updated", 0) == 0, f"stats dry mutated data: {dry}")
+check(execute.get("user_docs_updated") == 2, f"stats execute user_docs_updated: {execute.get('user_docs_updated')}")
+check(execute.get("problem_docs_updated") == 2, f"stats execute problem_docs_updated: {execute.get('problem_docs_updated')}")
+check(repeat.get("user_docs_updated", 0) == 0 and repeat.get("problem_docs_updated", 0) == 0, f"stats repeat modified data: {repeat}")
+
+uid7 = verify["uid7"] or {}
+uid8 = verify["uid8"] or {}
+problem2 = verify["problem2"] or {}
+problem3 = verify["problem3"] or {}
+check(uid7.get("nSubmit") == 2 and uid7.get("nAccept") == 1 and uid7.get("nLiked") == 0, f"uid 7 rebuilt stats: {uid7}")
+check(uid7.get("rp") == 1600 and uid7.get("level") == 4, f"uid 7 rating/level changed: {uid7}")
+check(uid8.get("nSubmit") == 1 and uid8.get("nAccept") == 1 and uid8.get("nLiked") == 0, f"uid 8 rebuilt stats: {uid8}")
+check(problem2.get("nSubmit") == 1 and problem2.get("nAccept") == 1 and problem2.get("AC") == 1 and problem2.get("s100") == 1, f"problem 2 stats: {problem2}")
+check(problem3.get("nSubmit") == 2 and problem3.get("nAccept") == 1 and problem3.get("AC") == 1 and problem3.get("WA") == 1, f"problem 3 stats: {problem3}")
+check(problem3.get("s50") == 1 and problem3.get("s100") == 1, f"problem 3 histogram: {problem3}")
+
+if errors:
+    print("\nStatistics drill FAILED:", file=sys.stderr)
+    for error in errors:
+        print(f"  - {error}", file=sys.stderr)
+    sys.exit(1)
+
+print("==> Statistics drill passed")
 PY
 
 echo "==> Checking the docId collision guard"
