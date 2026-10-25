@@ -29,6 +29,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		middleware.BodyLimit(middleware.DefaultBodyLimit),
 		middleware.RateLimit(cfg.LoginRateLimit, cfg.LoginRateWindow,
 			"/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/user/security/password", "/api/v1/user/security/email"),
+		middleware.IPAutoLogin(cfg.OnsiteIPLogin, userRepo, sessions),
 	)
 
 	v1 := router.Group("/api/v1")

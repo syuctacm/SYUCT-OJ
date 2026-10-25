@@ -34,6 +34,7 @@ type Config struct {
 	CountdownTitle  string
 	CountdownMax    int
 	CountdownDates  []CountdownDate
+	OnsiteIPLogin   bool
 }
 
 func Load() Config {
@@ -65,6 +66,7 @@ func Load() Config {
 		CountdownTitle:  env("COUNTDOWN_TITLE", "倒计时"),
 		CountdownMax:    intEnv("COUNTDOWN_MAX", 5),
 		CountdownDates:  countdownDatesEnv("COUNTDOWN_DATES"),
+		OnsiteIPLogin:   boolEnv("ONSITE_IP_LOGIN", false),
 	}
 }
 

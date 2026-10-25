@@ -62,6 +62,7 @@ type Repository struct {
 	documents   *mongo.Collection
 	domainUsers *mongo.Collection
 	tokens      *mongo.Collection
+	ipLogins    *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
@@ -72,6 +73,7 @@ func NewRepository(db *mongo.Database) *Repository {
 		documents:   db.Collection("document"),
 		domainUsers: db.Collection("domain.user"),
 		tokens:      db.Collection("token"),
+		ipLogins:    db.Collection("iplogin"),
 	}
 }
 

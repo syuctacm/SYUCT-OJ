@@ -48,12 +48,34 @@
 
 `manage_user_priv.html` 的 `show_priv` 宏需要 `bitand` 过滤器（`web/src/upstream/render.ts`），PRIV 位值来自 `web/src/upstream/priv.ts`，与 Hydro `packages/common/permission.ts` 保持一致。
 
+## IP 自动登录
+
+线下赛电脑可以按固定 IP 自动登录。默认关闭，必须在可信局域网内显式启用：
+
+```bash
+ONSITE_IP_LOGIN=1
+```
+
+映射存储在 `iplogin` 集合：
+
+```json
+{"_id":"10.0.0.5","uid":123}
+```
+
+管理员接口：
+
+- `GET /api/v1/admin/ip-login`
+- `PUT /api/v1/admin/ip-login/:ip`，请求体 `{"uid": 123}`
+- `DELETE /api/v1/admin/ip-login/:ip`
+
+启用后，没有有效用户 Session 的 `/api/*` 请求会按客户端 IP 自动签发用户 Session；`/api/v1/auth/logout`、`/api/v1/auth/login` 和判题机接口不会被自动登录拦截。生产反向代理必须正确传递真实客户端 IP，并只对可信局域网开放。
+
 ## 用户导入
 
 后台 `/admin/users/import` 渲染上游 `manage_user_import.html`，对应 `POST /api/v1/admin/users/import`：
 
 - 每行一个用户，tab 或逗号分隔：`邮箱, 用户名, 密码, 显示名, 附加JSON`
-- 附加 JSON 支持 `school`、`studentId`、`group`（分组不存在时自动创建）
+- 附加 JSON 支持 `school`、`studentId`、`group`（分组不存在时自动创建）和 `ip`（同时写入 IP 自动登录映射）
 - `draft=true` 只预览并检查重复邮箱/用户名；`draft=false` 真正创建
 - 校验规则与注册一致：邮箱格式、用户名 3-31 字符（或 2 个汉字）、密码 6-255 字符
 
@@ -65,3 +87,4 @@
 - 控制面板其余节点（脚本管理、配置管理）
 - `manage_dashboard` 的 WebSocket 连接检查（`#messages` 目前为空）和「Restart」按钮（未实现，已从 DOM 移除）
 - 修改系统默认权限（默认权限行的 Edit 链接已移除）
+- IP 自动登录的可视化管理页面（目前提供管理 API）

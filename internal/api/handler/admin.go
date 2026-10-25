@@ -35,6 +35,87 @@ func (h *AdminHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/admin/users/import", h.importUsers)
 	router.GET("/api/v1/admin/settings", h.settings)
 	router.PUT("/api/v1/admin/settings", h.updateSettings)
+	router.GET("/api/v1/admin/ip-login", h.listIPLogins)
+	router.PUT("/api/v1/admin/ip-login/:ip", h.setIPLogin)
+	router.DELETE("/api/v1/admin/ip-login/:ip", h.deleteIPLogin)
+}
+
+type adminIPLogin struct {
+	IP       string `json:"ip"`
+	UID      int64  `json:"uid"`
+	Username string `json:"username,omitempty"`
+}
+
+func (h *AdminHandler) listIPLogins(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+	items, err := h.users.ListIPLogins(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list IP logins"})
+		return
+	}
+	uids := make([]int64, 0, len(items))
+	for _, item := range items {
+		uids = append(uids, item.UID)
+	}
+	accounts, err := h.users.FindByIDs(c.Request.Context(), uids)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load IP login users"})
+		return
+	}
+	usernames := make(map[int64]string, len(accounts))
+	for _, account := range accounts {
+		usernames[account.ID] = account.Uname
+	}
+	result := make([]adminIPLogin, 0, len(items))
+	for _, item := range items {
+		result = append(result, adminIPLogin{IP: item.IP, UID: item.UID, Username: usernames[item.UID]})
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"items": result}})
+}
+
+func (h *AdminHandler) setIPLogin(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+	ip := user.NormalizeIP(c.Param("ip"))
+	if ip == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid IP address"})
+		return
+	}
+	var request struct {
+		UID int64 `json:"uid"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || request.UID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "uid is required"})
+		return
+	}
+	if _, err := h.users.FindByID(c.Request.Context(), request.UID); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	if err := h.users.SetIPLogin(c.Request.Context(), ip, request.UID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save IP login"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"ip": ip, "uid": request.UID}})
+}
+
+func (h *AdminHandler) deleteIPLogin(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+	ip := user.NormalizeIP(c.Param("ip"))
+	if ip == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid IP address"})
+		return
+	}
+	if err := h.users.DeleteIPLogin(c.Request.Context(), ip); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to delete IP login"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *AdminHandler) stats(c *gin.Context) {

@@ -28,6 +28,7 @@ type ImportUser struct {
 	School      string
 	StudentID   string
 	Group       string
+	IP          string
 }
 
 // ValidEmail matches Hydro's Types.Email check.
@@ -97,6 +98,10 @@ func ParseImportUsers(raw string) ([]ImportUser, []string) {
 			messages = append(messages, fmt.Sprintf("第 %d 行：密码长度需为 6-255 个字符", index+1))
 			continue
 		}
+		if input.IP != "" && NormalizeIP(input.IP) == "" {
+			messages = append(messages, fmt.Sprintf("第 %d 行：IP 地址无效", index+1))
+			continue
+		}
 		emailKey, nameKey := strings.ToLower(input.Email), strings.ToLower(input.Username)
 		if seenEmail[emailKey] || seenName[nameKey] {
 			messages = append(messages, fmt.Sprintf("第 %d 行：邮箱或用户名在本次导入中重复", index+1))
@@ -139,6 +144,9 @@ func (u *ImportUser) applyExtra(extra string) {
 	if value, ok := data["group"].(string); ok {
 		u.Group = value
 	}
+	if value, ok := data["ip"].(string); ok {
+		u.IP = value
+	}
 }
 
 // ImportUsers creates every parsed account, collecting per-row errors.
@@ -171,6 +179,11 @@ func (r *Repository) ImportUsers(ctx context.Context, users []ImportUser, ip str
 		if input.Group != "" {
 			if err := r.AddGroupMembers(ctx, input.Group, []int64{account.ID}); err != nil {
 				messages = append(messages, fmt.Sprintf("%s：分组写入失败：%v", input.Email, err))
+			}
+		}
+		if input.IP != "" {
+			if err := r.SetIPLogin(ctx, input.IP, account.ID); err != nil {
+				messages = append(messages, fmt.Sprintf("%s：IP 自动登录映射写入失败：%v", input.Email, err))
 			}
 		}
 		uids = append(uids, account.ID)
