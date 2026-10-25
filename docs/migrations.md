@@ -107,6 +107,31 @@ MONGO_URI=... MONGO_DATABASE=syuct_oj_restore \
 
 2026-10-25 本地 Docker 闭环已验证：按 Hydro 的十进制 uid handle 注册 credential，写入模拟的 `user.authenticators`，执行 dry-run/execute 后登出，再用同一 Chromium 虚拟认证器登录成功；重复执行时 `imported=0`、`existing=1`。
 
+### 4.2 题目与用户统计重算
+
+域压平后，使用统计重建工具按记录重新计算 `document.nSubmit` / `nAccept` / `stats`，以及 `domain.user.nSubmit` / `nAccept` / `nLiked`：
+
+```bash
+# 默认 dry-run，只输出将处理的记录、用户和题目数量
+MONGO_URI=... MONGO_DATABASE=syuct_oj \
+  go run ./cmd/recompute-stats --dry-run --report /tmp/stats-dry.json
+
+MONGO_URI=... MONGO_DATABASE=syuct_oj \
+  go run ./cmd/recompute-stats --execute --report /tmp/stats-exec.json
+```
+
+规则与上游 Hydro 的 `problemStat` 保持一致：
+
+- 排除 pretest、generate 和 canceled 记录
+- 用户 `nSubmit` / `nAccept` 按“去重后的题目数”统计
+- 题目 `nAccept` 按“至少有一次 AC 的用户数”统计
+- 重建 AC/WA/TLE/MLE/RE/CE/SE 和 0..100 的分数直方图
+- `nLiked` 来自题解投票；dry-run 不写任何数据，重复执行保持幂等
+
+比赛榜单没有持久化缓存，始终由 `record` 和参赛状态实时计算，因此不需要单独回填榜单；重算完成后抽查比赛记录和榜单即可。
+
+`rp` / `level` 不是从提交记录推导的字段，保留域合并时得到的值，不由本工具重算；如未来调整 rating 规则，应单独执行 rating 重建。
+
 ## 5. URL 兼容
 
 保留旧 URL 到新 URL 的重定向映射，例如：
@@ -169,6 +194,8 @@ go run ./cmd/migrate   --sources=contest2025,select2025   --execute
   - `training/<source>/...` -> `training/system/...`
 - 迁移后校验所有源域集合、用户关系和存储路径残留数量
 - 在报告中输出每个集合的 `matched`、`modified`、`remaining` 和 `validation.residuals`
+
+压平完成后需要单独运行 `cmd/recompute-stats` 重建题目和用户统计，详见 4.2 节。
 
 `storage` 集合里的 `path` 是逻辑路径，物理对象仍由原 `_id`/`link` 引用；本工具不会移动对象存储中的物理文件。
 
