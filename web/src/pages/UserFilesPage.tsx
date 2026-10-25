@@ -45,15 +45,6 @@ export function UserFilesPage() {
       cleanups.push(() => element.removeEventListener(type, listener as EventListener))
     }
 
-    root.querySelectorAll<HTMLInputElement>('input[data-checkbox-toggle]').forEach((input) => {
-      listen(input, 'change', () => {
-        const group = input.getAttribute('data-checkbox-toggle') ?? 'files'
-        root.querySelectorAll<HTMLInputElement>(`input[data-checkbox-group="${group}"]`).forEach((checkbox) => {
-          checkbox.checked = input.checked
-        })
-      })
-    })
-
     root.querySelectorAll<HTMLButtonElement>('[name="upload_file"]').forEach((button) => {
       listen(button, 'click', () => {
         const picker = document.createElement('input')

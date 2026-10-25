@@ -57,15 +57,6 @@ export function ProblemFilesPage() {
     root.querySelectorAll('th.col--operation, td.col--operation').forEach((element) => element.remove())
     root.querySelectorAll('[name="file_rename"], [name="file_remove"]').forEach((element) => element.remove())
 
-    root.querySelectorAll('input[data-checkbox-toggle]').forEach((input) => {
-      listen(input, 'change', () => {
-        const kind = input.getAttribute('data-checkbox-toggle') ?? ''
-        root.querySelectorAll<HTMLInputElement>(`input[data-checkbox-group="${kind}"]`).forEach((checkbox) => {
-          checkbox.checked = (input as HTMLInputElement).checked
-        })
-      })
-    })
-
     root.querySelectorAll<HTMLButtonElement>('[name="upload_file"]').forEach((button) => {
       listen(button, 'click', () => {
         const kind = (button.closest('[data-type]')?.getAttribute('data-type') as AssetKind | null) ?? 'testdata'

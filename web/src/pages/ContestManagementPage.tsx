@@ -201,15 +201,6 @@ export function ContestManagementPage() {
       element.closest('[data-type="private"]') ? 'private' : 'public'
     )
 
-    root.querySelectorAll<HTMLInputElement>('input[data-checkbox-toggle]').forEach((input) => {
-      listen(input, 'change', () => {
-        const group = input.getAttribute('data-checkbox-toggle') ?? 'public'
-        root.querySelectorAll<HTMLInputElement>(`input[data-checkbox-group="${group}"]`).forEach((checkbox) => {
-          checkbox.checked = input.checked
-        })
-      })
-    })
-
     root.querySelectorAll<HTMLElement>('[name="set_score"]').forEach((link) => {
       listen(link, 'click', (event) => {
         event.preventDefault()
