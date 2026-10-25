@@ -1,5 +1,6 @@
 import $ from 'jquery'
 
+import { installHydroMultiSelectCheckboxes } from './checkboxes.ts'
 import { initHydroCollapsibleContent } from './collapsible.ts'
 import { animateSections, notifyHydroPageReady } from './motion.ts'
 import { installHydroForms } from './forms.ts'
@@ -19,6 +20,7 @@ export function installHydroRuntime(main: HTMLElement) {
   if (!installed) {
     installed = true
     installHydroHotkeys()
+    installHydroMultiSelectCheckboxes()
     installHydroOverlays()
     installHydroOmnisearch()
     installHydroForms()

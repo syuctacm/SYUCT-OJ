@@ -202,6 +202,16 @@ Playwright 回归结果：
 - 多次 SPA 路由切换后每个内容仍只有一个 `.collapsible-content__inner`
 - 折叠与展开继续使用上游 0.4s `cubic-bezier(0.4, 0, 0.2, 1)` max-height 动画和渐变遮罩
 
+## 6.7 多选 Checkbox 回归（2026-10-25）
+
+已从 `@hydrooj/ui-default@4.58.5` 直接移植 `components/form/multiSelectCheckbox.page.js` 到 `web/src/upstream/checkboxes.ts`，并在全局 UI runtime 中只安装一次。
+
+- 文件管理、活动文件和比赛管理页面不再各自手写 select-all 逻辑
+- 表头全选和取消全选只作用于同组、可见且未禁用的 checkbox
+- Shift 范围选择与上游一致
+- SPA 路由切换后重新进入文件页，点击一次仍只选中当前项，没有重复监听导致的异常
+- Playwright 在 `/file` 使用 5 个本地文件验证：全选 5 个、取消后 0 个、Shift 从第 1 到第 4 项选中 4 个
+
 ## 7. 当前已知差异
 
 ```text
