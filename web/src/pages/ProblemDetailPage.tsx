@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom'
 import { getProblem, rejudgeProblem, starProblem, type ProblemDetail } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
 import { renderMarkdown } from '../upstream/markdown.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 
@@ -51,9 +52,9 @@ export function ProblemDetailPage() {
         form.addEventListener('submit', onSubmit)
         cleanups.push(() => form.removeEventListener('submit', onSubmit))
       } else if (operation === 'rejudge') {
-        const onSubmit = (event: SubmitEvent) => {
+        const onSubmit = async (event: SubmitEvent) => {
           event.preventDefault()
-          if (!window.confirm('确定重测该题的全部提交吗？')) return
+          if (!(await confirmDialog('确定重测该题的全部提交吗？'))) return
           void rejudgeProblem(pid)
             .then(() => getProblem(pid))
             .then(setProblem)

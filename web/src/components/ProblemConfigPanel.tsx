@@ -1,5 +1,6 @@
 import { normalizeSubtasks, readSubtasksFromFiles } from '../upstream/problemconfig/subtask.ts'
 import { MantineProvider } from '@mantine/core'
+import { hydroMantineTheme } from '../upstream/mantine.ts'
 import * as yaml from 'js-yaml'
 import { useEffect, useRef, useState } from 'react'
 import { Provider } from 'react-redux'
@@ -108,7 +109,7 @@ export function ProblemConfigPanel({ pid, assets, config, onSaved }: Props) {
   }
 
   return (
-    <MantineProvider>
+    <MantineProvider theme={hydroMantineTheme}>
       {error ? <blockquote className="warn"><p>{error}</p></blockquote> : null}
       {saving ? <blockquote className="note"><p>正在保存判题配置...</p></blockquote> : null}
       <Provider store={store}>

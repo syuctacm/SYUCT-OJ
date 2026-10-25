@@ -3,6 +3,7 @@ type HydroUserContext = {
   viewLang: string
   preferredEditorType: string
   codeFontFamily: string
+  skipAnimate?: boolean
 }
 
 declare global {
@@ -15,6 +16,7 @@ export function ensureHydroGlobals(userId = 0, viewLang = 'zh') {
     viewLang,
     preferredEditorType: '',
     codeFontFamily: '"Source Code Pro", "Consolas", monospace',
+    skipAnimate: false,
   }
   globalThis.UserContext._id = userId
   globalThis.UserContext.viewLang = viewLang

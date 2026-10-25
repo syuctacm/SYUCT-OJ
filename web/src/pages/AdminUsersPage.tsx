@@ -32,8 +32,6 @@ export function AdminUsersPage() {
   }, [load])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
-    // Upstream menu.page.js slides every collapsed menu open after load.
-    root.querySelectorAll('.menu.collapsed').forEach((menu) => menu.classList.remove('collapsed'))
     // Changing the system default privilege needs a settings page that this
     // rewrite does not have yet; keep the informational row but drop its link.
     root.querySelector('tr[data-uid="default"] [name="set_priv"]')?.remove()

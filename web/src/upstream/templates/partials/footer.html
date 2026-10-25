@@ -1,0 +1,44 @@
+{# Copied from @hydrooj/ui-default partials/footer.html; unsupported language/theme/legacy controls removed. #}
+<div class="footer">
+  <div class="row"><div class="columns">
+    <div class="row footer__links">
+      <div class="medium-3 large-2 columns footer__category expandable">
+        <h1>{{ _('Status') }}<span class="expand-icon"><span class="icon icon-expand_more"></span></span></h1>
+        <div class="footer__category__expander"><ul class="footer__category__list">
+          <li class="footer__category__item"><a href="{{ url('record_main') }}">{{ _('Judging Queue') }}</a></li>
+        </ul></div>
+      </div>
+      <div class="medium-3 large-2 columns footer__category expandable">
+        <h1>{{ _('Development') }}<span class="expand-icon"><span class="icon icon-expand_more"></span></span></h1>
+        <div class="footer__category__expander"><ul class="footer__category__list">
+          <li class="footer__category__item"><a href="https://github.com/hydro-dev/Hydro" target="_blank">{{ _('Open Source') }}</a></li>
+        </ul></div>
+      </div>
+      <div class="medium-3 large-2 columns footer__category expandable">
+        <h1>{{ _('Support') }}<span class="expand-icon"><span class="icon icon-expand_more"></span></span></h1>
+        <div class="footer__category__expander"><ul class="footer__category__list">
+          <li class="footer__category__item"><a href="{{ url('wiki_help') }}">{{ _('Help') }}</a></li>
+          <li class="footer__category__item"><a href="{{ url('wiki_about', anchor='contact') }}">{{ _('Contact Us') }}</a></li>
+        </ul></div>
+      </div>
+      <div class="medium-3 large-2 columns footer__category expandable end">
+        <h1>{{ _('About') }}<span class="expand-icon"><span class="icon icon-expand_more"></span></span></h1>
+        <div class="footer__category__expander"><ul class="footer__category__list">
+          <li class="footer__category__item"><a href="{{ url('wiki_about') }}">{{ _('About') }}</a></li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="footer__extra-link clearfix">
+      <div class="footer__extra-left">
+        <ol class="clearfix">
+          <li class="footer__extra-link-item">沈阳化工大学 ACM-ICPC 集训队</li>
+        </ol>
+      </div>
+      <div class="footer__extra-right">
+        <ol class="clearfix">
+          <li class="footer__extra-link-item">Powered by <a href="https://hydro.js.org">Hydro v{{ global.Hydro.version.hydrooj }}</a> {{ "Professional" if model.system.get('server.pro') else "Community" }}</li>
+        </ol>
+      </div>
+    </div>
+  </div></div>
+</div>

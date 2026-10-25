@@ -10,8 +10,6 @@ export function AdminPage() {
   const { user } = useAuth()
 
   const handleReady = useCallback((root: HTMLDivElement) => {
-    // Upstream menu.page.js slides every collapsed menu open after load.
-    root.querySelectorAll('.menu.collapsed').forEach((menu) => menu.classList.remove('collapsed'))
     // Restarting the service from the web UI is not ported; drop the toolbar
     // instead of leaving a dead button behind.
     root.querySelectorAll('form').forEach((form) => {

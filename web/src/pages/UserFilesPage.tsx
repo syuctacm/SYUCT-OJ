@@ -9,6 +9,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 
 const PRIV_USER_PROFILE = 1
@@ -81,7 +82,7 @@ export function UserFilesPage() {
           setActionError('请至少选择一个文件。')
           return
         }
-        if (!window.confirm(`确认删除选中的 ${names.length} 个文件？`)) return
+        if (!(await confirmDialog(`确认删除选中的 ${names.length} 个文件？`))) return
         setActionError('')
         try {
           await deleteUserFiles(names)

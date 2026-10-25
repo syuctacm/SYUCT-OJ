@@ -10,6 +10,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 
 export function DiscussionEditPage() {
@@ -66,7 +67,7 @@ export function DiscussionEditPage() {
     event.preventDefault()
     const submitter = event.submitter as HTMLButtonElement | null
     if (submitter?.value === 'delete') {
-      if (!window.confirm('确认删除这个讨论？所有回复也会被删除。')) return
+      if (!(await confirmDialog('确认删除这个讨论？所有回复也会被删除。'))) return
       setSaving(true)
       setError('')
       try {

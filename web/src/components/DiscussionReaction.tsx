@@ -2,6 +2,7 @@
 // (AGPL-3.0). The vendored ui-default theme ships the Mantine stylesheet, so the
 // popover keeps the exact upstream markup and classes.
 import { MantineProvider, Popover } from '@mantine/core'
+import { hydroMantineTheme } from '../upstream/mantine.ts'
 import { useState } from 'react'
 import { clearRendered, renderInto } from '../upstream/roots.ts'
 import { reactToDiscussion, type DiscussionReactionNode } from '../api.ts'
@@ -68,7 +69,7 @@ function ReactionPicker({ did, id, nodeType, listRoot, onError }: PickerProps) {
   }
 
   return (
-    <MantineProvider>
+    <MantineProvider theme={hydroMantineTheme}>
       <Popover opened={trigger || open || focus}>
         <Popover.Target>
           <span

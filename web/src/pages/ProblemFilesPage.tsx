@@ -10,6 +10,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 
 type AssetKind = 'testdata' | 'additional_file'
@@ -94,7 +95,7 @@ export function ProblemFilesPage() {
         const names = Array.from(root.querySelectorAll<HTMLInputElement>(`input[data-checkbox-group="${kind}"]:checked`))
           .map((checkbox) => checkbox.closest('tr')?.getAttribute('data-filename') ?? '')
           .filter(Boolean)
-        if (!names.length || !window.confirm(`确认删除选中的 ${names.length} 个文件？`)) return
+        if (!names.length || !(await confirmDialog(`确认删除选中的 ${names.length} 个文件？`))) return
         setBusy(`delete-${kind}`)
         setError('')
         try {

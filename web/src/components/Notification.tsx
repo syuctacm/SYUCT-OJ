@@ -2,10 +2,11 @@
 // The host is mounted once by Layout; helpers can be called from anywhere.
 import { MantineProvider } from '@mantine/core'
 import { Notifications, notifications } from '@mantine/notifications'
+import { hydroMantineTheme } from '../upstream/mantine.ts'
 
 export function NotificationsHost() {
   return (
-    <MantineProvider>
+    <MantineProvider theme={hydroMantineTheme}>
       <Notifications position="bottom-left" zIndex={99999} />
     </MantineProvider>
   )

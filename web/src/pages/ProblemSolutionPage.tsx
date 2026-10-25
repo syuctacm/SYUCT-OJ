@@ -10,6 +10,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 import { mountClipboard } from '../upstream/clipboard.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
@@ -242,7 +243,7 @@ export function ProblemSolutionPage() {
     return form
   }
 
-  function handleClick(event: Event) {
+  async function handleClick(event: Event) {
     const target = (event.target as HTMLElement).closest<HTMLElement>('[data-op]')
     if (!target) return
     event.preventDefault()
@@ -274,7 +275,7 @@ export function ProblemSolutionPage() {
       const kind = rid ? 'edit_reply' : 'edit_solution'
       mediaBody.insertBefore(buildInlineForm(kind, id, rid, initial), content)
     } else if (operation === 'delete') {
-      if (!window.confirm(rid ? '确定删除这条回复吗？' : '确定删除这篇题解吗？')) return
+      if (!(await confirmDialog(rid ? '确定删除这条回复吗？' : '确定删除这篇题解吗？'))) return
       void run(async () => {
         if (rid) await deleteSolutionReply(pid, id, rid)
         else await deleteProblemSolution(pid, id)
