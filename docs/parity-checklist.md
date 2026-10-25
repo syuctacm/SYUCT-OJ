@@ -191,6 +191,17 @@ Playwright 回归结果：
 
 移动端不播放入场动画与上游样式一致：上游只在 `min-width: 600px` 下启用 `.section` 动画。
 
+## 6.6 题解折叠内容回归（2026-10-25）
+
+已从 `@hydrooj/ui-default@4.58.5` 直接移植 `components/discussion/collapsible.page.tsx` 到 `web/src/upstream/collapsible.ts`，并由全局 UI runtime 在页面和异步内容更新后初始化。
+
+- 源码核对确认上游只对题解与题解回复应用 `collapsible-content`；讨论正文和回复本身没有折叠，因此没有修改模板制造额外差异
+- 长题解从 300px 折叠状态显示“显示更多”，展开后按钮变为“显示更少”
+- 短题解自动标记为 `expanded`，不显示折叠按钮
+- 从带锚点 URL 打开时自动展开目标所在题解并滚动到目标位置
+- 多次 SPA 路由切换后每个内容仍只有一个 `.collapsible-content__inner`
+- 折叠与展开继续使用上游 0.4s `cubic-bezier(0.4, 0, 0.2, 1)` max-height 动画和渐变遮罩
+
 ## 7. 当前已知差异
 
 ```text
