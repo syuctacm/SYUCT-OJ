@@ -107,7 +107,7 @@ go build ./...
 cd web && pnpm build
 ```
 
-当前只包含开发脚手架和健康检查，不包含业务功能，也不连接生产环境。
+当前仓库是 Go + React 单站重构版本，开发和测试均不连接生产环境。
 
 ## 生产部署（准备中，需确认后执行）
 
@@ -123,6 +123,8 @@ cd web && pnpm build
 ```bash
 ./scripts/migration-drill.sh
 ```
+
+演练覆盖域压平、旧 Passkey 导入、重复执行幂等、题目/用户统计重建和题目 ID 冲突保护。
 
 切换、验证与回滚步骤见 [docs/release-runbook.md](./docs/release-runbook.md)。**在用户确认前不要对生产环境执行任何操作。**
 

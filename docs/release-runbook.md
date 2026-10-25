@@ -7,7 +7,7 @@
 
 - 生产全量备份已完成并校验（MongoDB dump + 文件存储）
 - 新版本镜像已构建，且本地回归通过（见 [前端视觉与交互对照清单](./parity-checklist.md)、[首页](./homepage.md) 等文档）
-- 迁移演练通过：`./scripts/migration-drill.sh`
+- 迁移演练通过：`./scripts/migration-drill.sh`（域压平、WebAuthn 导入、统计重建、幂等与冲突保护）
 - 维护窗口、回滚负责人、判题机切换方式已确认
 - `hydrojudge` 的 `server_url` 已准备指向新站点 URL（nginx 转发 `/login`、`/judge/*`、`/d/*/judge/files` 与 WebSocket）
 - 判题机版本已按 [判题沙箱安全评审](./judge-security.md) 确认（`sandbox --version` 不低于 `v1.11.0`，建议 `v1.13.3`）
