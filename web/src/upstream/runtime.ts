@@ -1,5 +1,6 @@
 import $ from 'jquery'
 
+import { initHydroCollapsibleContent } from './collapsible.ts'
 import { animateSections, notifyHydroPageReady } from './motion.ts'
 import { installHydroForms } from './forms.ts'
 import { installHydroHotkeys } from './hotkeys.ts'
@@ -38,6 +39,7 @@ export function installHydroRuntime(main: HTMLElement) {
     }
     running = true
     try {
+      initHydroCollapsibleContent(main)
       initHydroTabs(main)
       initHydroMenus(main)
       await initHydroTables(main)
