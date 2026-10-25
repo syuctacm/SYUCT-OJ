@@ -98,15 +98,24 @@ MONGO_URI=... MONGO_DATABASE=syuct_oj \
 ```
 
 4. 检查报告：`validation.ok == true`、`users_merged` 符合预期、无 residual。
-5. 启动新栈：
+5. 重建题目和用户统计：
+
+```bash
+MONGO_URI=... MONGO_DATABASE=syuct_oj \
+  go run ./cmd/recompute-stats --execute --report /tmp/prod-stats.json
+```
+
+确认 `records`、`problems_matched`、`user_stats_matched` 符合基线，`problems_missing=0`、`users_missing=0`。
+
+6. 启动新栈：
 
 ```bash
 cp .env.prod.example .env.prod   # 填写真实值（不要提交）
 docker compose -f deploy/compose.prod.yaml up -d --build
 ```
 
-6. 前端流量切到 `web` 服务；`hydrojudge` 的 `server_url` 切到**站点 URL**（nginx 已代理 `POST /login`、`/judge/*` 和 `POST /d/*/judge/files`，WebSocket `/judge/conn` 也已转发）。
-7. 执行第 4 节验证清单。
+7. 前端流量切到 `web` 服务；`hydrojudge` 的 `server_url` 切到**站点 URL**（nginx 已代理 `POST /login`、`/judge/*` 和 `POST /d/*/judge/files`，WebSocket `/judge/conn` 也已转发）。
+8. 执行第 4 节验证清单。
 
 ## 4. 验证清单
 
