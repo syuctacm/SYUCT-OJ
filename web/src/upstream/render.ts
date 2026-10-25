@@ -9,6 +9,9 @@ import problemMainTemplate from './templates/problem_main.html?raw'
 import tagStatCategoryTemplate from './templates/partials/category.html?raw'
 import checkinHomeTemplate from './templates/partials/homepage/checkin.html?raw'
 import countdownHomeTemplate from './templates/partials/homepage/countdown.html?raw'
+import navTemplate from './templates/partials/nav.html?raw'
+import headerMobileTemplate from './templates/partials/header_mobile.html?raw'
+import footerTemplate from './templates/partials/footer.html?raw'
 import { size } from './format.ts'
 import { renderMarkdown } from './markdown.ts'
 import { datetimeSpan } from './datetime.ts'
@@ -46,6 +49,9 @@ sources.set('problem_main.html', problemMainTemplate)
 sources.set('partials/category.html', tagStatCategoryTemplate)
 sources.set('partials/homepage/checkin.html', checkinHomeTemplate)
 sources.set('partials/homepage/countdown.html', countdownHomeTemplate)
+sources.set('partials/nav.html', navTemplate)
+sources.set('partials/header_mobile.html', headerMobileTemplate)
+sources.set('partials/footer.html', footerTemplate)
 
 // The app already owns the shared <nav>/<footer> shell. Page templates continue
 // to extend the upstream layout so their block structure stays untouched, but

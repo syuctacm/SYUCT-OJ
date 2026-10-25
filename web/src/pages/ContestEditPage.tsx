@@ -14,6 +14,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { alertDialog } from '../components/dialogs.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 import { legacyMoment } from '../upstream/moment.ts'
 import { renderHydroTemplate } from '../upstream/render.ts'
@@ -133,7 +134,7 @@ export function ContestEditPage({ mode }: { mode: 'create' | 'edit' }) {
           const uploaded = await uploadActivityFiles('contests', tid, Array.from(picker.files!))
           await refreshFiles(root, uploaded)
         } catch (err) {
-          window.alert(err instanceof Error ? err.message : '文件上传失败')
+          await alertDialog(err instanceof Error ? err.message : '文件上传失败')
         }
       }
       picker.click()

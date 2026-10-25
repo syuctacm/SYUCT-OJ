@@ -16,6 +16,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { alertDialog, confirmDialog } from '../components/dialogs.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 import { renderHydroTemplate } from '../upstream/render.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
@@ -121,7 +122,7 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
           const result = await uploadProblemAssets(pid, 'additional', Array.from(picker.files))
           refreshFiles(root, result.additional)
         } catch (err) {
-          window.alert(err instanceof Error ? err.message : '文件上传失败')
+          await alertDialog(err instanceof Error ? err.message : '文件上传失败')
         }
       }
       picker.click()
@@ -206,7 +207,7 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
     event.preventDefault()
     const form = event.target as HTMLFormElement
     if (mode === 'edit' && (event.submitter as HTMLButtonElement | null)?.value === 'delete') {
-      if (!window.confirm('确定删除这道题目吗？相关提交、题解、讨论和文件都会被删除。')) return
+      if (!(await confirmDialog('确定删除这道题目吗？相关提交、题解、讨论和文件都会被删除。'))) return
       setSaving(true)
       setError('')
       try {

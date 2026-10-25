@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../auth.tsx'
 import { Dialog } from '../components/Dialog.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 
@@ -251,7 +252,7 @@ export function ContestManagementPage() {
           setActionError('请至少选择一个文件。')
           return
         }
-        if (!window.confirm(`确认删除选中的 ${names.length} 个文件？`)) return
+        if (!(await confirmDialog(`确认删除选中的 ${names.length} 个文件？`))) return
         setActionError('')
         try {
           await deleteActivityFiles('contests', tid, names, fileType)

@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { confirmDialog } from '../../components/dialogs.tsx'
+
 const translations: Record<string, string> = {
   'Add new subtask': '添加子任务',
   'Add testcase': '添加测试点',
@@ -43,5 +45,5 @@ export function i18n(key: string, ...args: Array<string | number>) {
 }
 
 export function confirm(message: string) {
-  return Promise.resolve(window.confirm(message))
+  return confirmDialog(message)
 }

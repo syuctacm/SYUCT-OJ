@@ -9,6 +9,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
 import { mountDiscussionReactions } from '../components/DiscussionReaction.tsx'
 import { mountDiscussionHistory } from '../components/DiscussionHistory.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
@@ -268,6 +269,7 @@ export function DiscussionDetailPage() {
     form.className = 'dczcomments__box'
     form.method = 'post'
     form.dataset.hotkey = 'ctrl+enter:submit,esc:vjCommentBoxCancel'
+    form.addEventListener('vjCommentBoxCancel', () => closeInlineForm(form))
     form.innerHTML = `
       <div><textarea class="textbox" name="content" data-markdown required></textarea></div>
       <div>
@@ -298,7 +300,7 @@ export function DiscussionDetailPage() {
     return form
   }
 
-  function handleClick(event: Event) {
+  async function handleClick(event: Event) {
     const target = (event.target as HTMLElement).closest<HTMLElement>('[data-op]')
     if (!target) return
     event.preventDefault()
@@ -332,7 +334,7 @@ export function DiscussionDetailPage() {
     } else if (operation === 'delete') {
       const drid = String(data.drid ?? '')
       const drrid = String(data.drrid ?? '')
-      if (!window.confirm('确定删除这条回复吗？')) return
+      if (!(await confirmDialog('确定删除这条回复吗？'))) return
       void run(async () => {
         await deleteDiscussionReply(did, drrid || drid)
         await load()

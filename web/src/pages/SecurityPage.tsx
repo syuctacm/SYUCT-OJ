@@ -11,6 +11,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { Dialog } from '../components/Dialog.tsx'
+import { confirmDialog, promptDialog } from '../components/dialogs.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 
@@ -158,7 +159,7 @@ export function SecurityPage() {
       return
     }
     if (operation === 'disable_tfa') {
-      const current = window.prompt('请输入当前密码以关闭双重验证')
+      const current = await promptDialog('请输入当前密码以关闭双重验证')
       if (!current) return
       try {
         await disableTFA(current)
@@ -179,7 +180,7 @@ export function SecurityPage() {
       return
     }
     if (operation === 'disable_authn') {
-      if (!window.confirm('确定要删除这个 Passkey 吗？')) return
+      if (!(await confirmDialog('确定要删除这个 Passkey 吗？'))) return
       try {
         await deletePasskey(String(data.get('id') ?? ''))
         setNotice('Passkey 已删除')

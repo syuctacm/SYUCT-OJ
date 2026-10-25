@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../auth.tsx'
 import { Dialog } from '../components/Dialog.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
 import { UserSelectAutoComplete } from '../components/autocomplete/UserSelectAutoComplete.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
@@ -66,7 +67,7 @@ export function ContestUserPage() {
     return () => root.removeEventListener('click', onClick)
   }, [])
 
-  function handleClick(event: Event) {
+  async function handleClick(event: Event) {
     const target = (event.target as HTMLElement).closest<HTMLElement>('[name="add_user"], [name="edit_rank"], [name="cancel_registration"], [name="resume_contest"]')
     if (!target) return
     event.preventDefault()
@@ -87,7 +88,7 @@ export function ContestUserPage() {
       void run(() => setContestAttendeeRank(tid, uid, !current?.unrank))
       return
     }
-    if (!window.confirm('确认取消该用户的报名？')) return
+    if (!(await confirmDialog('确认取消该用户的报名？'))) return
     void run(() => cancelContestAttendee(tid, uid))
   }
   clickRef.current = handleClick

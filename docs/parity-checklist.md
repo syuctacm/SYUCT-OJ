@@ -164,6 +164,33 @@ OAuth、onsite-toolkit 剩余线下能力和真实生产备份迁移仍在 #1 / 
 - 移除 Passkey 后列表清空，再次尝试 Passkey 登录返回“该账号没有可用的 Passkey”
 - challenge 跨用户、跨用途和过期校验由 `internal/webauthn/service_test.go` 覆盖
 
+## 6.5 ui-default 全局运行时回归（2026-10-25）
+
+已在本地 Docker MongoDB + Go API + Vite 环境中恢复并验证上游全局运行时。实现位于 `web/src/upstream/`，除路由、鉴权和 Go API 适配外，直接移植 `@hydrooj/ui-default@4.58.5` 的实现和模板，不再手写近似动画。
+
+| 能力 | 来源 | 本地验证 |
+|---|---|---|
+| nav / mobile header / footer | `partials/*.html` | 桌面菜单、移动端侧滑、页脚展开和登出正常 |
+| 页面入场动画 | `hydro.ts` / `slide.ts` | 首屏和 SPA 路由切换后 `.section` 依次进入 `visible`，计算样式最终为 `opacity: 1` |
+| Page Loader / Mantine 主题 | `entry.js` / `mantine.page.tsx` | 加载时显示，初始化后隐藏；通知使用上游主题变量 |
+| Dialog | `DomDialog.ts` / `dialog/index.tsx` | 淡入、缩放、关闭动画正常；确认框返回布尔值 |
+| Tab | `tab/Tab.js` | 用户主页切页、`#tab-N` 和历史记录同步 |
+| Tooltip / Dropdown | `tooltip` / `dropdown` | hover 打开 Tether 浮层，路由切换后不累积 |
+| Sticky / StyledTable | `sticky` / `table` | 侧栏和表头吸顶正常，动态页面只包装一次 |
+| Hotkey / Smooth Scroll / Form | 对应 upstream page | `Ctrl+K` 搜索、锚点滚动、表单 focus 与重复提交保护正常 |
+| 全站搜索 | `omnisearch/index.page.tsx` | `Ctrl+K` 打开，可检索题目与用户 |
+
+Playwright 回归结果：
+
+- 管理员身份逐页加载 57 条路由、匿名身份加载 19 条核心路由，未出现 `Template render error`、HTTP 500 或 React 运行时异常
+- 桌面 1280px：11 个首页 `.section` 全部完成入场动画，Page Loader 已隐藏
+- 移动 390px：侧滑面板位移 `-200px`、overlay 与 hamburger 状态同步；点击 overlay 可关闭；页脚分类可展开
+- SPA 导航、Tooltip/Dropdown 生命周期和 Sticky 清理正常，`#menu .nav_more` 与全站搜索入口始终各只有 1 个
+- 题库、记录、榜单和训练页的 `.data-table` 均只生成一个 `.section__table-container`，没有重复嵌套
+- 唯一预期控制台请求错误是未登录时 `GET /api/v1/auth/me` 返回 401
+
+移动端不播放入场动画与上游样式一致：上游只在 `min-width: 600px` 下启用 `.section` 动画。
+
 ## 7. 当前已知差异
 
 ```text

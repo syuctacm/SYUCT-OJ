@@ -9,6 +9,7 @@ import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { mountClipboard } from '../upstream/clipboard.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
+import { initHydroTabs } from '../upstream/tabs.ts'
 
 const USER_PERMS = {
   PERM_VIEW_USER_PRIVATE_INFO: 1,
@@ -120,6 +121,7 @@ export function UserProfilePage() {
     tabs.appendChild(item)
     const mount = item.querySelector('.section__body') as HTMLElement
     renderInto(mount, <ActivityCalendar uid={Number(uid)} />)
+    initHydroTabs(root)
     cleanups.push(() => {
       clearRendered(mount)
       item.remove()

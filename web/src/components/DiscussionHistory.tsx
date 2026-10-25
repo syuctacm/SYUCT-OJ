@@ -2,6 +2,7 @@
 // (AGPL-3.0). The revision list keeps the upstream menu markup and the revision
 // body is rendered with the same markdown pipeline as the page itself.
 import { MantineProvider, Popover } from '@mantine/core'
+import { hydroMantineTheme } from '../upstream/mantine.ts'
 import { useState } from 'react'
 import { clearRendered, renderInto } from '../upstream/roots.ts'
 import { getDiscussionHistory, getDiscussionRevision, type DiscussionHistoryEntry } from '../api.ts'
@@ -52,7 +53,7 @@ function History({ payload }: { payload: string }) {
 
   return (
     <>
-      <MantineProvider>
+      <MantineProvider theme={hydroMantineTheme}>
         <Popover opened={opened} onChange={setOpened} onOpen={load}>
           <Popover.Target>
             <span

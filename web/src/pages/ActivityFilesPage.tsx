@@ -12,6 +12,7 @@ import {
 import { avatarUrl } from '../upstream/avatar.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
 
 type Kind = 'homework' | 'training'
@@ -143,7 +144,7 @@ export function ActivityFilesPage({ kind }: { kind: Kind }) {
           setActionError('请至少选择一个文件。')
           return
         }
-        if (!window.confirm(`确认删除选中的 ${names.length} 个文件？`)) return
+        if (!(await confirmDialog(`确认删除选中的 ${names.length} 个文件？`))) return
         setActionError('')
         try {
           await deleteActivityFiles(page.resource, tid, names)

@@ -41,6 +41,15 @@ importers:
       flatpickr:
         specifier: ^4.6.13
         version: 4.6.13
+      jquery:
+        specifier: 3.7.1
+        version: 3.7.1
+      jquery.easing:
+        specifier: 1.4.1
+        version: 1.4.1
+      jquery.transit:
+        specifier: 0.9.12
+        version: 0.9.12(jquery@3.7.1)
       js-yaml:
         specifier: 4.1.0
         version: 4.1.0
@@ -110,6 +119,15 @@ importers:
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
+      sticky-kit:
+        specifier: 1.1.3
+        version: 1.1.3
+      tether:
+        specifier: 1.4.7
+        version: 1.4.7
+      tether-drop:
+        specifier: 1.4.2
+        version: 1.4.2
       uuid:
         specifier: ^14.0.3
         version: 14.0.3
@@ -117,6 +135,12 @@ importers:
         specifier: ^1.0.15
         version: 1.0.15
     devDependencies:
+      '@types/jquery':
+        specifier: 3.5.34
+        version: 3.5.34
+      '@types/jquery.transit':
+        specifier: 0.9.33
+        version: 0.9.33
       '@types/js-yaml':
         specifier: 4.0.9
         version: 4.0.9
@@ -650,6 +674,12 @@ packages:
   '@types/hast@3.0.5':
     resolution: {integrity: sha512-rp/ezSWaD1m44dPKICGhiskI13nVr7qTloFwDa/IYkhhf5nzwP+zIQcIJh3WIFSBOy/H1PzB40jPjMDksN4F+g==}
 
+  '@types/jquery.transit@0.9.33':
+    resolution: {integrity: sha512-gEDi1Lw7qfHFxtcnm2dg0F3Z5yG+84Sn0gDpGbd+u+r2RxsCcdQzfUmFKzHGBjWflZ9CXOZiAkenKOSvwLITrg==}
+
+  '@types/jquery@3.5.34':
+    resolution: {integrity: sha512-3m3939S3erqmTLJANS/uy0B6V7BorKx7RorcGZVjZ62dF5PAGbKEDZK1CuLtKombJkFA2T1jl8LAIIs7IV6gBQ==}
+
   '@types/js-yaml@4.0.9':
     resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
 
@@ -690,6 +720,9 @@ packages:
 
   '@types/react@19.3.0':
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
+
+  '@types/sizzle@2.3.10':
+    resolution: {integrity: sha512-TC0dmN0K8YcWEAEfiPi5gJP14eJe30TTGjkvek3iM/1NdHHsdCA/Td6GvNndMOo/iSnIsZ4HuuhrYPDAmbxzww==}
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
@@ -1114,6 +1147,17 @@ packages:
   is-plain-obj@4.1.0:
     resolution: {integrity: sha512-+Pgi+vMuUNkJyExiMBt5IlFoMyKnr5zhJ4Uspz58WOhBF5QoIZkFyNHIbBAtHwzVAgk5RtndVNsDRN61/mmDqg==}
     engines: {node: '>=12'}
+
+  jquery.easing@1.4.1:
+    resolution: {integrity: sha512-BVpRacWCbNfo/ALWxnLkIY/WRa4Ydg/LtwzIJZvDm7vrhV8Txv+ACi6EGnU11zT19sTc3KEPathWx6CtjWLD1w==}
+
+  jquery.transit@0.9.12:
+    resolution: {integrity: sha512-wn2kHOZWBOJOc8ozEPvBPTNF6tCJTAQfRFLfm0H2p3cM7pdbzkKZYGzqmGeYka7yLmQ27ckiddyVzq+/jfbwcA==}
+    peerDependencies:
+      jquery: '*'
+
+  jquery@3.7.1:
+    resolution: {integrity: sha512-m4avr8yL8kmFN8psrbFFFmB/If14iN5o9nw/NgnnM+kybDJpRsAynV2BsfpTYrTRysYUdADVD7CkUUizgkpLfg==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -1733,6 +1777,9 @@ packages:
   space-separated-tokens@2.0.2:
     resolution: {integrity: sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q==}
 
+  sticky-kit@1.1.3:
+    resolution: {integrity: sha512-3TTTqSvKP/wfgXuEY444fwN5w1jsN35PIh1yIg2/1vCNmKJh+PRAXUhvSnZqjddOq86WtpL9slNm+BcEXBrteA==}
+
   streamsaver@2.0.6:
     resolution: {integrity: sha512-LK4e7TfCV8HzuM0PKXuVUfKyCB1FtT9L0EGxsFk5Up8njj0bXK8pJM9+Wq2Nya7/jslmCQwRK39LFm55h7NBTw==}
 
@@ -1764,6 +1811,12 @@ packages:
   tagged-tag@1.0.0:
     resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
     engines: {node: '>=20'}
+
+  tether-drop@1.4.2:
+    resolution: {integrity: sha512-qDxl70AY8xy0dsx+2QOuFxDpE3PbyzukF3LiOwv8IKnSD4lDMW0GohV/P9v+uy6L99/NSjCWNEel3xPPyUxzKQ==}
+
+  tether@1.4.7:
+    resolution: {integrity: sha512-Z0J1aExjoFU8pybVkQAo/vD2wfSO63r+XOPfWQMC5qtf1bI7IWqNk4MiyBcgvvnY8kqnY06dVdvwTK2S3PU/Fw==}
 
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
@@ -2550,6 +2603,14 @@ snapshots:
     dependencies:
       '@types/unist': 3.0.3
 
+  '@types/jquery.transit@0.9.33':
+    dependencies:
+      '@types/jquery': 3.5.34
+
+  '@types/jquery@3.5.34':
+    dependencies:
+      '@types/sizzle': 2.3.10
+
   '@types/js-yaml@4.0.9': {}
 
   '@types/json-schema@7.0.15': {}
@@ -2586,6 +2647,8 @@ snapshots:
   '@types/react@19.3.0':
     dependencies:
       csstype: 3.2.3
+
+  '@types/sizzle@2.3.10': {}
 
   '@types/trusted-types@2.0.7':
     optional: true
@@ -2935,6 +2998,14 @@ snapshots:
   is-hexadecimal@2.0.1: {}
 
   is-plain-obj@4.1.0: {}
+
+  jquery.easing@1.4.1: {}
+
+  jquery.transit@0.9.12(jquery@3.7.1):
+    dependencies:
+      jquery: 3.7.1
+
+  jquery@3.7.1: {}
 
   js-tokens@4.0.0: {}
 
@@ -3792,6 +3863,8 @@ snapshots:
 
   space-separated-tokens@2.0.2: {}
 
+  sticky-kit@1.1.3: {}
+
   streamsaver@2.0.6: {}
 
   stringify-entities@4.0.4:
@@ -3816,6 +3889,12 @@ snapshots:
   tabbable@6.5.0: {}
 
   tagged-tag@1.0.0: {}
+
+  tether-drop@1.4.2:
+    dependencies:
+      tether: 1.4.7
+
+  tether@1.4.7: {}
 
   tinyglobby@0.2.17:
     dependencies:

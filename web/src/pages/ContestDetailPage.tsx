@@ -8,6 +8,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { promptDialog } from '../components/dialogs.tsx'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 
@@ -184,7 +185,7 @@ export function ContestDetailPage() {
     if (operation !== 'attend') return
     let code = ''
     if (form.querySelector('[data-contest-code]')) {
-      const input = window.prompt('邀请码：')
+      const input = await promptDialog('邀请码：')
       if (input === null) return
       code = input.trim()
       if (!code) return
