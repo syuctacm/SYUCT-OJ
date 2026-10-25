@@ -1,3 +1,10 @@
+import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+} from '@simplewebauthn/browser'
+
 export type User = {
   id: number
   username: string
@@ -377,6 +384,65 @@ export async function login(username: string, password: string, tfa = ''): Promi
 
 export async function logout(): Promise<void> {
   await request<void>('/api/v1/auth/logout', { method: 'POST' })
+}
+
+export type WebAuthnLoginOptions = {
+  options: { publicKey: PublicKeyCredentialRequestOptionsJSON }
+  token: string
+}
+
+export async function beginWebAuthnLogin(username: string): Promise<WebAuthnLoginOptions> {
+  return request<WebAuthnLoginOptions>('/api/v1/auth/webauthn/login/begin', {
+    method: 'POST',
+    body: JSON.stringify({ username }),
+  })
+}
+
+export async function finishWebAuthnLogin(token: string, credential: AuthenticationResponseJSON): Promise<User> {
+  const result = await request<LoginResponse>('/api/v1/auth/webauthn/login/finish', {
+    method: 'POST',
+    body: JSON.stringify({ token, credential }),
+  })
+  return result.user
+}
+
+export type Passkey = {
+  id: string
+  name: string
+  createdAt: string
+  attachment?: string
+  deviceType?: string
+  format?: string
+}
+
+export type WebAuthnRegistrationOptions = {
+  options: { publicKey: PublicKeyCredentialCreationOptionsJSON }
+  token: string
+}
+
+export async function beginPasskeyRegistration(): Promise<WebAuthnRegistrationOptions> {
+  return request<WebAuthnRegistrationOptions>('/api/v1/user/security/webauthn/register/begin', { method: 'POST' })
+}
+
+export async function finishPasskeyRegistration(
+  token: string,
+  name: string,
+  credential: RegistrationResponseJSON,
+): Promise<Passkey> {
+  const result = await request<Envelope<Passkey>>('/api/v1/user/security/webauthn/register/finish', {
+    method: 'POST',
+    body: JSON.stringify({ token, name, credential }),
+  })
+  return result.data
+}
+
+export async function getPasskeys(): Promise<Passkey[]> {
+  const result = await request<Envelope<{ items: Passkey[] }>>('/api/v1/user/security/webauthn')
+  return result.data.items
+}
+
+export async function deletePasskey(id: string): Promise<void> {
+  await request<void>(`/api/v1/user/security/webauthn/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 export type ProblemPage = {

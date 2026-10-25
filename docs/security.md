@@ -11,6 +11,10 @@
 | POST | `/api/v1/user/security/tfa/setup` | 生成 TOTP secret、otpauth URI 和二维码 |
 | POST | `/api/v1/user/security/tfa/enable` | 校验 6 位验证码并启用 2FA |
 | POST | `/api/v1/user/security/tfa/disable` | 校验当前密码并关闭 2FA |
+| POST | `/api/v1/user/security/webauthn/register/begin` | 生成 Passkey 注册 challenge |
+| POST | `/api/v1/user/security/webauthn/register/finish` | 校验注册结果并保存 Passkey |
+| GET | `/api/v1/user/security/webauthn` | 当前用户的 Passkey 列表 |
+| DELETE | `/api/v1/user/security/webauthn/:id` | 删除当前用户的一个 Passkey |
 | POST | `/api/v1/user/security/email` | 校验当前密码并创建邮箱变更 token / 发送确认邮件 |
 | POST | `/api/v1/user/security/email/confirm` | 使用 token 确认新邮箱 |
 
@@ -34,18 +38,24 @@
 
 - **修改密码**：校验当前密码、两次新密码一致；成功后注销该用户全部会话并跳转登录页（与上游一致）
 - **关联账户**：显示当前邮箱并支持修改；要求当前密码，新邮箱通过一次性 token 确认
-- **认证器**：支持 TOTP 两步验证；设置页显示二维码和 Base32 密钥，验证 6 位动态码后启用，关闭时需要当前密码
+- **认证器**：点击“添加认证器”可选择 TOTP 或 Passkey；TOTP 显示二维码和 Base32 密钥，Passkey 使用浏览器认证器完成注册。两类认证器都在上游 `home_security.html` 的 `autherlist` 区块中展示，并可按账号删除
 - **活动会话**：最后活动时间、IP、由 UA 解析出的操作系统与浏览器、当前会话标记；可单独退出其它会话，或退出全部会话
 
 邮箱变更 token 默认 24 小时有效，只能由发起变更的 uid 使用。配置 `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_FROM` 后通过 SMTP 发送确认链接；未配置 SMTP 时本地模式会直接返回确认链接，便于本地 Docker 验证。
 
 TOTP 使用 SHA-1、6 位、30 秒时间片，并允许前后各一个时间片；secret 只保存在用户文档的 `tfa` 字段，`auth/me` 只返回布尔状态。
 
+Passkey 使用稳定的 32 字节 `webauthnId` 作为 WebAuthn user handle。数据库集合：
+
+- `webauthn_credentials`：按 credential ID 保存公钥、计数器、传输方式、名称和注册时间
+- `webauthn_challenges`：保存 5 分钟有效的一次性注册/登录 challenge，并建立 TTL 索引
+
+注册需要已登录 Session；删除接口按 `uid` 和 credential ID 双重过滤，不能删除其它账号的 Passkey。生产配置 `WEBAUTHN_RPID` / `WEBAUTHN_ORIGINS` 必须对应当前 HTTPS 站点。
+
 UA 解析是本地的小函数（Chrome/Firefox/Safari/Edge/Opera + Windows/macOS/Linux/Android/iOS），没有引入 ua-parser-js。
 
 ## 尚未迁移
 
-- WebAuthn / Passkey 认证器
 - 第三方账号绑定（OAuth）
 
 以上区块会在页面上移除，不会出现无法使用的控件。

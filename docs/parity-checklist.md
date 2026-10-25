@@ -109,6 +109,7 @@
 | 邮箱修改与确认链接 | #253 |
 | 用户主页标签页 / 活跃日历 | #133 |
 | 首页各区块 | #135 |
+| 安全设置 Passkey 注册 / 登录 / 删除 | #260 |
 
 ## 6.1 全站冒烟清单（2026-10-21）
 
@@ -151,7 +152,17 @@
 
 回归覆盖首页、题库/题目/题解/统计/文件、比赛/榜单/答疑/打印/气球、作业、训练、讨论、记录、用户中心、安全设置、后台、标签榜单以及签到/倒计时首页区块。核心视觉结构来自上游 `@hydrooj/ui-default` 原模板和原插件模板；交互回归已在对应 PR 中逐项记录。
 
-高级认证（WebAuthn / Passkey / OAuth）、onsite-toolkit 剩余线下能力和真实生产备份迁移仍在 #1 / #4 跟踪，不再阻塞 #6 的核心页面视觉验收。
+OAuth、onsite-toolkit 剩余线下能力和真实生产备份迁移仍在 #1 / #4 跟踪，不再阻塞 #6 的核心页面视觉验收。
+
+## 6.4 WebAuthn / Passkey 回归（2026-10-25）
+
+在本地 Docker MongoDB + Go API + Vite（`http://localhost:5174`，RPID `localhost`）下，用 Chromium CDP 虚拟认证器完成真实闭环：
+
+- 密码登录后在 `/home/security` 选择 Passkey，注册并显示在上游 `autherlist` 模板中
+- 登出后在 `/login` 输入用户名并使用 Passkey 登录，成功建立 Session 并返回首页
+- “添加认证器”仍可选择 TOTP，二维码设置流程正常打开
+- 移除 Passkey 后列表清空，再次尝试 Passkey 登录返回“该账号没有可用的 Passkey”
+- challenge 跨用户、跨用途和过期校验由 `internal/webauthn/service_test.go` 覆盖
 
 ## 7. 当前已知差异
 
@@ -169,7 +180,7 @@
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
-| `/home/security` 的 Passkey / OAuth 部分 | 未迁移 | 修改密码、邮箱修改、TOTP 两步验证和活动会话已实现；WebAuthn 与第三方登录尚未迁移 |
+| `/home/security` 的 OAuth 部分 | 未迁移 | 第三方账号绑定尚未迁移；Passkey、TOTP、密码、邮箱和活动会话已实现 |
 | onsite-toolkit | 部分迁移 | 打印站、气球页、IP 自动登录和批量导入映射已实现；线下赛模式、CDP 导出未迁移 |
 | a11y | 无需迁移 | 上游 `a11y` 包是安装器辅助脚本（自动设置超管、nexus 布局迁移），与无障碍功能无关 |
 

@@ -26,6 +26,7 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/submission"
 	"github.com/syuctacm/syuct-oj/internal/training"
 	"github.com/syuctacm/syuct-oj/internal/user"
+	"github.com/syuctacm/syuct-oj/internal/webauthn"
 )
 
 func main() {
@@ -60,6 +61,15 @@ func main() {
 	judgeHandler := judge.NewHandler(cfg.JudgeUsername, cfg.JudgePassword, sessions, judgeStore, hub)
 	userRepo := user.NewRepository(db)
 	authHandler := auth.NewHandler(userRepo, sessions)
+	webauthnService, err := webauthn.New(ctx, db, userRepo, webauthn.Config{
+		RPID:          cfg.WebAuthnRPID,
+		RPDisplayName: cfg.WebAuthnName,
+		RPOrigins:     cfg.WebAuthnOrigins,
+	})
+	if err != nil {
+		slog.Error("unable to initialize WebAuthn", "error", err)
+		os.Exit(1)
+	}
 	problemRepo := problem.NewRepository(db)
 	contestRepo := contest.NewRepository(db)
 	trainingRepo := training.NewRepository(db)
@@ -80,9 +90,11 @@ func main() {
 	})
 	go pump.Run(context.Background())
 
+	router := api.NewRouter(cfg, db, judgeHandler, authHandler, problemRepo, submissionHandler, contestRepo, trainingRepo, discussionRepo, userRepo, adminHandler, sessions)
+	handler.NewWebAuthnHandler(webauthnService, userRepo, sessions).RegisterRoutes(router.Group("/"))
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           api.NewRouter(cfg, db, judgeHandler, authHandler, problemRepo, submissionHandler, contestRepo, trainingRepo, discussionRepo, userRepo, adminHandler, sessions),
+		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

@@ -109,5 +109,5 @@ func (h *Handler) registerComplete(c *gin.Context) {
 		return
 	}
 	SetSessionCookie(c, token, h.sessions.TTL())
-	c.JSON(http.StatusCreated, gin.H{"user": publicUser(account)})
+	c.JSON(http.StatusCreated, gin.H{"user": PublicUser(account)})
 }

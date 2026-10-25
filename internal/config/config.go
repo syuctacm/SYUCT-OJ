@@ -35,6 +35,9 @@ type Config struct {
 	CountdownMax    int
 	CountdownDates  []CountdownDate
 	OnsiteIPLogin   bool
+	WebAuthnRPID    string
+	WebAuthnOrigins []string
+	WebAuthnName    string
 }
 
 func Load() Config {
@@ -67,7 +70,25 @@ func Load() Config {
 		CountdownMax:    intEnv("COUNTDOWN_MAX", 5),
 		CountdownDates:  countdownDatesEnv("COUNTDOWN_DATES"),
 		OnsiteIPLogin:   boolEnv("ONSITE_IP_LOGIN", false),
+		WebAuthnRPID:    env("WEBAUTHN_RPID", "localhost"),
+		WebAuthnOrigins: splitEnv("WEBAUTHN_ORIGINS", "http://localhost:5173,http://localhost:5174"),
+		WebAuthnName:    env("WEBAUTHN_DISPLAY_NAME", "SYUCT OJ"),
 	}
+}
+
+func splitEnv(key, fallback string) []string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		value = fallback
+	}
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
 }
 
 func countdownDatesEnv(key string) []CountdownDate {

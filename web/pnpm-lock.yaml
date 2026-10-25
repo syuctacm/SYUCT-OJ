@@ -17,6 +17,9 @@ importers:
       '@mantine/notifications':
         specifier: 9.5.2
         version: 9.5.2(@mantine/core@9.5.2(@mantine/hooks@9.5.2(react@19.3.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@mantine/hooks@9.5.2(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@simplewebauthn/browser':
+        specifier: 13.2.2
+        version: 13.2.2
       '@vavt/cm-extension':
         specifier: 2.0.0
         version: 2.0.0(md-editor-rt@7.1.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))
@@ -628,6 +631,9 @@ packages:
     resolution: {integrity: sha512-oELmoyA6ML9jDRMV3kgcMQFKxUfBU0yFVn6yTctVaLT5ygXnxH52I3TZEgV9EhXJC68/uFvE5Daj1/25c0Xa/A==}
     peerDependencies:
       selderee: ~0.12.0
+
+  '@simplewebauthn/browser@13.2.2':
+    resolution: {integrity: sha512-FNW1oLQpTJyqG5kkDg5ZsotvWgmBaC6jCHR7Ej0qUNep36Wl9tj2eZu7J5rP+uhXgHaLk+QQ3lqcw2vS5MX1IA==}
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -2525,6 +2531,8 @@ snapshots:
       domelementtype: 2.3.0
       domhandler: 5.0.3
       selderee: 0.12.0
+
+  '@simplewebauthn/browser@13.2.2': {}
 
   '@standard-schema/spec@1.1.0': {}
 

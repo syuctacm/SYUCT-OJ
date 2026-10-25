@@ -45,6 +45,7 @@ type User struct {
 	CheckinLuck     int64           `bson:"checkin_luck,omitempty" json:"-"`
 	CheckinCountNow int64           `bson:"checkin_cnt_now,omitempty" json:"-"`
 	CheckinCountAll int64           `bson:"checkin_cnt_all,omitempty" json:"-"`
+	WebAuthnID      []byte          `bson:"webauthnId,omitempty" json:"-"`
 	Files           []filemeta.File `bson:"_files,omitempty" json:"-"`
 }
 
