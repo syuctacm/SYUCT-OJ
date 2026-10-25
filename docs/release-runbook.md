@@ -134,6 +134,7 @@ BASE_URL=https://oj.example.com scripts/prod-stack-smoke.sh
 切换前逐项确认：
 
 - [ ] 站点通过 HTTPS 提供服务，并设置 `COOKIE_SECURE=1`（否则 Cookie 缺少 `Secure`）
+- [ ] `WEBAUTHN_RPID` 是站点主机名（不含协议和端口），`WEBAUTHN_ORIGINS` 是完整 HTTPS Origin；上线后不要修改 RPID
 - [ ] 反向代理传递 `X-Forwarded-For` / `X-Forwarded-Proto`（`deploy/nginx.conf` 已配置）
 - [ ] 登录与改密接口限流生效：默认 `LOGIN_RATE_LIMIT=10` / `LOGIN_RATE_WINDOW=1m`，超出返回 `429` + `Retry-After`
 - [ ] API 响应带 `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`

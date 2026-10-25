@@ -83,7 +83,7 @@ func (h *Handler) login(c *gin.Context) {
 	if err := h.users.RecordLogin(c.Request.Context(), u.ID, c.ClientIP()); err != nil {
 		slog.Warn("unable to update login audit fields", "uid", u.ID, "error", err)
 	}
-	c.JSON(http.StatusOK, gin.H{"user": publicUser(u)})
+	c.JSON(http.StatusOK, gin.H{"user": PublicUser(u)})
 }
 
 func (h *Handler) me(c *gin.Context) {
@@ -98,7 +98,7 @@ func (h *Handler) me(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": publicUser(u)})
+	c.JSON(http.StatusOK, gin.H{"user": PublicUser(u)})
 }
 
 func (h *Handler) logout(c *gin.Context) {
@@ -121,7 +121,8 @@ func Token(c *gin.Context) string {
 	return ""
 }
 
-func publicUser(u *user.User) gin.H {
+// PublicUser is the safe user payload shared by password and WebAuthn login.
+func PublicUser(u *user.User) gin.H {
 	return gin.H{
 		"id":              u.ID,
 		"username":        u.Uname,

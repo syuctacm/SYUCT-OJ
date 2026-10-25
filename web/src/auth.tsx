@@ -1,11 +1,15 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { getMe, login as loginRequest, logout as logoutRequest, type User } from './api.ts'
+import { startAuthentication } from '@simplewebauthn/browser'
+import {
+  beginWebAuthnLogin, finishWebAuthnLogin, getMe, login as loginRequest, logout as logoutRequest, type User,
+} from './api.ts'
 import { ensureHydroGlobals } from './upstream/hydro-globals.ts'
 
 type AuthContextValue = {
   user: User | null
   loading: boolean
   login: (username: string, password: string, tfa?: string) => Promise<User>
+  passkeyLogin: (username: string) => Promise<User>
   logout: () => Promise<void>
   refresh: () => Promise<User | null>
 }
@@ -33,6 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return nextUser
   }
 
+  async function passkeyLogin(username: string) {
+    const begin = await beginWebAuthnLogin(username)
+    const credential = await startAuthentication({ optionsJSON: begin.options.publicKey })
+    const nextUser = await finishWebAuthnLogin(begin.token, credential)
+    ensureHydroGlobals(nextUser.id)
+    setUser(nextUser)
+    return nextUser
+  }
+
   async function logout() {
     await logoutRequest()
     setUser(null)
@@ -50,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  return <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, login, passkeyLogin, logout, refresh }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

@@ -1,11 +1,13 @@
 // Page markup is rendered from the pinned Hydro ui-default template
-// (home_security.html). Password, TOTP authenticator and active-session
+// (home_security.html). Password, TOTP/Passkey authenticators and active-session
 // sections are wired; email and OAuth remain outside the current scope.
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { startRegistration } from '@simplewebauthn/browser'
 import { useNavigate } from 'react-router-dom'
 import {
-  changePassword, disableTFA, enableTFA, getSecuritySessions, requestEmailChange, revokeAllSecuritySessions, revokeSecuritySession,
-  setupTFA, type SecuritySession, type TFASetup,
+  beginPasskeyRegistration, changePassword, deletePasskey, disableTFA, enableTFA, finishPasskeyRegistration,
+  getPasskeys, getSecuritySessions, requestEmailChange, revokeAllSecuritySessions, revokeSecuritySession,
+  setupTFA, type Passkey, type SecuritySession, type TFASetup,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { Dialog } from '../components/Dialog.tsx'
@@ -42,9 +44,17 @@ export function SecurityPage() {
   const { user, loading, refresh } = useAuth()
   const navigate = useNavigate()
   const [sessions, setSessions] = useState<SecuritySession[]>([])
+  const [authenticators, setAuthenticators] = useState<Passkey[]>([])
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  const [authChoiceOpen, setAuthChoiceOpen] = useState(false)
+  const [authChoice, setAuthChoice] = useState<'tfa' | 'passkey'>('tfa')
+  const [passkeyNameOpen, setPasskeyNameOpen] = useState(false)
+  const [passkeyName, setPasskeyName] = useState('Passkey')
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
+  const passkeyBusyRef = useRef(false)
+  const [passkeyError, setPasskeyError] = useState('')
   const [tfaSetup, setTfaSetup] = useState<TFASetup | null>(null)
   const [tfaCode, setTfaCode] = useState('')
   const [tfaError, setTfaError] = useState('')
@@ -56,7 +66,8 @@ export function SecurityPage() {
   const [mailBusy, setMailBusy] = useState(false)
   const [mailLink, setMailLink] = useState('')
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
-  const tfaSetupRef = useRef<() => void>(() => {})
+  const authSetupRef = useRef<() => void>(() => {})
+  const passkeySupported = typeof window !== 'undefined' && window.isSecureContext && 'PublicKeyCredential' in window
 
   useEffect(() => {
     if (!loading && !user) navigate('/login')
@@ -67,6 +78,9 @@ export function SecurityPage() {
     getSecuritySessions()
       .then(setSessions)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '会话加载失败'))
+    getPasskeys()
+      .then(setAuthenticators)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Passkey 加载失败'))
   }, [reloadKey, user])
 
   const context = useCallback(() => ({
@@ -83,7 +97,16 @@ export function SecurityPage() {
     sudoUid: null,
     relations: [],
     loginMethods: [],
-    authenticators: [],
+    authenticators: authenticators.map((authenticator) => ({
+      name: authenticator.name,
+      authenticatorAttachment: authenticator.attachment === 'platform' ? 'platform' : 'cross-platform',
+      credentialDeviceType: authenticator.deviceType || 'singleDevice',
+      fmt: authenticator.format || 'none',
+      regat: new Date(authenticator.createdAt),
+      credentialID: {
+        buffer: { toString: () => authenticator.id },
+      },
+    })),
     geoipProvider: null,
     platformIcon,
     handler: {
@@ -101,7 +124,7 @@ export function SecurityPage() {
     },
     PRIV: { PRIV_CREATE_FILE: 1 },
     avatarUrl,
-  }), [sessions, user])
+  }), [authenticators, sessions, user])
 
   async function handleSubmit(event: SubmitEvent) {
     const form = event.target as HTMLFormElement
@@ -153,6 +176,17 @@ export function SecurityPage() {
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : '退出全部会话失败')
       }
+      return
+    }
+    if (operation === 'disable_authn') {
+      if (!window.confirm('确定要删除这个 Passkey 吗？')) return
+      try {
+        await deletePasskey(String(data.get('id') ?? ''))
+        setNotice('Passkey 已删除')
+        setReloadKey((key) => key + 1)
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : '删除 Passkey 失败')
+      }
     }
   }
   submitRef.current = (event) => void handleSubmit(event)
@@ -170,7 +204,11 @@ export function SecurityPage() {
       setTfaBusy(false)
     }
   }
-  tfaSetupRef.current = () => void openTfaSetup()
+  function openAuthenticatorChoice() {
+    setAuthChoice(user?.tfa ? 'passkey' : 'tfa')
+    setAuthChoiceOpen(true)
+  }
+  authSetupRef.current = openAuthenticatorChoice
 
   async function confirmTfaSetup() {
     if (!tfaSetup) return
@@ -213,6 +251,40 @@ export function SecurityPage() {
     }
   }
 
+  async function registerPasskey() {
+    if (passkeyBusyRef.current) return
+    if (!passkeyName.trim()) {
+      setPasskeyError('请输入 Passkey 名称')
+      return
+    }
+    if (!passkeySupported) {
+      setPasskeyError('当前浏览器或访问环境不支持 Passkey')
+      return
+    }
+    passkeyBusyRef.current = true
+    setPasskeyBusy(true)
+    setPasskeyError('')
+    try {
+      const begin = await beginPasskeyRegistration()
+      const credential = await startRegistration({ optionsJSON: begin.options.publicKey })
+      await finishPasskeyRegistration(begin.token, passkeyName.trim(), credential)
+      setPasskeyNameOpen(false)
+      setPasskeyName('Passkey')
+      setNotice('Passkey 已添加')
+      setReloadKey((key) => key + 1)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : ''
+      if (message.toLowerCase().includes('cancel') || message.toLowerCase().includes('abort')) {
+        setPasskeyError('Passkey 注册已取消')
+      } else {
+        setPasskeyError(message || 'Passkey 注册失败')
+      }
+    } finally {
+      passkeyBusyRef.current = false
+      setPasskeyBusy(false)
+    }
+  }
+
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = []
     const changeMail = root.querySelector<HTMLButtonElement>('[data-operation="change_mail"]')
@@ -224,8 +296,7 @@ export function SecurityPage() {
     changeMail?.addEventListener('click', onChangeMail)
     if (changeMail) cleanups.push(() => changeMail.removeEventListener('click', onChangeMail))
     const authEnable = root.querySelector<HTMLButtonElement>('[name="auth_enable"]')
-    if (user?.tfa) authEnable?.remove()
-    const onAuthEnable = () => tfaSetupRef.current()
+    const onAuthEnable = () => authSetupRef.current()
     authEnable?.addEventListener('click', onAuthEnable)
     if (authEnable) cleanups.push(() => authEnable.removeEventListener('click', onAuthEnable))
     for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
@@ -234,7 +305,7 @@ export function SecurityPage() {
       cleanups.push(() => form.removeEventListener('submit', onSubmit))
     }
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [user?.tfa])
+  }, [])
 
   const buildUrl = useCallback((name: string) => {
     switch (name) {
@@ -257,6 +328,76 @@ export function SecurityPage() {
       {notice ? <div className="row"><div className="columns"><blockquote className="note"><p>{notice}</p></blockquote></div></div> : null}
       {mailLink ? <div className="row"><div className="columns"><blockquote className="note"><p>本地模式确认链接：<a href={mailLink}>{mailLink}</a></p></blockquote></div></div> : null}
       <HydroTemplate template="home_security.html" context={context()} url={buildUrl} onReady={handleReady} />
+      {authChoiceOpen ? (
+        <Dialog
+          okLabel="下一步"
+          cancelLabel="取消"
+          onOk={() => {
+            if (authChoice === 'passkey' && !passkeySupported) {
+              setAuthChoiceOpen(false)
+              setError('当前浏览器或访问环境不支持 Passkey')
+              return
+            }
+            setAuthChoiceOpen(false)
+            if (authChoice === 'tfa' && !user.tfa) {
+              void openTfaSetup()
+              return
+            }
+            setPasskeyError('')
+            setPasskeyName('Passkey')
+            setPasskeyNameOpen(true)
+          }}
+          onCancel={() => setAuthChoiceOpen(false)}
+        >
+          <div className="typo">
+            <h3>选择认证器类型</h3>
+            <label>
+              <input
+                type="radio"
+                name="authenticator-type"
+                checked={authChoice === 'tfa'}
+                disabled={Boolean(user.tfa)}
+                onChange={() => setAuthChoice('tfa')}
+              /> 双重验证（TOTP）{user.tfa ? '（已启用）' : ''}
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="authenticator-type"
+                checked={authChoice === 'passkey'}
+                disabled={!passkeySupported}
+                onChange={() => setAuthChoice('passkey')}
+              /> Passkey{passkeySupported ? '' : '（当前环境不支持）'}
+            </label>
+          </div>
+        </Dialog>
+      ) : null}
+      {passkeyNameOpen ? (
+        <Dialog
+          okLabel={passkeyBusy ? '注册中...' : '注册'}
+          cancelLabel="取消"
+          onOk={() => void registerPasskey()}
+          onCancel={() => {
+            if (!passkeyBusy) setPasskeyNameOpen(false)
+          }}
+        >
+          <div className="typo">
+            <p>为这个 Passkey 设置一个便于识别的名称。</p>
+            <label>名称
+              <div className="textbox-container">
+                <input
+                  className="textbox"
+                  value={passkeyName}
+                  maxLength={64}
+                  onChange={(event) => setPasskeyName(event.target.value)}
+                  autoFocus
+                />
+              </div>
+            </label>
+            {passkeyError ? <p className="warn">{passkeyError}</p> : null}
+          </div>
+        </Dialog>
+      ) : null}
       {mailOpen ? (
         <Dialog okLabel="发送确认" cancelLabel="取消" onOk={() => void submitEmailChange()} onCancel={() => setMailOpen(false)}>
           <div className="typo">

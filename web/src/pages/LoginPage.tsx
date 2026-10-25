@@ -6,12 +6,13 @@ import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { login, passkeyLogin } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [tfaRequired, setTfaRequired] = useState(false)
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
+  const passkeyRef = useRef<() => void>(() => {})
   const context = useMemo(() => ({
     model: { system: { get: (key: string) => key === 'server.login' } },
     loginMethods: [],
@@ -40,7 +41,26 @@ export function LoginPage() {
         row.querySelector<HTMLInputElement>('input')?.focus()
       }
     }
-    return () => form?.removeEventListener('submit', onSubmit)
+    let passkeyRow: HTMLDivElement | null = null
+    let passkeyButton: HTMLButtonElement | null = null
+    const onPasskey = () => passkeyRef.current()
+    if (form && window.isSecureContext && 'PublicKeyCredential' in window) {
+      const submitInput = form.querySelector<HTMLInputElement>('input[name="login_submit"]')
+      const submitRow = submitInput?.closest('.row')
+      if (submitRow?.parentElement) {
+        passkeyRow = document.createElement('div')
+        passkeyRow.className = 'row'
+        passkeyRow.innerHTML = '<div class="columns"><button type="button" class="expanded rounded button inverse" data-passkey-login>使用 Passkey 登录</button></div>'
+        passkeyButton = passkeyRow.querySelector('button')
+        passkeyButton?.addEventListener('click', onPasskey)
+        submitRow.parentElement.insertBefore(passkeyRow, submitRow.nextSibling)
+      }
+    }
+    return () => {
+      form?.removeEventListener('submit', onSubmit)
+      passkeyButton?.removeEventListener('click', onPasskey)
+      passkeyRow?.remove()
+    }
   }, [tfaRequired])
 
   async function handleSubmit(event: SubmitEvent) {
@@ -72,6 +92,33 @@ export function LoginPage() {
   }
 
   submitRef.current = (event) => void handleSubmit(event)
+
+  async function handlePasskeyLogin() {
+    const form = document.querySelector<HTMLFormElement>('.immersive--content form')
+    const username = String(new FormData(form ?? undefined).get('uname') ?? '').trim()
+    if (!username) {
+      setError('请先填写用户名')
+      return
+    }
+    setSubmitting(true)
+    setError('')
+    try {
+      await passkeyLogin(username)
+      navigate('/')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : ''
+      if (message === 'passkey login is not available for this account') {
+        setError('该账号没有可用的 Passkey')
+      } else if (message.toLowerCase().includes('cancel') || message.toLowerCase().includes('abort')) {
+        setError('Passkey 登录已取消')
+      } else {
+        setError(message || 'Passkey 登录失败')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+  passkeyRef.current = () => void handlePasskeyLogin()
 
   return (
     <>
