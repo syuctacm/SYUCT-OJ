@@ -44,6 +44,18 @@ MONGO_DATABASE=syuct_oj_rehearsal MONGO_URI=... \
 
 关注：每个集合/域的 `matched`、`users_merged`、`warnings`、残留项（dry-run 阶段应只有预期内的匹配数据），以及 `conflicts`。
 
+2.1 在压平域之前检查并导入旧 Passkey：
+
+```bash
+MONGO_DATABASE=syuct_oj_rehearsal MONGO_URI=... \
+  go run ./cmd/migrate-webauthn --dry-run --report /tmp/webauthn-dry-run.json
+
+MONGO_DATABASE=syuct_oj_rehearsal MONGO_URI=... \
+  go run ./cmd/migrate-webauthn --execute --report /tmp/webauthn-execute.json
+```
+
+确认 `ok=true`，且 `imported + existing` 等于旧 `authenticators` 数量；原始字段仍保留。
+
 如果 `conflicts` 里有 `docId` 冲突，先跑一次带重编号计划的 dry-run：
 
 ```bash
@@ -110,6 +122,7 @@ BASE_URL=https://oj.example.com scripts/prod-stack-smoke.sh
 - [ ] 首页、题库、题目详情
 - [ ] 登录/登出、Session 持久化
 - [ ] 提交 → 判题 → 记录闭环（hydrojudge）
+- [ ] 至少一个从旧 Hydro 导入的 Passkey 可在相同 RPID/origin 下登录
 - [ ] 判题机 `sandbox --version` 不低于 `v1.11.0`，`/version` 返回 `fixSymlinkEscape=true`
 - [ ] 生产启用的每种语言各跑一次测试提交
 - [ ] 比赛/作业/训练列表与详情、榜单

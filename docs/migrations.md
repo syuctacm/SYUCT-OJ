@@ -79,6 +79,34 @@ MONGO_URI=... MONGO_DATABASE=syuct_oj_restore \
 
 生产切换前必须先用备份副本跑上述 1、2 步，确认 `problems_renumbered` 数量与预期一致。
 
+### 4.1 旧 WebAuthn / Passkey 凭据
+
+上游 Hydro 把 WebAuthn credential 存在 `user.authenticators`，并使用十进制 uid 作为 WebAuthn user handle。新站使用独立集合 `webauthn_credentials` 和 `user.webauthnId`。在压平域之前运行专用工具：
+
+```bash
+# 只读检查，输出用户数、凭据数、来源域分布和冲突
+MONGO_URI=... MONGO_DATABASE=syuct_oj_restore \
+  go run ./cmd/migrate-webauthn --dry-run --report /tmp/webauthn-dry.json
+
+# 确认 report.ok=true 后执行
+MONGO_URI=... MONGO_DATABASE=syuct_oj_restore \
+  go run ./cmd/migrate-webauthn --execute --report /tmp/webauthn-exec.json
+```
+
+工具行为：
+
+- 将 `credentialID`、公钥、计数器、AAGUID、附件类型、备份状态、名称和注册时间转换为新 credential 格式
+- 把存在旧凭据的用户的 `webauthnId` 设置为原 uid 字符串字节，保证旧 user handle 不变
+- 在 `user.legacyWebAuthnImported` 中记录已处理的 credential ID，保留 `user.authenticators` 原字段，不删除旧数据
+- 已导入的 credential 按 ID 跳过；重复执行不会产生副本
+- 已在新站删除的导入凭据不会被后续复跑重新恢复
+- 相同 credential ID 属于不同用户、缺字段或重复项会在写库前中止，并写入 `conflicts`
+- 如果用户已经用新站随机 handle 注册过 Passkey，工具不会覆盖其 handle，而是把该用户列为冲突并要求先人工处理
+
+务必在 `cmd/migrate` 压平域之前执行；否则报告中的来源域分布会为空。旧凭据只有在 `WEBAUTHN_RPID` 与原站一致时才能继续登录。
+
+2026-10-25 本地 Docker 闭环已验证：按 Hydro 的十进制 uid handle 注册 credential，写入模拟的 `user.authenticators`，执行 dry-run/execute 后登出，再用同一 Chromium 虚拟认证器登录成功；重复执行时 `imported=0`、`existing=1`。
+
 ## 5. URL 兼容
 
 保留旧 URL 到新 URL 的重定向映射，例如：

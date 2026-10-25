@@ -52,6 +52,8 @@ Passkey 使用稳定的 32 字节 `webauthnId` 作为 WebAuthn user handle。数
 
 注册需要已登录 Session；删除接口按 `uid` 和 credential ID 双重过滤，不能删除其它账号的 Passkey。生产配置 `WEBAUTHN_RPID` / `WEBAUTHN_ORIGINS` 必须对应当前 HTTPS 站点。
 
+已有 Hydro WebAuthn 数据通过 `cmd/migrate-webauthn` 一次性导入，工具支持 dry-run、冲突预检和幂等复跑；原始 `user.authenticators` 不会被自动删除。
+
 UA 解析是本地的小函数（Chrome/Firefox/Safari/Edge/Opera + Windows/macOS/Linux/Android/iOS），没有引入 ua-parser-js。
 
 ## 尚未迁移
