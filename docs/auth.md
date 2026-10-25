@@ -50,6 +50,8 @@ WEBAUTHN_DISPLAY_NAME=SYUCT OJ
 
 生产环境必须使用 HTTPS 和同一主机名；本地开发使用 `http://localhost:5174`，不能把 `127.0.0.1` 与 RPID `localhost` 混用。`WEBAUTHN_RPID` 一旦有用户注册 Passkey 就必须保持稳定，修改后已有 Passkey 将全部失效。
 
+旧 Hydro 的 `user.authenticators` 可通过 `cmd/migrate-webauthn` 导入，详见 `docs/migrations.md`。导入后会保留原来的 uid 字节 user handle，且不会删除旧字段。
+
 ## 密码兼容
 
 Hydro 用户密码格式：
