@@ -179,6 +179,51 @@ func TestProblemAssetManagementIntegration(t *testing.T) {
 		t.Fatalf("testdata archive = %#v", archiveFiles)
 	}
 
+	exportPayload, _ := json.Marshal(map[string]any{"pids": []string{"P5"}})
+	request, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/problems/archive", bytes.NewReader(exportPayload))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range adminCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exportBody, _ := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "application/zip" {
+		t.Fatalf("problem export = %d: %s", response.StatusCode, exportBody)
+	}
+	exportArchive, err := zip.NewReader(bytes.NewReader(exportBody), int64(len(exportBody)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	exportFiles := map[string]bool{}
+	for _, entry := range exportArchive.File {
+		exportFiles[entry.Name] = true
+	}
+	for _, name := range []string{
+		"P5/problem.yaml", "P5/problem.md", "P5/testdata/1.in", "P5/testdata/1.out",
+		"P5/testdata/config.yaml", "P5/additional_file/notes.txt",
+	} {
+		if !exportFiles[name] {
+			t.Fatalf("problem export missing %s: %#v", name, exportFiles)
+		}
+	}
+	request, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/problems/archive", bytes.NewReader(exportPayload))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range normalCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("non-owner problem export = %d", response.StatusCode)
+	}
+
 	renamePayload, _ := json.Marshal(map[string]any{
 		"type": "testdata", "names": []string{"1.in"}, "newNames": []string{"input1.txt"},
 	})

@@ -2,10 +2,11 @@
 // file limited to data and interaction adapters.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getProblem, rejudgeProblem, starProblem, type ProblemDetail } from '../api.ts'
+import { downloadProblemsArchive, getProblem, rejudgeProblem, starProblem, type ProblemDetail } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { confirmDialog } from '../components/dialogs.tsx'
+import { notifyError } from '../components/Notification.tsx'
 import { renderMarkdown } from '../upstream/markdown.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 
@@ -35,8 +36,29 @@ export function ProblemDetailPage() {
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = []
-    root.querySelectorAll('[name="problem-sidebar__download"], [name="problem-sidebar__copy"]')
+    root.querySelectorAll('[name="problem-sidebar__copy"]')
       .forEach((element) => element.closest('li')?.remove())
+    const download = root.querySelector<HTMLElement>('[name="problem-sidebar__download"]')
+    if (download) {
+      const onClick = async (event: Event) => {
+        event.preventDefault()
+        try {
+          const blob = await downloadProblemsArchive([pid])
+          const url = URL.createObjectURL(blob)
+          const anchor = document.createElement('a')
+          anchor.href = url
+          anchor.download = 'problem.zip'
+          document.body.append(anchor)
+          anchor.click()
+          anchor.remove()
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+        } catch (err) {
+          notifyError(err instanceof Error ? err.message : '题目下载失败')
+        }
+      }
+      download.addEventListener('click', onClick)
+      cleanups.push(() => download.removeEventListener('click', onClick))
+    }
 
     for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
       const operation = form.querySelector<HTMLInputElement>('input[name="operation"]')?.value

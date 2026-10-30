@@ -380,6 +380,25 @@ Playwright 验证：
 
 testdata 生成工具仍需要独立的判题生成工作流，继续由 #277 跟踪。
 
+## 6.16 题目包导出（2026-10-30）
+
+- 新增 `POST /api/v1/problems/archive`，接受一个或多个 pid/docId
+- 每题输出 `problem.yaml`、`problem.md`、`testdata/` 和 `additional_file/`
+- DB 中的判题配置在缺少 testdata/config.yaml 时自动补入
+- 文件名、存储对象和全部文件可读性在写响应头前校验，避免下载截断 ZIP
+- 普通用户只能导出自己的题目，管理员可导出全部
+- 题目详情侧栏恢复“下载”，题目列表编辑模式恢复“下载选中”
+- 多域复制入口仍不迁移
+
+Playwright 验证：
+
+- 题目详情下载单题 ZIP，包含 metadata、题面、testdata 和 config.yaml
+- 题目列表 Shift 选择两题后下载 `problems.zip`
+- ZIP 中每题目录和文件完整
+- 后端集成测试覆盖 P5 的 metadata、题面、testdata、config 和附加文件，以及非所有者 403
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

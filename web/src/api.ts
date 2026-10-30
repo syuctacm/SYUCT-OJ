@@ -316,6 +316,26 @@ export async function deleteProblemAssets(pid: string, type: 'testdata' | 'addit
   return result.data
 }
 
+export async function downloadProblemsArchive(pids: string[]): Promise<Blob> {
+  const response = await fetch('/api/v1/problems/archive', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pids }),
+  })
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`
+    try {
+      const body = await response.json() as { error?: string }
+      if (body.error) message = body.error
+    } catch {
+      // Keep the HTTP status when the response is not JSON.
+    }
+    throw new Error(message)
+  }
+  return response.blob()
+}
+
 export async function downloadProblemAssetsArchive(
   pid: string,
   type: 'testdata' | 'additional',

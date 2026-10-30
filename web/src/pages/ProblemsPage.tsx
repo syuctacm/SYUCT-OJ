@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   deleteProblem,
+  downloadProblemsArchive,
   getProblemEditor,
   getProblemTags,
   getProblems,
@@ -144,6 +145,31 @@ export function ProblemsPage() {
     }
   }, [load])
 
+  const handleDownload = useCallback(async () => {
+    const pids = [...selectedPidsRef.current]
+    if (!pids.length) {
+      notifyError('请至少选择一道题目。')
+      return
+    }
+    if (operationBusyRef.current) return
+    operationBusyRef.current = true
+    try {
+      const blob = await downloadProblemsArchive(pids)
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = 'problems.zip'
+      document.body.append(anchor)
+      anchor.click()
+      anchor.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) {
+      notifyError(err instanceof Error ? err.message : '题目下载失败')
+    } finally {
+      operationBusyRef.current = false
+    }
+  }, [])
+
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = []
     const listen = (element: Element, type: string, listener: EventListener) => {
@@ -170,6 +196,12 @@ export function ProblemsPage() {
     }
     if (enterEdit) listen(enterEdit, 'click', onEnterEdit)
     if (leaveEdit) listen(leaveEdit, 'click', onLeaveEdit)
+
+    const download = root.querySelector<HTMLElement>('[name="download_selected_problems"]')
+    if (download) listen(download, 'click', (event) => {
+      event.preventDefault()
+      void handleDownload()
+    })
 
     for (const [name, operation] of [
       ['hide_selected_problems', 'hide'],
@@ -242,7 +274,7 @@ export function ProblemsPage() {
     if (tagStatToggle) listen(tagStatToggle, 'click', onTagStatToggle)
 
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [handleOperation, handleSelectionChange, handleSelectionClear, navigate, tag])
+  }, [handleDownload, handleOperation, handleSelectionChange, handleSelectionClear, navigate, tag])
 
   const context = useMemo(() => {
     if (!page) return null
