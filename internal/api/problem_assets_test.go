@@ -220,6 +220,31 @@ func TestProblemAssetManagementIntegration(t *testing.T) {
 		t.Fatalf("renamed testdata missing from metadata: %+v", pdoc.Data)
 	}
 
+	archivePayload, _ := json.Marshal(map[string]any{
+		"type": "testdata", "names": []string{"input1.txt", "1.out"},
+	})
+	request, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/problems/P5/assets/archive", bytes.NewReader(archivePayload))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range adminCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selectedArchiveBody, _ := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "application/zip" {
+		t.Fatalf("selected archive = %d: %s", response.StatusCode, selectedArchiveBody)
+	}
+	selectedArchive, err := zip.NewReader(bytes.NewReader(selectedArchiveBody), int64(len(selectedArchiveBody)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(selectedArchive.File) != 2 {
+		t.Fatalf("selected archive entries = %+v", selectedArchive.File)
+	}
+
 	renamePayload, _ = json.Marshal(map[string]any{
 		"type": "additional", "names": []string{"notes.txt"}, "newNames": []string{"notes-renamed.txt"},
 	})

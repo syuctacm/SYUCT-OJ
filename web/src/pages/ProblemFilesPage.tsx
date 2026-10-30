@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   deleteProblemAssets,
+  downloadProblemAssetsArchive,
   getProblemAssets,
   renameProblemAssets,
   uploadProblemAssets,
@@ -53,7 +54,7 @@ export function ProblemFilesPage() {
 
     // Testdata generation and selected-file batch tools still need dedicated APIs.
     root.querySelector('.generate')?.closest('.section')?.remove()
-    root.querySelectorAll('[name="rename_selected"], [name="download_selected"]')
+    root.querySelectorAll('[name="rename_selected"]')
       .forEach((element) => element.remove())
 
     const assetType = (kind: AssetKind) => kind === 'testdata' ? 'testdata' : 'additional'
@@ -134,6 +135,36 @@ export function ProblemFilesPage() {
           }
         }
         picker.click()
+      })
+    })
+
+    root.querySelectorAll<HTMLButtonElement>('[name="download_selected"]').forEach((button) => {
+      listen(button, 'click', async () => {
+        const kind = (button.closest('[data-type]')?.getAttribute('data-type') as AssetKind | null) ?? 'testdata'
+        const names = Array.from(root.querySelectorAll<HTMLInputElement>(`input[data-checkbox-group="${kind}"]:checked`))
+          .map((checkbox) => checkbox.closest('tr')?.getAttribute('data-filename') ?? '')
+          .filter(Boolean)
+        if (!names.length) {
+          setError('请至少选择一个文件。')
+          return
+        }
+        setBusy(`download-${kind}`)
+        setError('')
+        try {
+          const blob = await downloadProblemAssetsArchive(pid, assetType(kind), names)
+          const url = URL.createObjectURL(blob)
+          const anchor = document.createElement('a')
+          anchor.href = url
+          anchor.download = `${pid}-${kind}.zip`
+          document.body.append(anchor)
+          anchor.click()
+          anchor.remove()
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : '文件下载失败')
+        } finally {
+          setBusy('')
+        }
       })
     })
 

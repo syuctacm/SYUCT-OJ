@@ -340,6 +340,25 @@ Playwright 验证：
 - `go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.14 题目文件批量下载（2026-10-30，部分完成 #277）
+
+- 新增 `POST /api/v1/problems/:pid/assets/archive`
+- API 校验类型、文件名、重复项和文件存在性后再开始写 ZIP，避免返回被截断的非法压缩包
+- 前端恢复“下载选中”，通过 blob 下载 `${pid}-${type}.zip`
+- 仅题目所有者和管理员可调用；testdata 与附加文件分别打包
+- 文件名、修改时间和内容来自实际存储对象
+
+Playwright 验证：
+
+- 在 testdata 全选 2 个文件后触发浏览器下载
+- 下载文件名为 `ARCHE2E-testdata.zip`
+- `unzip -l` 显示 2 个条目，内容与上传文件一致
+- 后端集成测试覆盖选中文件 ZIP
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
+批量重命名和 testdata 生成仍待完成。
+
 ## 7. 当前已知差异
 
 ```text
