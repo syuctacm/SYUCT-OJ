@@ -12,7 +12,7 @@ import {
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
-import { confirmDialog, createFileDialog, promptDialog } from '../components/dialogs.tsx'
+import { batchRenameDialog, confirmDialog, createFileDialog, promptDialog } from '../components/dialogs.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 
 type AssetKind = 'testdata' | 'additional_file'
@@ -52,10 +52,8 @@ export function ProblemFilesPage() {
       cleanups.push(() => element.removeEventListener(type, listener as EventListener))
     }
 
-    // Testdata generation and selected-file batch tools still need dedicated APIs.
+    // Testdata generation still needs a dedicated judge workflow.
     root.querySelector('.generate')?.closest('.section')?.remove()
-    root.querySelectorAll('[name="rename_selected"]')
-      .forEach((element) => element.remove())
 
     const assetType = (kind: AssetKind) => kind === 'testdata' ? 'testdata' : 'additional'
 
@@ -135,6 +133,30 @@ export function ProblemFilesPage() {
           }
         }
         picker.click()
+      })
+    })
+
+    root.querySelectorAll<HTMLButtonElement>('[name="rename_selected"]').forEach((button) => {
+      listen(button, 'click', async () => {
+        const kind = (button.closest('[data-type]')?.getAttribute('data-type') as AssetKind | null) ?? 'testdata'
+        const names = Array.from(root.querySelectorAll<HTMLInputElement>(`input[data-checkbox-group="${kind}"]:checked`))
+          .map((checkbox) => checkbox.closest('tr')?.getAttribute('data-filename') ?? '')
+          .filter(Boolean)
+        if (!names.length) {
+          setError('请至少选择一个文件。')
+          return
+        }
+        const newNames = await batchRenameDialog(names)
+        if (!newNames) return
+        setBusy(`rename-${kind}`)
+        setError('')
+        try {
+          setData(await renameProblemAssets(pid, assetType(kind), names, newNames))
+        } catch (err) {
+          setError(err instanceof Error ? err.message : '批量重命名失败')
+        } finally {
+          setBusy('')
+        }
       })
     })
 

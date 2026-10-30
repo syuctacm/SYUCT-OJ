@@ -14,6 +14,7 @@ type Props = {
   width?: string
   onOk?: () => void
   onCancel?: () => void
+  validate?: () => boolean
 }
 
 export function Dialog({
@@ -23,6 +24,7 @@ export function Dialog({
   width,
   onOk,
   onCancel,
+  validate,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -94,7 +96,14 @@ export function Dialog({
                 {cancelLabel}
               </button>
             ) : null}
-            <button type="button" className="primary rounded button" onClick={() => void close('ok')}>
+            <button
+              type="button"
+              className="primary rounded button"
+              onClick={() => {
+                if (validate?.() === false) return
+                void close('ok')
+              }}
+            >
               {okLabel}
             </button>
           </div>
