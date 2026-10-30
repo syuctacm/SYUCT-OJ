@@ -78,6 +78,8 @@
 
 讨论详情由 `HydroTemplate` 直接渲染上游 `discussion_detail.html` 和 `components/comments_discussion.html`：话题头部（节点标签、标题、作者、时间）、正文、操作区（编辑/锁定/举报/查看数）、回复列表和作者侧栏都来自上游模板。适配层接管主回复、楼中楼回复（`replyTo`）、回复编辑/删除、锁定切换和主题收藏（`document.status` docType=21）；楼中楼回复只更新话题时间，不增加 `nReply`，与上游一致。
 
+登录用户首次打开主题时会写入 `document.status.view=true` 并递增主题 `views`；同一用户刷新不会重复计数，匿名访问不计数，与上游 Hydro 的统计规则一致。点击回复按钮会预填被回复作者的 `@[](/user/<uid>)` 提及标记；主回复和楼中楼回复都会解析该标记，并向真实存在且不是发送者本人的用户发送 `message` 集合中的未读富文本系统消息。
+
 话题和每条主回复都带上游 `.reactions` 反应条：点击已有反应可切换，侧栏的 `data-op="react"` 按钮会打开 ui-default 的 Mantine `Popover` emoji 面板（`web/src/components/DiscussionReaction.tsx`，从上游 `components/discussion/reaction.page.tsx` 移植）。未登录点击反应条会跳转登录页。
 
 登录用户可在详情页回复，支持 `Ctrl+Enter` 提交。讨论创建/编辑页由 `HydroTemplate` 直接渲染上游 `discussion_create.html`、`discussion_edit.html` 和 `partials/discussion_edit_form.html`，React 只负责加载数据、提交/删除和快捷键挂载；原版删除按钮会调用现有 DELETE API。创建入口只在该讨论节点页面出现，与原站一致。
@@ -96,9 +98,7 @@
 
 ## 尚未完成
 
-- 浏览量暂时不会随访问自增
-- 回复通知和提及
-- 节点管理
+- 节点管理（创建、编辑和删除讨论节点）
 
 ## 历史版本
 

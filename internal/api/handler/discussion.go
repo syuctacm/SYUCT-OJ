@@ -2,8 +2,10 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/discussion"
+	"github.com/syuctacm/syuct-oj/internal/message"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
@@ -20,10 +23,68 @@ type DiscussionHandler struct {
 	repo     *discussion.Repository
 	sessions *auth.SessionManager
 	users    *user.Repository
+	messages *message.Repository
 }
 
-func NewDiscussionHandler(repo *discussion.Repository, sessions *auth.SessionManager, users *user.Repository) *DiscussionHandler {
-	return &DiscussionHandler{repo: repo, sessions: sessions, users: users}
+func NewDiscussionHandler(repo *discussion.Repository, sessions *auth.SessionManager, users *user.Repository, messages *message.Repository) *DiscussionHandler {
+	return &DiscussionHandler{repo: repo, sessions: sessions, users: users, messages: messages}
+}
+
+var mentionPattern = regexp.MustCompile(`@\[\]\(/user/([0-9]+)\)`)
+
+func mentionedUIDs(content string) []int64 {
+	matches := mentionPattern.FindAllStringSubmatch(content, -1)
+	seen := make(map[int64]bool, len(matches))
+	ids := make([]int64, 0, len(matches))
+	for _, match := range matches {
+		uid, err := strconv.ParseInt(match[1], 10, 64)
+		if err != nil || uid <= 0 || seen[uid] {
+			continue
+		}
+		seen[uid] = true
+		ids = append(ids, uid)
+	}
+	return ids
+}
+
+// notifyMentions mirrors Hydro's discussion reply notification: only real
+// users are notified, the sender is not notified about their own mention, and
+// the message is stored in the existing message collection as a richtext
+// unread system message.
+func (h *DiscussionHandler) notifyMentions(ctx context.Context, did bson.ObjectID, senderID int64, content string) error {
+	if h.messages == nil || h.users == nil {
+		return nil
+	}
+	ids := mentionedUIDs(content)
+	if len(ids) == 0 {
+		return nil
+	}
+	accounts, err := h.users.FindByIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+	recipients := make([]int64, 0, len(accounts))
+	for _, account := range accounts {
+		if account.ID != senderID {
+			recipients = append(recipients, account.ID)
+		}
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	sender, err := h.users.FindByID(ctx, senderID)
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(map[string]any{
+		"message": "User {0} mentioned you in {1:link}",
+		"params":  []string{sender.Uname, "/discuss/" + did.Hex()},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = h.messages.Send(ctx, 1, recipients, string(payload), message.FlagRichtext|message.FlagUnread)
+	return err
 }
 
 func (h *DiscussionHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -383,6 +444,18 @@ func (h *DiscussionHandler) get(c *gin.Context) {
 	}
 	if h.sessions != nil {
 		if session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c)); ok && session.Kind == "user" && session.UserID > 0 {
+			firstView, err := h.repo.MarkViewed(c.Request.Context(), item.DocID, session.UserID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to record discussion view"})
+				return
+			}
+			if firstView {
+				if err := h.repo.IncrementViews(c.Request.Context(), item.DocID); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to record discussion view"})
+					return
+				}
+				item.Views++
+			}
 			starred, err := h.repo.Starred(c.Request.Context(), item.DocID, session.UserID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load discussion status"})
@@ -500,6 +573,19 @@ func (h *DiscussionHandler) createReply(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid replyTo"})
 			return
 		}
+		belongs, err := h.repo.ReplyBelongsTo(c.Request.Context(), item.ID, replyID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load reply"})
+			return
+		}
+		if !belongs {
+			c.JSON(http.StatusNotFound, gin.H{"error": "reply not found"})
+			return
+		}
+		if err := h.notifyMentions(c.Request.Context(), item.ID, session.UserID, request.Content); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to send mention notification"})
+			return
+		}
 		if _, tail, err := h.repo.AddTailReply(c.Request.Context(), item.ID, replyID, session.UserID, request.Content); err != nil {
 			if err == discussion.ErrNotFound {
 				c.JSON(http.StatusNotFound, gin.H{"error": "reply not found"})
@@ -511,6 +597,10 @@ func (h *DiscussionHandler) createReply(c *gin.Context) {
 			c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": tail})
 			return
 		}
+	}
+	if err := h.notifyMentions(c.Request.Context(), item.ID, session.UserID, request.Content); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to send mention notification"})
+		return
 	}
 	reply, err := h.repo.AddReply(c.Request.Context(), item.ID, session.UserID, request.Content)
 	if err != nil {
