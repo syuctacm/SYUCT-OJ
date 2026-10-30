@@ -895,6 +895,9 @@ export type ScoreboardCell = {
   time: number
   rid?: string
   score: number
+  penaltyScore?: number
+  pending?: number
+  first?: boolean
 }
 
 export type ScoreboardRow = {
@@ -902,6 +905,9 @@ export type ScoreboardRow = {
   uid: number
   solved: number
   penalty: number
+  score: number
+  originalScore?: number
+  time?: number
   problems: Record<string, ScoreboardCell>
 }
 

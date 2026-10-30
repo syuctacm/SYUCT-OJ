@@ -12,7 +12,7 @@
 | GET | `/api/v1/contests/:tid/edit` | 比赛编辑数据 |
 | PATCH | `/api/v1/contests/:tid` | 更新比赛 |
 | GET | `/api/v1/contests/:tid/problems` | 比赛题目列表 |
-| GET | `/api/v1/contests/:tid/scoreboard` | ACM 榜单（含参赛者、每题 AC 记录 id） |
+| GET | `/api/v1/contests/:tid/scoreboard` | 比赛/作业榜单（按 rule 计算 ACM、OI、IOI、Homework 或 Ledo 成绩） |
 | GET | `/api/v1/contests/:tid/clarifications` | 答疑列表（jury 公告 + 自己的提问） |
 | POST | `/api/v1/contests/:tid/clarifications` | 提问（需报名且比赛进行中） |
 | POST | `/api/v1/contests/:tid/clarifications/:cid/reply` | 答疑回复（所有者/维护者/管理员） |
@@ -56,7 +56,17 @@
 
 题目列表页复用上游结构：题目表显示每题状态（最近一次提交）、时间/内存限制标签和带比赛参数的提交入口；「本场提交」表列出当前用户在比赛中的提交（状态、题目、提交者、耗时、内存、语言和提交时间）；「答疑」区块从答疑 API 读取可对本用户展示的问答，并允许已报名且比赛进行中的用户提问。题目列表接口同时返回 `attended` 和每题最近提交，题目配置摘要提供 timeMin/timeMax/memoryMin/memoryMax。
 
-榜单页把榜单 API 的数据转换成上游 `partials/scoreboard.html` 需要的行列结构：`rank`/`user`/`solved` 列加上每题 `problem`/`record` 单元，题目表头显示本场比赛的过题/提交数，AC 和失败提交都能链接到对应记录（`rid`）。已报名但没有提交的用户也会以 0 分出现在榜单上。封榜时显示原版提示，封榜后的提交不计入榜单。
+榜单页把榜单 API 的数据转换成上游 `partials/scoreboard.html` 需要的行列结构：`rank`/`user`/统计列加上每题 `problem`/`record` 单元，题目表头显示本场比赛的过题/提交数，AC 和失败提交都能链接到对应记录（`rid`）。已报名但没有提交的用户也会以 0 分出现在榜单上。
+
+后端按比赛 `rule` 计算：
+
+- `acm`：每题首次 AC 的时间加 20 分钟错误罚时；CE、系统错误和取消记录不计罚时
+- `oi` / `ioi`：每题取最高分，按比赛题目分值加权求和
+- `strictioi`：按 subtask 取历史最高分后合并
+- `homework`：取每题最新提交，按 `penaltySince` 和 `penaltyRules` 计算延期系数
+- `ledo`：有效提交按 `max(0.7, 0.95^(n-1))` 衰减，取最高衰减分
+
+封榜时显示原版提示，封榜后的提交计入橙色 `+pending` 而不改变显示成绩。每题最早 AC 使用上游浅绿色高亮。
 
 比赛创建/编辑支持：
 
@@ -145,6 +155,4 @@
 - 未报名用户访问题目列表时显示提示（上游为错误页）
 - 本场提交表最多展示 100 条
 - Ghost 榜单导出和关注/筛选下拉
-- 首次通过高亮
 - 提前结束比赛操作
-- OI 等赛制榜单和封榜后的解封逻辑

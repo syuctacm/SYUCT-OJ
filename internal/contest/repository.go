@@ -102,19 +102,25 @@ type AttendeeStatus struct {
 }
 
 type ProblemCell struct {
-	Solved   bool   `json:"solved"`
-	Attempts int    `json:"attempts"`
-	Time     int    `json:"time"`
-	RID      string `json:"rid,omitempty"`
-	Score    int    `json:"score"`
+	Solved       bool    `json:"solved"`
+	Attempts     int     `json:"attempts"`
+	Time         int     `json:"time"`
+	RID          string  `json:"rid,omitempty"`
+	Score        float64 `json:"score"`
+	PenaltyScore float64 `json:"penaltyScore,omitempty"`
+	Pending      int     `json:"pending,omitempty"`
+	First        bool    `json:"first,omitempty"`
 }
 
 type ScoreboardRow struct {
-	Rank     int                    `json:"rank"`
-	UID      int64                  `json:"uid"`
-	Solved   int                    `json:"solved"`
-	Penalty  int                    `json:"penalty"`
-	Problems map[string]ProblemCell `json:"problems"`
+	Rank          int                    `json:"rank"`
+	UID           int64                  `json:"uid"`
+	Solved        int                    `json:"solved"`
+	Penalty       int                    `json:"penalty"`
+	Score         float64                `json:"score"`
+	OriginalScore float64                `json:"originalScore,omitempty"`
+	Time          int                    `json:"time,omitempty"`
+	Problems      map[string]ProblemCell `json:"problems"`
 }
 
 type Repository struct {
@@ -830,25 +836,6 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 	if err != nil {
 		return nil, nil, err
 	}
-	allowed := make(map[int64]struct{}, len(item.PIDs))
-	for _, pid := range item.PIDs {
-		allowed[pid] = struct{}{}
-	}
-	cursor, err := r.records.Find(ctx, bson.M{"contest": item.DocID, "domainId": DomainSystem},
-		options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
-	if err != nil {
-		return nil, nil, err
-	}
-	defer cursor.Close(ctx)
-	type userState struct {
-		uid     int64
-		solved  int
-		penalty int
-		cells   map[string]ProblemCell
-		wrong   map[int64]int
-	}
-	users := make(map[int64]*userState)
-	// Seed attendees so users without submissions still appear on the scoreboard.
 	attendeeCursor, err := r.statuses.Find(ctx, bson.M{
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeContest,
@@ -858,108 +845,33 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 	if err != nil {
 		return nil, nil, err
 	}
-	defer attendeeCursor.Close(ctx)
 	var attendees []struct {
 		UID    int64 `bson:"uid"`
 		Unrank bool  `bson:"unrank"`
 	}
 	if err := attendeeCursor.All(ctx, &attendees); err != nil {
+		_ = attendeeCursor.Close(ctx)
 		return nil, nil, err
 	}
-	unranked := map[int64]bool{}
+	_ = attendeeCursor.Close(ctx)
+	cursor, err := r.records.Find(ctx, bson.M{"contest": item.DocID, "domainId": DomainSystem},
+		options.Find().
+			SetSort(bson.D{{Key: "_id", Value: 1}}).
+			SetProjection(bson.M{"uid": 1, "pid": 1, "status": 1, "score": 1, "subtasks": 1}))
+	if err != nil {
+		return nil, nil, err
+	}
+	var records []scoreboardRecord
+	if err := cursor.All(ctx, &records); err != nil {
+		_ = cursor.Close(ctx)
+		return nil, nil, err
+	}
+	_ = cursor.Close(ctx)
+	ranked := make([]scoreboardAttendee, 0, len(attendees))
 	for _, attendee := range attendees {
-		if attendee.Unrank {
-			unranked[attendee.UID] = true
-			continue
-		}
-		if attendee.UID > 0 {
-			users[attendee.UID] = &userState{uid: attendee.UID, cells: make(map[string]ProblemCell), wrong: make(map[int64]int)}
-		}
+		ranked = append(ranked, scoreboardAttendee{UID: attendee.UID, Unrank: attendee.Unrank})
 	}
-	for cursor.Next(ctx) {
-		var record bson.M
-		if err := cursor.Decode(&record); err != nil {
-			return nil, nil, err
-		}
-		uid, ok := toInt64(record["uid"])
-		if !ok {
-			continue
-		}
-		if unranked[uid] {
-			continue
-		}
-		pid, ok := toInt64(record["pid"])
-		if !ok {
-			continue
-		}
-		if _, ok := allowed[pid]; !ok {
-			continue
-		}
-		rid, _ := record["_id"].(bson.ObjectID)
-		if item.LockAt != nil && !item.Unlocked && rid.Timestamp().After(*item.LockAt) {
-			continue
-		}
-		status, _ := toInt64(record["status"])
-		state := users[uid]
-		if state == nil {
-			state = &userState{uid: uid, cells: make(map[string]ProblemCell), wrong: make(map[int64]int)}
-			users[uid] = state
-		}
-		key := strconv.FormatInt(pid, 10)
-		cell := state.cells[key]
-		if cell.Solved {
-			continue
-		}
-		recordScore, _ := toInt64(record["score"])
-		if status == 1 {
-			minutes := int(rid.Timestamp().Sub(item.BeginAt).Minutes())
-			if minutes < 0 {
-				minutes = 0
-			}
-			cell.Solved = true
-			cell.Attempts = state.wrong[pid]
-			cell.Time = minutes
-			cell.RID = rid.Hex()
-			if int(recordScore) > cell.Score {
-				cell.Score = int(recordScore)
-			}
-			state.cells[key] = cell
-			state.solved++
-			state.penalty += minutes + 20*state.wrong[pid]
-			continue
-		}
-		if int(recordScore) > cell.Score {
-			cell.Score = int(recordScore)
-		}
-		if status >= 2 && status <= 8 {
-			state.wrong[pid]++
-			cell.Attempts = state.wrong[pid]
-			cell.RID = rid.Hex()
-			state.cells[key] = cell
-		}
-	}
-	if err := cursor.Err(); err != nil {
-		return nil, nil, err
-	}
-	rows := make([]ScoreboardRow, 0, len(users))
-	for _, state := range users {
-		rows = append(rows, ScoreboardRow{
-			UID: state.uid, Solved: state.solved, Penalty: state.penalty, Problems: state.cells,
-		})
-	}
-	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].Solved != rows[j].Solved {
-			return rows[i].Solved > rows[j].Solved
-		}
-		if rows[i].Penalty != rows[j].Penalty {
-			return rows[i].Penalty < rows[j].Penalty
-		}
-		return rows[i].UID < rows[j].UID
-	})
-	for i := range rows {
-		rows[i].Rank = i + 1
-	}
-	return item, rows, nil
+	return item, buildScoreboard(item, ranked, records), nil
 }
 
 func (r *Repository) FileOwner(ctx context.Context, tid string) (int64, error) {
