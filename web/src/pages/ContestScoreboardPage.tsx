@@ -10,6 +10,7 @@ import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { readScoreboardStars, writeScoreboardStars } from '../upstream/scoreboard-star.ts'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
+import { useHydroContestTimer } from '../upstream/contest-timer.ts'
 import { translate } from '../upstream/render.ts'
 import { unlockContest } from '../api.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
@@ -44,6 +45,7 @@ export function ContestScoreboardPage() {
   const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  useHydroContestTimer(contest)
 
   useEffect(() => {
     setContest(null)

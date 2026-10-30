@@ -11,6 +11,7 @@ import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 import { CONTEST_PERMS, createContestModel, isDone } from '../upstream/contest.ts'
+import { useHydroContestTimer } from '../upstream/contest-timer.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 
 const languageMap = Object.fromEntries(languageOptions.map((language) => [
@@ -33,6 +34,7 @@ export function ContestProblemsPage() {
   const [postError, setPostError] = useState('')
   const [posting, setPosting] = useState(false)
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
+  useHydroContestTimer(contest)
 
   const load = useCallback(async () => {
     setError('')
