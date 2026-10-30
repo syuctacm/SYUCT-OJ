@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -166,22 +167,34 @@ func (h *UserHandler) get(c *gin.Context) {
 			return
 		}
 	}
+	var lastSeen *time.Time
+	if h.sessions != nil {
+		if at, ok, err := h.sessions.LastActiveAt(c.Request.Context(), uid); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load user activity"})
+			return
+		} else if ok {
+			lastSeen = &at
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
-		"data": profilePayload(u, canSeePrivate, submit, accepted, rp, level, rank, acceptedProblems, nSolution, nLiked),
+		"data": profilePayload(u, canSeePrivate, submit, accepted, rp, level, rank, acceptedProblems, nSolution, nLiked, lastSeen),
 	})
 }
 
 // profilePayload keeps upstream privacy flags: school and student id are only
 // exposed to the owner and to system administrators.
-func profilePayload(u *user.User, canSeePrivate bool, submit, accepted int64, rp float64, level, rank int, acceptedProblems []user.ProblemBrief, nSolution, nLiked int64) gin.H {
+func profilePayload(u *user.User, canSeePrivate bool, submit, accepted int64, rp float64, level, rank int, acceptedProblems []user.ProblemBrief, nSolution, nLiked int64, lastSeen *time.Time) gin.H {
 	payload := gin.H{
 		"id": u.ID, "username": u.Uname, "displayName": u.DisplayName,
 		"avatar": u.Avatar, "regAt": u.RegAt, "loginAt": u.LoginAt,
-		"bio": u.Bio, "qq": u.QQ, "gender": u.Gender, "backgroundImage": u.BackgroundImage,
+		"bio": u.Bio, "qq": u.QQ, "wechat": u.Wechat, "gender": u.Gender, "backgroundImage": u.BackgroundImage,
 		"nSubmit": submit, "nAccept": accepted, "rp": rp, "level": level, "rank": rank,
 		"nSolution": nSolution, "nLiked": nLiked,
 		"acceptedProblems": acceptedProblems,
+	}
+	if lastSeen != nil && !lastSeen.IsZero() {
+		payload["lastSeenAt"] = *lastSeen
 	}
 	if canSeePrivate {
 		payload["school"] = u.School

@@ -571,6 +571,20 @@ Playwright 验证：
 - 提交回复后内容出现，`form.dczcomments__box` 数量为 0
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.27 用户主页在线状态与微信（2026-10-30）
+
+- `GET /api/v1/users/:uid` 返回最近浏览器会话活跃时间 `lastSeenAt`
+- 用户主页原模板在线状态重新生效：五分钟内显示「刚刚」，否则显示离线/最后时间
+- 公开资料增加 `wechat`，原模板微信图标和复制功能恢复
+- 匿名资料仍不泄露邮箱、学校、学号
+- 会话活跃写入节流为 1 分钟，避免每次请求写 Mongo
+
+验证：
+
+- API 集成测试覆盖已登录用户 `lastSeenAt`、未登录用户无 `lastSeenAt`、微信字段和私有字段隔离
+- Playwright 验证在线用户主页显示「刚刚」、微信复制按钮存在
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`、前端 lint/build
+
 ## 7. 当前已知差异
 
 ```text
