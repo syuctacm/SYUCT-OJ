@@ -255,6 +255,24 @@ Playwright 验证：
 - 离开比赛路由或提前结束比赛时清理计时器、DOM 节点和 NProgress
 - Playwright 验证三个比赛页面倒计时每秒变化；进行中显示，已结束隐藏，作业页和离开后的 DOM 中均无计时器/NProgress 残留
 
+## 6.10 记录筛选与实时更新回归（2026-10-30）
+
+- 用户名/UID 和题目筛选复用上游 `UserSelectAutoComplete` / `ProblemSelectAutoComplete`
+- 原模板输入框保留为表单数据源，自动补全值通过 `change` 同步，过滤和分页 URL 结构不变
+- WebSocket 仍原位更新当前页已有提交状态
+- 第一页收到新 rid 时防抖刷新当前筛选结果，不手写另一套记录行 DOM
+- 第二页不插入新记录，与上游行为一致
+- 筛选条件变化时重建 WebSocket，避免旧筛选条件继续生效
+- SPA 离开页面时关闭 WebSocket、重连定时器和刷新防抖定时器
+
+Playwright 验证：
+
+- 用户补全选择 `alice` 后隐藏字段为 UID `2`
+- 题目补全选择 `P201` 后隐藏字段为 docId `201`
+- 提交过滤后 URL 为 `/record?uidOrName=2&pid=201`，表格正确收缩到 3 行
+- 第一页创建新提交后无需刷新，新记录自动出现在首行并保持 20 行分页
+- 浏览器控制台 0 error
+
 ## 7. 当前已知差异
 
 ```text

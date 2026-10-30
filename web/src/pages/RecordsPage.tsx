@@ -1,6 +1,6 @@
 // Page markup is rendered from the pinned Hydro ui-default template. Keep this
 // file limited to data mapping, filters and pagination state.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { getSubmissions, type SubmissionEvent, type SubmissionPage } from '../api.ts'
 import { useAuth } from '../auth.tsx'
@@ -8,6 +8,7 @@ import { languageOptions } from '../components/autocomplete/LanguageSelectAutoCo
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { statusClass, statusLabels } from '../status.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
+import { mountAutocomplete } from '../upstream/hydrate.tsx'
 import { loadLanguages } from '../upstream/languages.ts'
 
 const languageMap = Object.fromEntries(languageOptions.map((language) => [
@@ -55,6 +56,8 @@ export function RecordsPage() {
     page: Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1),
   }
   const [page, setPage] = useState<SubmissionPage | null>(null)
+  const pageRef = useRef<SubmissionPage | null>(null)
+  pageRef.current = page
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -77,6 +80,15 @@ export function RecordsPage() {
     let disposed = false
     let socket: WebSocket | null = null
     let reconnect: number | undefined
+    let refreshTimer: number | undefined
+    const refreshPage = () => {
+      window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(() => {
+        getSubmissions(filters)
+          .then(setPage)
+          .catch(() => {})
+      }, 300)
+    }
     const connect = () => {
       if (disposed) return
       const url = new URL('/api/v1/submissions/events', window.location.href)
@@ -85,10 +97,16 @@ export function RecordsPage() {
       socket.onmessage = (message) => {
         try {
           const event = JSON.parse(String(message.data)) as SubmissionEvent
-          setPage((current) => {
-            if (!current) return current
+          const current = pageRef.current
+          if (!current) return
+          if (!current.items.some((item) => item.id === event.rid)) {
+            if (current.page === 1) refreshPage()
+            return
+          }
+          setPage((value) => {
+            if (!value) return value
             let changed = false
-            const items = current.items.map((item) => {
+            const items = value.items.map((item) => {
               if (item.id !== event.rid) return item
               changed = true
               return {
@@ -100,7 +118,7 @@ export function RecordsPage() {
                 judgeAt: event.judgeAt,
               }
             })
-            return changed ? { ...current, items } : current
+            return changed ? { ...value, items } : value
           })
         } catch {
           // Ignore malformed event frames.
@@ -114,14 +132,20 @@ export function RecordsPage() {
     return () => {
       disposed = true
       if (reconnect) window.clearTimeout(reconnect)
+      window.clearTimeout(refreshTimer)
       socket?.close()
     }
-  }, [user])
+  }, [filters.lang, filters.page, filters.pid, filters.status, filters.tid, filters.uidOrName, user])
 
   const hasMore = Boolean(page && page.page * page.limit < page.total)
 
   const handleReady = useCallback((root: HTMLDivElement) => {
+    const cleanups: Array<() => void> = []
     const form = root.querySelector<HTMLFormElement>('form[method="get"]')
+    const userInput = root.querySelector<HTMLInputElement>('input[name="uidOrName"]')
+    const problemInput = root.querySelector<HTMLInputElement>('input[name="pid"]')
+    if (userInput) cleanups.push(mountAutocomplete(userInput, 'users', false))
+    if (problemInput) cleanups.push(mountAutocomplete(problemInput, 'problems', false))
     const langSelect = root.querySelector<HTMLSelectElement>('select[name="lang"]')
     if (langSelect) {
       const fill = (items: Array<{ _id: string; name: string }>) => {
@@ -153,7 +177,10 @@ export function RecordsPage() {
       navigate(`/record${params.toString() ? `?${params.toString()}` : ''}`)
     }
     form?.addEventListener('submit', onSubmit)
-    return () => form?.removeEventListener('submit', onSubmit)
+    return () => {
+      form?.removeEventListener('submit', onSubmit)
+      cleanups.forEach((cleanup) => cleanup())
+    }
   }, [filters.lang, hasMore, navigate])
 
   const context = useMemo(() => {

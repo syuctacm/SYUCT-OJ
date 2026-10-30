@@ -20,7 +20,7 @@ function addListener<K extends keyof HTMLElementEventMap>(
   return () => element.removeEventListener(type, listener)
 }
 
-function mountAutocomplete(input: HTMLInputElement, kind: AutocompleteKind): Cleanup {
+export function mountAutocomplete(input: HTMLInputElement, kind: AutocompleteKind, multi = true): Cleanup {
   const selectedKeys = input.value.split(',').map((item) => item.trim()).filter(Boolean)
   const host = document.createElement('div')
   const Component = {
@@ -36,7 +36,7 @@ function mountAutocomplete(input: HTMLInputElement, kind: AutocompleteKind): Cle
   root.render(
     <Component
       selectedKeys={selectedKeys}
-      multi
+      multi={multi}
       placeholder={input.placeholder}
       onChange={(value) => {
         input.value = value
