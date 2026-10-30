@@ -1,64 +1,65 @@
+import { lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout.tsx'
 import { LegacyDomainRedirect } from './components/LegacyDomainRedirect.tsx'
-import { AdminPage } from './pages/AdminPage.tsx'
-import { ActivityFilesPage } from './pages/ActivityFilesPage.tsx'
-import { ContestManagementPage } from './pages/ContestManagementPage.tsx'
-import { AdminUsersPage } from './pages/AdminUsersPage.tsx'
-import { AdminUserImportPage } from './pages/AdminUserImportPage.tsx'
-import { AdminSettingsPage } from './pages/AdminSettingsPage.tsx'
-import { AdminAuditPage } from './pages/AdminAuditPage.tsx'
-import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
-import { ContestClarificationPage } from './pages/ContestClarificationPage.tsx'
-import { ContestBalloonPage } from './pages/ContestBalloonPage.tsx'
-import { ContestProblemsPage } from './pages/ContestProblemsPage.tsx'
-import { ContestPrintPage } from './pages/ContestPrintPage.tsx'
-import { ContestScoreboardPage } from './pages/ContestScoreboardPage.tsx'
-import { ContestUserPage } from './pages/ContestUserPage.tsx'
-import { RankingPage } from './pages/RankingPage.tsx'
-import { StatusPage } from './pages/StatusPage.tsx'
-import { AboutPage } from './pages/AboutPage.tsx'
-import { HelpPage } from './pages/HelpPage.tsx'
+const AdminPage = lazy(() => import('./pages/AdminPage.tsx').then((module) => ({ default: module.AdminPage })))
+const ActivityFilesPage = lazy(() => import('./pages/ActivityFilesPage.tsx').then((module) => ({ default: module.ActivityFilesPage })))
+const ContestManagementPage = lazy(() => import('./pages/ContestManagementPage.tsx').then((module) => ({ default: module.ContestManagementPage })))
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage.tsx').then((module) => ({ default: module.AdminUsersPage })))
+const AdminUserImportPage = lazy(() => import('./pages/AdminUserImportPage.tsx').then((module) => ({ default: module.AdminUserImportPage })))
+const AdminSettingsPage = lazy(() => import('./pages/AdminSettingsPage.tsx').then((module) => ({ default: module.AdminSettingsPage })))
+const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage.tsx').then((module) => ({ default: module.AdminAuditPage })))
+const ContestDetailPage = lazy(() => import('./pages/ContestDetailPage.tsx').then((module) => ({ default: module.ContestDetailPage })))
+const ContestClarificationPage = lazy(() => import('./pages/ContestClarificationPage.tsx').then((module) => ({ default: module.ContestClarificationPage })))
+const ContestBalloonPage = lazy(() => import('./pages/ContestBalloonPage.tsx').then((module) => ({ default: module.ContestBalloonPage })))
+const ContestProblemsPage = lazy(() => import('./pages/ContestProblemsPage.tsx').then((module) => ({ default: module.ContestProblemsPage })))
+const ContestPrintPage = lazy(() => import('./pages/ContestPrintPage.tsx').then((module) => ({ default: module.ContestPrintPage })))
+const ContestScoreboardPage = lazy(() => import('./pages/ContestScoreboardPage.tsx').then((module) => ({ default: module.ContestScoreboardPage })))
+const ContestUserPage = lazy(() => import('./pages/ContestUserPage.tsx').then((module) => ({ default: module.ContestUserPage })))
+const RankingPage = lazy(() => import('./pages/RankingPage.tsx').then((module) => ({ default: module.RankingPage })))
+const StatusPage = lazy(() => import('./pages/StatusPage.tsx').then((module) => ({ default: module.StatusPage })))
+const AboutPage = lazy(() => import('./pages/AboutPage.tsx').then((module) => ({ default: module.AboutPage })))
+const HelpPage = lazy(() => import('./pages/HelpPage.tsx').then((module) => ({ default: module.HelpPage })))
 import { NotFoundPage } from './pages/ErrorPage.tsx'
-import { UserDeletePage } from './pages/UserDeletePage.tsx'
-import { ContestEditPage } from './pages/ContestEditPage.tsx'
-import { ContestsPage } from './pages/ContestsPage.tsx'
-import { DiscussionCreatePage } from './pages/DiscussionCreatePage.tsx'
-import { DiscussionDetailPage } from './pages/DiscussionDetailPage.tsx'
-import { DiscussionEditPage } from './pages/DiscussionEditPage.tsx'
-import { DiscussionsPage } from './pages/DiscussionsPage.tsx'
-import { HomeworkDetailPage } from './pages/HomeworkDetailPage.tsx'
-import { HomeworkEditPage } from './pages/HomeworkEditPage.tsx'
+const UserDeletePage = lazy(() => import('./pages/UserDeletePage.tsx').then((module) => ({ default: module.UserDeletePage })))
+const ContestEditPage = lazy(() => import('./pages/ContestEditPage.tsx').then((module) => ({ default: module.ContestEditPage })))
+const ContestsPage = lazy(() => import('./pages/ContestsPage.tsx').then((module) => ({ default: module.ContestsPage })))
+const DiscussionCreatePage = lazy(() => import('./pages/DiscussionCreatePage.tsx').then((module) => ({ default: module.DiscussionCreatePage })))
+const DiscussionDetailPage = lazy(() => import('./pages/DiscussionDetailPage.tsx').then((module) => ({ default: module.DiscussionDetailPage })))
+const DiscussionEditPage = lazy(() => import('./pages/DiscussionEditPage.tsx').then((module) => ({ default: module.DiscussionEditPage })))
+const DiscussionsPage = lazy(() => import('./pages/DiscussionsPage.tsx').then((module) => ({ default: module.DiscussionsPage })))
+const HomeworkDetailPage = lazy(() => import('./pages/HomeworkDetailPage.tsx').then((module) => ({ default: module.HomeworkDetailPage })))
+const HomeworkEditPage = lazy(() => import('./pages/HomeworkEditPage.tsx').then((module) => ({ default: module.HomeworkEditPage })))
 import { HomePage } from './pages/HomePage.tsx'
-import { HomeSettingsPage } from './pages/HomeSettingsPage.tsx'
-import { EmailChangeConfirmPage } from './pages/EmailChangeConfirmPage.tsx'
-import { HomeworksPage } from './pages/HomeworksPage.tsx'
+const HomeSettingsPage = lazy(() => import('./pages/HomeSettingsPage.tsx').then((module) => ({ default: module.HomeSettingsPage })))
+const EmailChangeConfirmPage = lazy(() => import('./pages/EmailChangeConfirmPage.tsx').then((module) => ({ default: module.EmailChangeConfirmPage })))
+const HomeworksPage = lazy(() => import('./pages/HomeworksPage.tsx').then((module) => ({ default: module.HomeworksPage })))
 import { LoginPage } from './pages/LoginPage.tsx'
-import { LostPassPage } from './pages/LostPassPage.tsx'
-import { LostPassCodePage } from './pages/LostPassCodePage.tsx'
-import { RegisterPage } from './pages/RegisterPage.tsx'
-import { RegisterCodePage } from './pages/RegisterCodePage.tsx'
-import { MessagesPage } from './pages/MessagesPage.tsx'
-import { SecurityPage } from './pages/SecurityPage.tsx'
-import { ProblemConfigPage } from './pages/ProblemConfigPage.tsx'
-import { ProblemDetailPage } from './pages/ProblemDetailPage.tsx'
-import { ProblemEditPage } from './pages/ProblemEditPage.tsx'
-import { ProblemImportFpsPage } from './pages/ProblemImportFpsPage.tsx'
-import { ProblemImportHydroPage } from './pages/ProblemImportHydroPage.tsx'
-import { ProblemFilesPage } from './pages/ProblemFilesPage.tsx'
-import { RandomProblemPage } from './pages/RandomProblemPage.tsx'
-import { ProblemSolutionPage } from './pages/ProblemSolutionPage.tsx'
-import { ProblemStatisticsPage } from './pages/ProblemStatisticsPage.tsx'
-import { ProblemsPage } from './pages/ProblemsPage.tsx'
-import { RecordsPage } from './pages/RecordsPage.tsx'
-import { SubmissionPage } from './pages/SubmissionPage.tsx'
-import { UserProfilePage } from './pages/UserProfilePage.tsx'
-import { UserFilesPage } from './pages/UserFilesPage.tsx'
-import { TrainingDetailPage } from './pages/TrainingDetailPage.tsx'
-import { TrainingEditPage } from './pages/TrainingEditPage.tsx'
-import { TrainingsPage } from './pages/TrainingsPage.tsx'
-import { SubmitPage } from './pages/SubmitPage.tsx'
-import { TagRankingPage } from './pages/TagRankingPage.tsx'
+const LostPassPage = lazy(() => import('./pages/LostPassPage.tsx').then((module) => ({ default: module.LostPassPage })))
+const LostPassCodePage = lazy(() => import('./pages/LostPassCodePage.tsx').then((module) => ({ default: module.LostPassCodePage })))
+const RegisterPage = lazy(() => import('./pages/RegisterPage.tsx').then((module) => ({ default: module.RegisterPage })))
+const RegisterCodePage = lazy(() => import('./pages/RegisterCodePage.tsx').then((module) => ({ default: module.RegisterCodePage })))
+const MessagesPage = lazy(() => import('./pages/MessagesPage.tsx').then((module) => ({ default: module.MessagesPage })))
+const SecurityPage = lazy(() => import('./pages/SecurityPage.tsx').then((module) => ({ default: module.SecurityPage })))
+const ProblemConfigPage = lazy(() => import('./pages/ProblemConfigPage.tsx').then((module) => ({ default: module.ProblemConfigPage })))
+const ProblemDetailPage = lazy(() => import('./pages/ProblemDetailPage.tsx').then((module) => ({ default: module.ProblemDetailPage })))
+const ProblemEditPage = lazy(() => import('./pages/ProblemEditPage.tsx').then((module) => ({ default: module.ProblemEditPage })))
+const ProblemImportFpsPage = lazy(() => import('./pages/ProblemImportFpsPage.tsx').then((module) => ({ default: module.ProblemImportFpsPage })))
+const ProblemImportHydroPage = lazy(() => import('./pages/ProblemImportHydroPage.tsx').then((module) => ({ default: module.ProblemImportHydroPage })))
+const ProblemFilesPage = lazy(() => import('./pages/ProblemFilesPage.tsx').then((module) => ({ default: module.ProblemFilesPage })))
+const RandomProblemPage = lazy(() => import('./pages/RandomProblemPage.tsx').then((module) => ({ default: module.RandomProblemPage })))
+const ProblemSolutionPage = lazy(() => import('./pages/ProblemSolutionPage.tsx').then((module) => ({ default: module.ProblemSolutionPage })))
+const ProblemStatisticsPage = lazy(() => import('./pages/ProblemStatisticsPage.tsx').then((module) => ({ default: module.ProblemStatisticsPage })))
+const ProblemsPage = lazy(() => import('./pages/ProblemsPage.tsx').then((module) => ({ default: module.ProblemsPage })))
+const RecordsPage = lazy(() => import('./pages/RecordsPage.tsx').then((module) => ({ default: module.RecordsPage })))
+const SubmissionPage = lazy(() => import('./pages/SubmissionPage.tsx').then((module) => ({ default: module.SubmissionPage })))
+const UserProfilePage = lazy(() => import('./pages/UserProfilePage.tsx').then((module) => ({ default: module.UserProfilePage })))
+const UserFilesPage = lazy(() => import('./pages/UserFilesPage.tsx').then((module) => ({ default: module.UserFilesPage })))
+const TrainingDetailPage = lazy(() => import('./pages/TrainingDetailPage.tsx').then((module) => ({ default: module.TrainingDetailPage })))
+const TrainingEditPage = lazy(() => import('./pages/TrainingEditPage.tsx').then((module) => ({ default: module.TrainingEditPage })))
+const TrainingsPage = lazy(() => import('./pages/TrainingsPage.tsx').then((module) => ({ default: module.TrainingsPage })))
+const SubmitPage = lazy(() => import('./pages/SubmitPage.tsx').then((module) => ({ default: module.SubmitPage })))
+const TagRankingPage = lazy(() => import('./pages/TagRankingPage.tsx').then((module) => ({ default: module.TagRankingPage })))
 
 function DevRenderFailure(): never {
   throw new Error('forced render failure for the local error-boundary check')
