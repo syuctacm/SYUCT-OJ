@@ -135,6 +135,101 @@ func NewRepository(db *mongo.Database) *Repository {
 	}
 }
 
+// Deadline returns the effective end time for one attendee. A personal start
+// time and early end can shorten the global contest window.
+func Deadline(item *Contest, status *AttendeeStatus) time.Time {
+	deadline := item.EndAt
+	if item.Duration > 0 && status != nil && status.StartAt != nil {
+		personal := status.StartAt.Add(time.Duration(item.Duration) * time.Hour)
+		if personal.Before(deadline) {
+			deadline = personal
+		}
+	}
+	if status != nil && status.EndAt != nil && status.EndAt.Before(deadline) {
+		deadline = *status.EndAt
+	}
+	return deadline
+}
+
+func IsOngoing(item *Contest, status *AttendeeStatus, now time.Time) bool {
+	return !now.Before(item.BeginAt) && now.Before(Deadline(item, status))
+}
+
+func IsDone(item *Contest, status *AttendeeStatus, now time.Time) bool {
+	return !now.Before(Deadline(item, status))
+}
+
+func (r *Repository) startIfAttended(ctx context.Context, item *Contest, uid int64) (*AttendeeStatus, error) {
+	status, err := r.Status(ctx, item.DocID.Hex(), uid)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	if status != nil && status.Attend == 1 && status.StartAt == nil && IsOngoing(item, status, now) {
+		start := time.Now().UTC()
+		if _, err := r.statuses.UpdateOne(ctx, bson.M{
+			"domainId": DomainSystem, "docType": DocumentTypeContest,
+			"docId": item.DocID, "uid": uid, "attend": 1,
+			"startAt": bson.M{"$exists": false},
+		}, bson.M{"$set": bson.M{"startAt": start}}); err != nil {
+			return nil, err
+		}
+		status.StartAt = &start
+	}
+	return status, nil
+}
+
+// StartIfAttended initializes the personal contest clock when an attendee first
+// opens the problem list or a problem. Repeated calls preserve the original time.
+func (r *Repository) StartIfAttended(ctx context.Context, tid string, uid int64) (*AttendeeStatus, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, err
+	}
+	return r.startIfAttended(ctx, item, uid)
+}
+
+// Access enforces the same contest-window and attendance rules used by a
+// contest problem page. Completed contests remain readable without attendance;
+// live contests require an attendee with a personal start time.
+func (r *Repository) Access(ctx context.Context, tid string, uid int64) (*Contest, *AttendeeStatus, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, nil, err
+	}
+	now := time.Now()
+	if now.Before(item.BeginAt) {
+		return nil, nil, ErrContestNotLive
+	}
+	status, err := r.startIfAttended(ctx, item, uid)
+	if err != nil {
+		return nil, nil, err
+	}
+	if IsOngoing(item, status, now) && (status == nil || status.Attend == 0 || status.StartAt == nil) {
+		return nil, nil, ErrContestNotAttended
+	}
+	return item, status, nil
+}
+
+// ProblemAccess additionally verifies that the problem belongs to the contest.
+func (r *Repository) ProblemAccess(ctx context.Context, tid string, pid int64, uid int64) (*Contest, *AttendeeStatus, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return nil, nil, err
+	}
+	found := false
+	for _, candidate := range item.PIDs {
+		if candidate == pid {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, nil, ErrNotFound
+	}
+	return r.Access(ctx, tid, uid)
+}
+
 // Attended reports whether the user has attended the contest.
 func (r *Repository) Attended(ctx context.Context, tid string, uid int64) (bool, error) {
 	if uid <= 0 {

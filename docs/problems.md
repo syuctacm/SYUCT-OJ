@@ -82,6 +82,23 @@
 
 详情 API 额外返回 `problemType`、`timeLimit` 和 `memoryLimit`，由 Hydro 题目 `config` 生成展示信息。
 
+### 比赛 / 作业题目模式
+
+比赛和作业题目链接保留上游的 `?tid=<ObjectId>` 查询参数。详情页根据 `contest.rule` 切换：
+
+- `contest_detail_problem`
+- `homework_detail_problem`
+
+`GET /api/v1/problems/:pid?tid=...` 在返回题目的同时返回比赛、个人状态、全部题目状态和 `contestMode`。后端校验题目属于该比赛，并复刻上游访问规则：
+
+- 比赛未开始：403
+- 比赛中未报名：403
+- 首次打开比赛题目或题目列表：写入个人 `startAt`
+- 个人时长、提前结束时间和比赛结束时间共同决定实际截止时间
+- 比赛结束后仍可查看题目，模式标记为 `view` / `correction`
+
+前端直接复用上游 `problem_sidebar_contest.html`、`problem_sidebar_homework.html`、`contest_sidebar.html` 和 `homework_sidebar.html`，保留比赛题目 A/B/C 导航、已提交状态、比赛内提交链接、比赛侧栏和倒计时。普通 `/p/:pid` 仍使用 `problem_detail` 模式。
+
 题目创建和编辑页由 `HydroTemplate` 直接渲染上游 `problem_edit.html`：
 
 - `/p/new`

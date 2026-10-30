@@ -146,7 +146,7 @@ func (h *ContestHandler) problems(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest attendance"})
 			return
 		}
-		attendeeStatus, err = h.repo.Status(c.Request.Context(), c.Param("tid"), u.ID)
+		attendeeStatus, err = h.repo.StartIfAttended(c.Request.Context(), c.Param("tid"), u.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest status"})
 			return

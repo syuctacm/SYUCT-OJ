@@ -142,7 +142,7 @@ export function HomeworkDetailPage() {
       case 'problem_detail': {
         const raw = String(args.pid ?? '')
         const problem = data?.problems.find((item) => String(item.docId) === raw || item.pid === raw)
-        return `/p/${encodeURIComponent(problem?.pid || raw)}`
+        return `/p/${encodeURIComponent(problem?.pid || raw)}?tid=${encodeURIComponent(id)}`
       }
       case 'record_main': {
         const params = new URLSearchParams()

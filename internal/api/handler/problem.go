@@ -22,6 +22,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
+	"github.com/syuctacm/syuct-oj/internal/contest"
 	"github.com/syuctacm/syuct-oj/internal/judge"
 	"github.com/syuctacm/syuct-oj/internal/problem"
 	"github.com/syuctacm/syuct-oj/internal/submission"
@@ -38,14 +39,15 @@ const (
 
 type ProblemHandler struct {
 	repo        *problem.Repository
+	contests    *contest.Repository
 	sessions    *auth.SessionManager
 	users       *user.Repository
 	store       *judge.FileStore
 	submissions *submission.Repository
 }
 
-func NewProblemHandler(repo *problem.Repository, sessions *auth.SessionManager, users *user.Repository, store *judge.FileStore, submissions *submission.Repository) *ProblemHandler {
-	return &ProblemHandler{repo: repo, sessions: sessions, users: users, store: store, submissions: submissions}
+func NewProblemHandler(repo *problem.Repository, contests *contest.Repository, sessions *auth.SessionManager, users *user.Repository, store *judge.FileStore, submissions *submission.Repository) *ProblemHandler {
+	return &ProblemHandler{repo: repo, contests: contests, sessions: sessions, users: users, store: store, submissions: submissions}
 }
 
 func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -390,7 +392,19 @@ func (h *ProblemHandler) tagRankingExport(c *gin.Context) {
 	_, _ = c.Writer.Write(output.Bytes())
 }
 
+type contestProblemResponse struct {
+	*problem.Problem
+	Contest         *contest.Contest                `json:"contest"`
+	ContestStatus   *contest.AttendeeStatus         `json:"contestStatus,omitempty"`
+	ContestStatuses map[int64]contest.ProblemStatus `json:"contestStatuses,omitempty"`
+	ContestMode     string                          `json:"contestMode"`
+}
+
 func (h *ProblemHandler) get(c *gin.Context) {
+	if tid := strings.TrimSpace(c.Query("tid")); tid != "" {
+		h.getContestProblem(c, tid)
+		return
+	}
 	pdoc, err := h.repo.Get(c.Request.Context(), c.Param("pid"))
 	if err != nil {
 		// Hidden problems stay visible to their owner and to administrators,
@@ -417,6 +431,59 @@ func (h *ProblemHandler) get(c *gin.Context) {
 		pdoc.Starred = starred[pdoc.DocID]
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": pdoc})
+}
+
+func (h *ProblemHandler) getContestProblem(c *gin.Context, tid string) {
+	pdoc, err := h.repo.GetForEditor(c.Request.Context(), c.Param("pid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
+		return
+	}
+	uid, _ := h.currentUser(c)
+	item, status, err := h.contests.ProblemAccess(c.Request.Context(), tid, pdoc.DocID, uid)
+	if err != nil {
+		switch {
+		case errors.Is(err, contest.ErrNotFound), errors.Is(err, problem.ErrNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "contest or problem not found"})
+		case errors.Is(err, contest.ErrContestNotLive):
+			c.JSON(http.StatusForbidden, gin.H{"error": "contest is not running"})
+		case errors.Is(err, contest.ErrContestNotAttended):
+			c.JSON(http.StatusForbidden, gin.H{"error": "attend the contest first"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest problem"})
+		}
+		return
+	}
+	statuses := map[int64]contest.ProblemStatus{}
+	if uid > 0 {
+		statuses, err = h.contests.UserProblemStatus(c.Request.Context(), uid, item.PIDs)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest problem status"})
+			return
+		}
+	}
+	mode := "view"
+	if status != nil && status.Attend == 1 {
+		if contest.IsDone(item, status, time.Now()) {
+			canView := !pdoc.Hidden || pdoc.Owner == uid
+			if !canView && uid > 0 {
+				if account, accountErr := h.users.FindByID(c.Request.Context(), uid); accountErr == nil {
+					canView = account.Priv&1 != 0
+				}
+			}
+			if canView {
+				mode = "correction"
+			} else {
+				mode = "none"
+			}
+		} else if contest.IsOngoing(item, status, time.Now()) {
+			mode = "contest"
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": contestProblemResponse{
+		Problem: pdoc, Contest: item, ContestStatus: status,
+		ContestStatuses: statuses, ContestMode: mode,
+	}})
 }
 
 // starred lists the problems the caller starred, newest first.

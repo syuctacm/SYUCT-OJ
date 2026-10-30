@@ -226,7 +226,7 @@ export function ContestProblemsPage() {
       case 'problem_detail': {
         const raw = String(args.pid ?? '')
         const problem = problems.find((item) => String(item.docId) === raw || item.pid === raw)
-        return `/p/${encodeURIComponent(problem?.pid || raw)}`
+        return `/p/${encodeURIComponent(problem?.pid || raw)}?tid=${encodeURIComponent(id)}`
       }
       case 'problem_submit': {
         const raw = String(args.pid ?? '')
@@ -235,7 +235,8 @@ export function ContestProblemsPage() {
         for (const [key, value] of Object.entries(query)) {
           if (value !== undefined && value !== null) params.set(key, String(value))
         }
-        return `/p/${encodeURIComponent(problem?.pid || raw)}/submit${params.toString() ? `?${params.toString()}` : ''}`
+        if (!params.has('tid')) params.set('tid', id)
+        return `/p/${encodeURIComponent(problem?.pid || raw)}/submit?${params.toString()}`
       }
       case 'record_main': {
         const params = new URLSearchParams()
