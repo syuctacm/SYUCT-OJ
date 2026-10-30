@@ -402,6 +402,90 @@ func (r *Repository) ListFiltered(ctx context.Context, query string, page, pageS
 	return items, total, nil
 }
 
+// ListProgress returns lightweight enrollment and completion data for a list
+// of trainings using batched status and record queries.
+type ListProgress struct {
+	Enrolled      bool `json:"enrolled"`
+	Completed     bool `json:"completed"`
+	DoneProblems  int  `json:"doneProblems"`
+	TotalProblems int  `json:"totalProblems"`
+}
+
+func (r *Repository) ListProgress(ctx context.Context, uid int64, items []Training) (map[string]ListProgress, error) {
+	result := make(map[string]ListProgress, len(items))
+	if uid <= 0 || len(items) == 0 {
+		return result, nil
+	}
+	docIDs := make([]bson.ObjectID, 0, len(items))
+	for _, item := range items {
+		docIDs = append(docIDs, item.DocID)
+	}
+	enrolled := make(map[bson.ObjectID]bool)
+	statusCursor, err := r.statuses.Find(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeTraining,
+		"uid": uid, "docId": bson.M{"$in": docIDs}, "enroll": 1,
+	}, options.Find().SetProjection(bson.M{"docId": 1}))
+	if err != nil {
+		return nil, err
+	}
+	var statusRows []struct {
+		DocID bson.ObjectID `bson:"docId"`
+	}
+	if err := statusCursor.All(ctx, &statusRows); err != nil {
+		_ = statusCursor.Close(ctx)
+		return nil, err
+	}
+	_ = statusCursor.Close(ctx)
+	for _, row := range statusRows {
+		enrolled[row.DocID] = true
+	}
+	docCursor, err := r.documents.Find(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeTraining,
+		"docId": bson.M{"$in": docIDs},
+	}, options.Find().SetProjection(bson.M{"docId": 1, "dag": 1}))
+	if err != nil {
+		return nil, err
+	}
+	var rawDocs []rawTraining
+	if err := docCursor.All(ctx, &rawDocs); err != nil {
+		_ = docCursor.Close(ctx)
+		return nil, err
+	}
+	_ = docCursor.Close(ctx)
+	pidSet := make(map[int64]bool)
+	pidsByDoc := make(map[bson.ObjectID][]int64, len(rawDocs))
+	for _, raw := range rawDocs {
+		item := raw.toTraining()
+		pids := uniquePids(item.DAG)
+		pidsByDoc[item.DocID] = pids
+		for _, pid := range pids {
+			pidSet[pid] = true
+		}
+	}
+	allPids := make([]int64, 0, len(pidSet))
+	for pid := range pidSet {
+		allPids = append(allPids, pid)
+	}
+	records, err := r.userProblemStatus(ctx, uid, allPids)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		pids := pidsByDoc[item.DocID]
+		done := 0
+		for _, pid := range pids {
+			if records[pid].Status == statusAccepted {
+				done++
+			}
+		}
+		result[item.DocID.Hex()] = ListProgress{
+			Enrolled: enrolled[item.DocID], Completed: len(pids) > 0 && done == len(pids),
+			DoneProblems: done, TotalProblems: len(pids),
+		}
+	}
+	return result, nil
+}
+
 func (r *Repository) Get(ctx context.Context, tid string) (*Training, error) {
 	oid, err := bson.ObjectIDFromHex(tid)
 	if err != nil {
@@ -570,8 +654,9 @@ func (r *Repository) userProblemStatus(ctx context.Context, uid int64, pids []in
 		return records, nil
 	}
 	cursor, err := r.records.Find(ctx, bson.M{
-		"uid": uid,
-		"pid": bson.M{"$in": pids},
+		"uid":  uid,
+		"pid":  bson.M{"$in": pids},
+		"type": bson.M{"$nin": []string{"pretest", "generate"}},
 	}, options.Find().
 		SetProjection(bson.M{"pid": 1, "status": 1, "score": 1}).
 		SetSort(bson.D{{Key: "_id", Value: -1}}))

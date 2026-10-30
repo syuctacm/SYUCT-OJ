@@ -492,6 +492,23 @@ Playwright 验证：
 - `go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.22 首页参与状态与训练进度（2026-10-30）
+
+- 比赛列表数据批量附带当前用户 `attended`
+- 作业列表数据批量附带当前用户是否认领
+- 训练列表返回当前用户报名和完成题目进度
+- 首页复用上游 `contest.html` / `homework.html` / `training.html` 的 `tsdict` 展示
+- 匿名访问不包含用户状态
+- 训练进度按唯一题目统计，预测试和生成任务不计入完成度
+
+Playwright 验证：
+
+- 已参加比赛显示「已参加」
+- 已认领作业显示「已认领」
+- 已报名训练显示「已完成 50%」
+- API 集成测试覆盖登录状态、匿名隔离和训练进度
+- `go test ./... -count=1`、前端 lint/build 通过
+
 ## 7. 当前已知差异
 
 ```text
