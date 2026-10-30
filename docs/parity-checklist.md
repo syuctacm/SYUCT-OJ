@@ -709,6 +709,24 @@ Playwright 验证：
 - Playwright：TOTP 用户首次提交后出现验证码输入框，输入正确验证码后登录成功
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.37 ui-default 内容运行时（2026-10-31）
+
+- 接入 Prism：代码块按语言高亮，恢复主题原有 token、行号、行区间和工具栏样式
+- 恢复代码块复制按钮、样例输入/输出双栏，以及样例输入「填入预测试」
+- 恢复 Scratchpad 预测试输入的跨组件传递，先点样例、后进入在线编程模式也不会丢值
+- 恢复 `span.time.relative[data-timestamp]` 中文相对时间，绝对时间保留为 tooltip，并每分钟刷新
+- 恢复题面 `[data-marker-enabled]` 划词工具栏：黄/绿/红标记与清除
+- 恢复题目列表链接 `target=_blank`
+
+验证：
+
+- Playwright：C++ 代码块生成 Prism token，样例输入/输出显示为双栏
+- Playwright：样例输入「填入预测试」后进入 Scratchpad，预测试输入框得到原始文本
+- Playwright：讨论列表显示「10天前」等相对时间，tooltip 保留原绝对时间
+- Playwright：选中题面文字后出现 4 个标记操作，黄色标记写入行内背景色
+- Playwright：题目列表链接 target 为 `_blank`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

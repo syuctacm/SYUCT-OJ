@@ -7,6 +7,7 @@ type HydroUserContext = {
   codeLang?: string
   codeTemplate?: string
   skipAnimate?: boolean
+  showTimeAgo?: boolean
 }
 
 type HydroUserPreferences = {
@@ -17,6 +18,7 @@ type HydroUserPreferences = {
   codeLang?: string
   codeTemplate?: string
   skipAnimate?: boolean
+  showTimeAgo?: boolean
 }
 
 declare global {
@@ -46,6 +48,7 @@ export function ensureHydroGlobals(userId = 0, preferences: HydroUserPreferences
     fontFamily: 'Open Sans',
     codeFontFamily: 'Source Code Pro',
     skipAnimate: false,
+    showTimeAgo: true,
   }
   globalThis.UserContext._id = userId
   globalThis.UserContext.viewLang = preferences.viewLang || 'zh'
@@ -55,6 +58,7 @@ export function ensureHydroGlobals(userId = 0, preferences: HydroUserPreferences
   globalThis.UserContext.codeLang = preferences.codeLang || ''
   globalThis.UserContext.codeTemplate = preferences.codeTemplate || ''
   globalThis.UserContext.skipAnimate = Boolean(preferences.skipAnimate)
+  globalThis.UserContext.showTimeAgo = preferences.showTimeAgo ?? true
   applyFontPreferences(preferences.fontFamily, preferences.codeFontFamily)
   return globalThis.UserContext
 }

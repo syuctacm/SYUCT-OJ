@@ -15,6 +15,7 @@ import { notifyError, notifySuccess } from './Notification.tsx'
 import { loadLanguages, type LanguageItem } from '../upstream/languages.ts'
 import { monaco } from '../upstream/monaco/base.ts'
 import { getScratchpadDraft, putScratchpadDraft } from '../upstream/scratchpad-drafts.ts'
+import { subscribeScratchpadPretest } from '../upstream/scratchpad-pretest.ts'
 
 type ScratchpadProps = {
   problem: ProblemDetail
@@ -287,6 +288,12 @@ export function Scratchpad({ problem, user, contestId = '', canViewRecord, onExi
     window.addEventListener('scratchpad-settings', listener)
     return () => window.removeEventListener('scratchpad-settings', listener)
   }, [])
+
+  useEffect(() => subscribeScratchpadPretest((value) => {
+    setInput(value)
+    setPretestVisible(true)
+    localStorage.setItem('scratchpad/pretest', 'true')
+  }), [])
 
   useEffect(() => () => { pollCancelled.current = true }, [])
 
