@@ -7,6 +7,7 @@ import { installHydroForms } from './forms.ts'
 import { initHydroHighlighter } from './highlighter.ts'
 import { installHydroHotkeys } from './hotkeys.ts'
 import { initHydroMarkers } from './marker.ts'
+import { initHydroMedia } from './media.ts'
 import { initHydroMenus } from './menu.ts'
 import { installHydroFilePreview } from './preview.tsx'
 import { cleanupHydroOverlays, installHydroOverlays } from './overlays.ts'
@@ -57,6 +58,7 @@ export function installHydroRuntime(main: HTMLElement) {
       if (isHydroPageLoading(main)) return
       initHydroProblemList(main)
       await initHydroHighlighter(main)
+      void initHydroMedia(main)
       initHydroRelativeTime(main)
       initHydroMarkers(main)
       initHydroCollapsibleContent(main)

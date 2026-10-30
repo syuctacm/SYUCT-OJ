@@ -106,6 +106,7 @@ VITE_API_PROXY=http://127.0.0.1:18080 pnpm dev
 - 样例输入可填入 Scratchpad 预测试面板
 - 403 / 404 / 500 使用 Hydro 错误模板；页面渲染异常由 React error boundary 兜底
 - 页面组件按路由懒加载，首页和登录页保持同步加载以稳定首屏
+- Markdown 站内用户/题目/比赛/作业链接解析为原版富媒体节点
 
 ## 尚未完成
 
