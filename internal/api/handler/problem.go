@@ -56,6 +56,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/problems", h.create)
 	router.POST("/api/v1/problems/import/fps", h.importFPS)
 	router.POST("/api/v1/problems/import/hydro", h.importHydro)
+	router.POST("/api/v1/problems/archive", h.archiveProblems)
 	router.GET("/api/v1/problems/random", h.random)
 	router.GET("/api/v1/problems/:pid/edit", h.editData)
 	router.PATCH("/api/v1/problems/:pid", h.update)
@@ -910,6 +911,166 @@ func (h *ProblemHandler) downloadAsset(c *gin.Context) {
 	c.Header("Content-Disposition", contentDisposition)
 	c.Header("Content-Type", "application/octet-stream")
 	_, _ = io.Copy(c.Writer, reader)
+}
+
+func (h *ProblemHandler) archiveProblems(c *gin.Context) {
+	uid, ok := h.currentUser(c)
+	if !ok || h.users == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	account, err := h.users.FindByID(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var request struct {
+		PIDs []string `json:"pids"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || len(request.PIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pids are required"})
+		return
+	}
+	if len(request.PIDs) > maxProblemFiles {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many problems (max %d)", maxProblemFiles)})
+		return
+	}
+	seen := map[int64]bool{}
+	items := make([]*problem.Problem, 0, len(request.PIDs))
+	for _, pid := range request.PIDs {
+		item, err := h.repo.GetForEditor(c.Request.Context(), pid)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("problem not found: %s", pid)})
+			return
+		}
+		if item.Owner != uid && account.Priv&1 == 0 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
+		if seen[item.DocID] {
+			continue
+		}
+		seen[item.DocID] = true
+		if h.store != nil {
+			for _, group := range []struct {
+				kind  string
+				files []problem.ProblemFile
+			}{
+				{problemFileKindData, item.Data},
+				{problemFileKindAttach, item.AdditionalFiles},
+			} {
+				for _, file := range group.files {
+					name, err := sanitizeAssetName(file.Name)
+					if err != nil || name != file.Name {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid stored filename"})
+						return
+					}
+					reader, err := h.openAsset(group.kind, item.DocID, name)
+					if err != nil {
+						c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("file not found: %s", name)})
+						return
+					}
+					_ = reader.Close()
+				}
+			}
+		}
+		items = append(items, item)
+	}
+
+	filename := "problems.zip"
+	if len(items) == 1 {
+		filename = fmt.Sprintf("%d %s.zip", items[0].DocID, items[0].Title)
+	}
+	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	c.Header("Content-Type", "application/zip")
+	writer := zip.NewWriter(c.Writer)
+	defer writer.Close()
+	for _, item := range items {
+		folder := problemExportFolder(item)
+		meta, err := yaml.Marshal(struct {
+			PID        string   `yaml:"pid"`
+			Title      string   `yaml:"title"`
+			Owner      int64    `yaml:"owner"`
+			Tags       []string `yaml:"tag,omitempty"`
+			Difficulty int      `yaml:"difficulty,omitempty"`
+			Hidden     bool     `yaml:"hidden,omitempty"`
+		}{item.PID, item.Title, item.Owner, item.Tags, item.Difficulty, item.Hidden})
+		if err != nil {
+			return
+		}
+		if !writeProblemArchiveEntry(writer, path.Join(folder, "problem.yaml"), meta) {
+			return
+		}
+		if !writeProblemArchiveEntry(writer, path.Join(folder, "problem.md"), []byte(item.Content)) {
+			return
+		}
+		hasConfig := false
+		for _, file := range item.Data {
+			if isConfigFile(file.Name) {
+				hasConfig = true
+			}
+			if !h.writeStoredProblemArchiveEntry(writer, item, problemFileKindData, "testdata", folder, file.Name) {
+				return
+			}
+		}
+		if !hasConfig {
+			if config := problemConfigString(item); strings.TrimSpace(config) != "" {
+				if !writeProblemArchiveEntry(writer, path.Join(folder, "testdata", "config.yaml"), []byte(config)) {
+					return
+				}
+			}
+		}
+		for _, file := range item.AdditionalFiles {
+			if !h.writeStoredProblemArchiveEntry(writer, item, problemFileKindAttach, "additional_file", folder, file.Name) {
+				return
+			}
+		}
+	}
+}
+
+func writeProblemArchiveEntry(writer *zip.Writer, name string, content []byte) bool {
+	header := &zip.FileHeader{Name: name, Method: zip.Deflate}
+	entry, err := writer.CreateHeader(header)
+	if err != nil {
+		return false
+	}
+	_, err = entry.Write(content)
+	return err == nil
+}
+
+func (h *ProblemHandler) writeStoredProblemArchiveEntry(writer *zip.Writer, item *problem.Problem, kind, archiveDir, folder, name string) bool {
+	if h.store == nil {
+		return false
+	}
+	reader, err := h.openAsset(kind, item.DocID, name)
+	if err != nil {
+		return false
+	}
+	defer reader.Close()
+	entry, err := writer.Create(path.Join(folder, archiveDir, name))
+	if err != nil {
+		return false
+	}
+	_, err = io.Copy(entry, reader)
+	return err == nil
+}
+
+func problemExportFolder(item *problem.Problem) string {
+	value := strings.TrimSpace(item.PID)
+	var folder strings.Builder
+	for _, char := range value {
+		switch {
+		case char >= 'a' && char <= 'z', char >= 'A' && char <= 'Z', char >= '0' && char <= '9', char == '.', char == '_', char == '-':
+			folder.WriteRune(char)
+		default:
+			folder.WriteByte('_')
+		}
+	}
+	result := strings.Trim(folder.String(), ".")
+	if result == "" || result == "." || result == ".." {
+		return strconv.FormatInt(item.DocID, 10)
+	}
+	return result
 }
 
 func (h *ProblemHandler) downloadAllAssets(c *gin.Context) {
