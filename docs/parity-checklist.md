@@ -627,6 +627,21 @@ Playwright 验证：
 - `TEST_MONGO_URI=... go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.31 后台用户封禁（2026-10-30）
+
+- 后台用户表增加封禁/解封操作
+- 封禁清除 `PRIV_USER_PROFILE` 并撤销全部 Session，解封恢复权限位
+- 被封禁账户无法登录，已有 Session 访问会失效
+- 禁止封禁自己、管理员和超级管理员
+- 保留现有权限编辑对话框和管理员列表结构
+
+验证：
+
+- Go 集成测试覆盖封禁后 Session 失效、登录拒绝、解封恢复和管理员保护
+- Playwright 验证后台 Ban/Unban 操作与提示
+- `TEST_MONGO_URI=... go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

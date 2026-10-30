@@ -29,6 +29,7 @@ type User struct {
 	Hash            string          `bson:"hash" json:"-"`
 	HashType        string          `bson:"hashType" json:"-"`
 	Priv            int64           `bson:"priv" json:"priv"`
+	Banned          bool            `bson:"banned,omitempty" json:"-"`
 	RegAt           time.Time       `bson:"regat" json:"regAt"`
 	LoginAt         time.Time       `bson:"loginat" json:"loginAt"`
 	DisplayName     string          `bson:"displayName" json:"displayName,omitempty"`

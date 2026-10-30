@@ -32,6 +32,7 @@ func (h *AdminHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/admin/stats", h.stats)
 	router.GET("/api/v1/admin/users", h.userList)
 	router.PATCH("/api/v1/admin/users/:uid/priv", h.updateUserPriv)
+	router.PATCH("/api/v1/admin/users/:uid/ban", h.setUserBanned)
 	router.POST("/api/v1/admin/users/import", h.importUsers)
 	router.GET("/api/v1/admin/settings", h.settings)
 	router.PUT("/api/v1/admin/settings", h.updateSettings)
@@ -145,6 +146,7 @@ type AdminUser struct {
 	Email       string    `bson:"mail" json:"email"`
 	StudentID   string    `bson:"studentId" json:"studentId,omitempty"`
 	Priv        int64     `bson:"priv" json:"priv"`
+	Banned      bool      `bson:"banned,omitempty" json:"banned"`
 	Avatar      string    `bson:"avatar" json:"avatar,omitempty"`
 	RegAt       time.Time `bson:"regat" json:"regAt"`
 	LoginAt     time.Time `bson:"loginat" json:"loginAt"`
@@ -186,7 +188,7 @@ func (h *AdminHandler) userList(c *gin.Context) {
 		sort = bson.D{{Key: "_id", Value: 1}}
 	}
 	cursor, err := coll.Find(c.Request.Context(), filter, options.Find().
-		SetProjection(bson.M{"uname": 1, "displayName": 1, "avatar": 1, "mail": 1, "studentId": 1, "priv": 1, "regat": 1, "loginat": 1}).
+		SetProjection(bson.M{"uname": 1, "displayName": 1, "avatar": 1, "mail": 1, "studentId": 1, "priv": 1, "banned": 1, "regat": 1, "loginat": 1}).
 		SetSort(sort).
 		SetSkip(int64((page-1)*limit)).
 		SetLimit(int64(limit)))
@@ -281,6 +283,52 @@ func (h *AdminHandler) updateUserPriv(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"id": uid, "priv": request.Priv}})
+}
+
+func (h *AdminHandler) setUserBanned(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+	session, _ := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
+	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
+	if err != nil || uid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+	if uid == session.UserID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot ban yourself"})
+		return
+	}
+	target, err := h.users.FindByID(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	if uid == 1 || target.Priv < 0 || target.Priv&user.PrivEditSystem != 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot ban an administrator"})
+		return
+	}
+	var request struct {
+		Banned bool `json:"banned"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	priv, err := h.users.SetBanned(c.Request.Context(), uid, request.Banned)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update user"})
+		return
+	}
+	if request.Banned {
+		if err := h.sessions.RevokeUser(c.Request.Context(), uid); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to revoke user sessions"})
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+		"id": uid, "priv": priv, "banned": request.Banned,
+	}})
 }
 
 // importUsers creates accounts in bulk from the admin import textarea.
