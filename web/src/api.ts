@@ -381,6 +381,10 @@ export type ProblemDetail = ProblemSummary & {
   timeLimit?: string
   memoryLimit?: string
   starred?: boolean
+  contest?: Contest
+  contestStatus?: ContestStatus
+  contestStatuses?: Record<string, ProblemStatus>
+  contestMode?: 'view' | 'contest' | 'correction' | 'none'
 }
 
 export type Submission = {
@@ -538,8 +542,9 @@ export async function generateProblemTestdata(pid: string, gen: string, std: str
   return result.data
 }
 
-export async function getProblem(pid: string): Promise<ProblemDetail> {
-  const result = await request<Envelope<ProblemDetail>>(`/api/v1/problems/${encodeURIComponent(pid)}`)
+export async function getProblem(pid: string, tid = ''): Promise<ProblemDetail> {
+  const query = tid ? `?tid=${encodeURIComponent(tid)}` : ''
+  const result = await request<Envelope<ProblemDetail>>(`/api/v1/problems/${encodeURIComponent(pid)}${query}`)
   return result.data
 }
 
@@ -1096,6 +1101,7 @@ export type HomeworkProblemPage = {
   homework: Contest
   problems: ProblemSummary[]
   attended: boolean
+  status?: ContestStatus
   statuses: Record<string, ProblemStatus>
 }
 

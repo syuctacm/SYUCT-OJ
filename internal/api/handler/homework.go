@@ -102,12 +102,14 @@ func (h *HomeworkHandler) problems(c *gin.Context) {
 	}
 	attended := false
 	statuses := map[int64]contest.ProblemStatus{}
+	var attendeeStatus *contest.AttendeeStatus
 	if u, ok := h.currentUser(c); ok {
-		attended, err = h.repo.Attended(c.Request.Context(), item.DocID.Hex(), u.ID)
+		attendeeStatus, err = h.repo.StartIfAttended(c.Request.Context(), item.DocID.Hex(), u.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load homework claim"})
 			return
 		}
+		attended = attendeeStatus != nil && attendeeStatus.Attend == 1
 		statuses, err = h.repo.UserProblemStatus(c.Request.Context(), u.ID, item.PIDs)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load problem status"})
@@ -116,7 +118,10 @@ func (h *HomeworkHandler) problems(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
-		"data": gin.H{"homework": item, "problems": problems, "attended": attended, "statuses": statuses},
+		"data": gin.H{
+			"homework": item, "problems": problems, "attended": attended,
+			"status": attendeeStatus, "statuses": statuses,
+		},
 	})
 }
 

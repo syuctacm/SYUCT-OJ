@@ -416,6 +416,26 @@ Playwright 验证：
 - `go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.18 比赛 / 作业题目模式（2026-10-30）
+
+- 比赛和作业题目列表跳转详情、提交页时保留 `tid`
+- 详情页和提交页根据 `contest.rule` 切换上游 `contest_detail_problem*` / `homework_detail_problem*` 页面名
+- 复用上游 `contest_sidebar.html`、`homework_sidebar.html`、题目比赛侧栏和 A/B/C 题目导航
+- 显示每题最近提交状态，正确输出 `pass` / `fail` / `active` 类
+- 比赛侧栏的查看比赛、题目列表、成绩表、讨论、记录和编辑入口使用对应站内路由
+- 比赛倒计时使用个人 `startAt`、个人提前结束时间和比赛结束时间
+- 后端 `GET /api/v1/problems/:pid?tid=` 返回比赛上下文，并按上游规则拒绝未开始或未报名的实时比赛题目
+- 首次访问比赛题目列表或题目时初始化个人比赛时钟，重复访问不重置
+- `homework` 模式使用相同的访问控制和作业侧栏，但不上比赛倒计时
+
+本地验证：
+
+- API 集成测试覆盖未开始、未报名、过期、非比赛题目、比赛结束后查看和提前结束 correction 模式
+- Playwright 验证比赛页面 A/B 导航、A 题 AC 状态、比赛内提交页、作业认领后题目详情及作业侧栏
+- 普通 `/p/:pid` 不受 `tid` 模式影响
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text
