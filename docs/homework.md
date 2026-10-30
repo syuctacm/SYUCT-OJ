@@ -34,11 +34,9 @@ Hydro 中作业是 `document` 集合里 `docType=30`、`rule=homework` 的文档
 
 列表读取 `beginAt`、`endAt` 和 `penaltySince`，详情通过作业题目接口读取题目标题、统计、难度、认领状态和每题最近提交（rid/status/score）。题目表格沿用上游逻辑：未认领且作业未结束时只显示认领提示，认领后才显示题目和每题状态列（状态图标、分数和最后提交时间）。认领写入 `document.status`（`docType=30`, `attend=1`），重复认领幂等，首次认领递增 `attend` 人数。
 
-创建/编辑页由 `HydroTemplate` 直接渲染上游 `homework_edit.html`，React 只负责取数、表单提交和交互挂载，不再维护一份手写的等价 DOM。作业列表的搜索由 React 适配层保持，日历视图因尚未实现而隐藏；列表按上游默认每页 20 条分页。
+创建/编辑页由 `HydroTemplate` 直接渲染上游 `homework_edit.html`，React 只负责取数、表单提交和交互挂载，不再维护一份手写的等价 DOM。作业列表的搜索由 React 适配层保持；列表支持上游的 Calendar View，使用移植后的 `components/calendar` 月历布局，选择会写入 `localStorage`；列表按上游默认每页 20 条分页。
 
 ## 尚未完成
 
 - 作业分组和 assign 访问控制
 - 作业题目依赖和进度
-- 作业提交的罚时规则和延期计算（榜单目前复用比赛榜单逻辑）
-- 作业代码导出入口（当前为占位）

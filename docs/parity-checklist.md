@@ -585,6 +585,20 @@ Playwright 验证：
 - Playwright 验证在线用户主页显示「刚刚」、微信复制按钮存在
 - `go test ./... -count=1`、`go vet ./...`、`go build ./...`、前端 lint/build
 
+## 6.28 作业日历视图（2026-10-30）
+
+- 移植 Hydro `components/calendar` 的月历布局、跨周事件条、延期遮罩和前后月切换动画
+- 作业列表 View 选择恢复，默认 List View，Calendar View 通过 `localStorage` 记忆
+- 作业事件链接到对应 `/homework/:tid`，延期从 `penaltySince` 开始
+- 搜索和列表分页保持原行为；离开页面时清理日历 DOM
+
+验证：
+
+- Playwright 切换 Calendar View 后显示月历、作业条和延期遮罩
+- 刷新后仍保持上次 Calendar/List 选择
+- 前后月按钮切换月份，事件条随月份更新
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text
