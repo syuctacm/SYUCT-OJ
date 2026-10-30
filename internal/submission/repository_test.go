@@ -115,6 +115,34 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 		t.Fatalf("generation changed problem counters: submit=%d accept=%d", pdoc.NSubmit, pdoc.NAccept)
 	}
 
+	pretest, err := repo.CreatePretest(ctx, 7, "P1001", "cpp", "int main(){}", []string{"1 2\n"})
+	if err != nil {
+		t.Fatalf("create pretest: %v", err)
+	}
+	var pretestTask bson.M
+	if err := db.Collection("task").FindOne(ctx, bson.M{"rid": pretest.ID}).Decode(&pretestTask); err != nil {
+		t.Fatal(err)
+	}
+	if pretestTask["type"] != "pretest" || pretestTask["contest"] != bson.NilObjectID {
+		t.Fatalf("unexpected pretest task: %+v", pretestTask)
+	}
+	input, _ := pretestTask["input"].(bson.A)
+	if len(input) != 1 || input[0] != "1 2\n" {
+		t.Fatalf("unexpected pretest input: %+v", pretestTask["input"])
+	}
+	if err := repo.ApplyJudgeResult(ctx, map[string]any{
+		"key": "end", "rid": pretest.ID.Hex(), "status": float64(1), "score": float64(100),
+	}); err != nil {
+		t.Fatalf("apply pretest result: %v", err)
+	}
+	pdoc, err = problemRepo.Get(ctx, "P1001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pdoc.NSubmit != 1 || pdoc.NAccept != 0 {
+		t.Fatalf("pretest changed problem counters: submit=%d accept=%d", pdoc.NSubmit, pdoc.NAccept)
+	}
+
 	if err := repo.ApplyJudgeResult(ctx, map[string]any{
 		"key": "end", "rid": record.ID.Hex(), "status": float64(1),
 		"score": float64(100), "time": float64(12.345), "memory": float64(1024),
