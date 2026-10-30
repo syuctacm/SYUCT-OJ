@@ -7,6 +7,7 @@ import { ContestManagementPage } from './pages/ContestManagementPage.tsx'
 import { AdminUsersPage } from './pages/AdminUsersPage.tsx'
 import { AdminUserImportPage } from './pages/AdminUserImportPage.tsx'
 import { AdminSettingsPage } from './pages/AdminSettingsPage.tsx'
+import { AdminAuditPage } from './pages/AdminAuditPage.tsx'
 import { ContestDetailPage } from './pages/ContestDetailPage.tsx'
 import { ContestClarificationPage } from './pages/ContestClarificationPage.tsx'
 import { ContestBalloonPage } from './pages/ContestBalloonPage.tsx'
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/users/import" element={<AdminUserImportPage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
+        <Route path="/admin/audit" element={<AdminAuditPage />} />
         <Route path="/p" element={<ProblemsPage />} />
         <Route path="/p/new" element={<ProblemEditPage mode="create" />} />
         <Route path="/problem/random" element={<RandomProblemPage />} />

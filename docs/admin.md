@@ -20,6 +20,8 @@
 
 用户封禁使用 `PATCH /api/v1/admin/users/:uid/ban`，请求体为 `{"banned": true|false}`。封禁会清除 `PRIV_USER_PROFILE` 位、撤销该用户全部 Session；解封恢复该位。不能封禁自己、管理员或 `PRIV_ALL` 超级管理员。
 
+后台权限变更、封禁/解封、公告修改和批量用户导入会写入 `oplog` 集合；`GET /api/v1/admin/audit?page=1&limit=50` 返回最近审计记录，`/admin/audit` 页面展示操作者、目标、动作、详情和时间。
+
 ## 统计项
 
 - 用户数
@@ -85,7 +87,7 @@ ONSITE_IP_LOGIN=1
 
 - 用户删除
 - 题目/比赛/训练编辑
-- 操作日志和审计
+- 用户删除（封禁和审计已实现）
 - 控制面板其余节点（脚本管理、配置管理）
 - `manage_dashboard` 的 WebSocket 连接检查（`#messages` 目前为空）和「Restart」按钮（未实现，已从 DOM 移除）
 - 修改系统默认权限（默认权限行的 Edit 链接已移除）

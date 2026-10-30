@@ -13,6 +13,7 @@ import navTemplate from './templates/partials/nav.html?raw'
 import headerMobileTemplate from './templates/partials/header_mobile.html?raw'
 import footerTemplate from './templates/partials/footer.html?raw'
 import { size } from './format.ts'
+import manageAuditTemplate from './templates/manage_audit.html?raw'
 import { renderMarkdown } from './markdown.ts'
 import { contentLanguages, selectLocalizedContent } from './problem-content.ts'
 import { datetimeSpan } from './datetime.ts'
@@ -53,6 +54,7 @@ sources.set('partials/homepage/countdown.html', countdownHomeTemplate)
 sources.set('partials/nav.html', navTemplate)
 sources.set('partials/header_mobile.html', headerMobileTemplate)
 sources.set('partials/footer.html', footerTemplate)
+sources.set('manage_audit.html', manageAuditTemplate)
 
 // The app already owns the shared <nav>/<footer> shell. Page templates continue
 // to extend the upstream layout so their block structure stays untouched, but
@@ -115,6 +117,8 @@ sources.set('problem_import_fps.html', `{% extends "layout/basic.html" %}
 // Strings this rewrite adds on top of the pinned ui-default locale.
 const LOCAL_TRANSLATIONS: TranslationMap = {
   setting_basic: '基本设置',
+  manage_audit: '操作审计',
+  'No audit records': '暂无审计记录',
   Bulletin: '站点公告',
   // fps-importer addon locale strings.
   'From FPS File': '从 FPS 文件导入',
@@ -266,7 +270,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     // manage_base.html renders whatever getNodes('ControlPanel') returns.
     ui: {
       getNodes: (family: string) => (family === 'ControlPanel'
-        ? [{ name: 'manage_dashboard' }, { name: 'manage_user_priv' }, { name: 'manage_user_import' }, { name: 'manage_setting' }]
+        ? [{ name: 'manage_dashboard' }, { name: 'manage_user_priv' }, { name: 'manage_user_import' }, { name: 'manage_setting' }, { name: 'manage_audit' }]
         : []),
     },
     STATUS,

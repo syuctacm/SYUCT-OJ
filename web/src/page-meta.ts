@@ -67,6 +67,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/admin/users') return basic('manage_user_priv', '用户权限')
   if (pathname === '/admin/users/import') return basic('manage_user_import', '用户导入')
   if (pathname === '/admin/settings') return basic('manage_setting', '系统设置')
+  if (pathname === '/admin/audit') return basic('manage_audit', '操作审计')
   if (pathname === '/admin') return basic('manage_dashboard', '控制面板')
   return basic('error', '页面不存在')
 }

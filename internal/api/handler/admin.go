@@ -33,12 +33,81 @@ func (h *AdminHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/admin/users", h.userList)
 	router.PATCH("/api/v1/admin/users/:uid/priv", h.updateUserPriv)
 	router.PATCH("/api/v1/admin/users/:uid/ban", h.setUserBanned)
+	router.GET("/api/v1/admin/audit", h.auditLog)
 	router.POST("/api/v1/admin/users/import", h.importUsers)
 	router.GET("/api/v1/admin/settings", h.settings)
 	router.PUT("/api/v1/admin/settings", h.updateSettings)
 	router.GET("/api/v1/admin/ip-login", h.listIPLogins)
 	router.PUT("/api/v1/admin/ip-login/:ip", h.setIPLogin)
 	router.DELETE("/api/v1/admin/ip-login/:ip", h.deleteIPLogin)
+}
+
+type auditEntry struct {
+	ID        bson.ObjectID `bson:"_id" json:"id"`
+	Actor     int64         `bson:"actor" json:"actor"`
+	Action    string        `bson:"action" json:"action"`
+	TargetUID int64         `bson:"targetUid,omitempty" json:"targetUid,omitempty"`
+	Details   bson.M        `bson:"details,omitempty" json:"details,omitempty"`
+	CreatedAt time.Time     `bson:"createdAt" json:"createdAt"`
+}
+
+func (h *AdminHandler) logAudit(ctx context.Context, actor int64, action string, targetUID int64, details bson.M) {
+	_, _ = h.db.Collection("oplog").InsertOne(ctx, bson.M{
+		"_id": bson.NewObjectID(), "type": "admin", "actor": actor, "action": action,
+		"targetUid": targetUID, "details": details, "createdAt": time.Now().UTC(),
+	})
+}
+
+func (h *AdminHandler) auditLog(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+	page, limit := 1, 50
+	if value, err := strconv.Atoi(c.DefaultQuery("page", "1")); err == nil && value > 0 {
+		page = value
+	}
+	if value, err := strconv.Atoi(c.DefaultQuery("limit", "50")); err == nil && value > 0 {
+		limit = value
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	cursor, err := h.db.Collection("oplog").Find(c.Request.Context(), bson.M{"type": "admin"},
+		options.Find().SetSort(bson.D{{Key: "_id", Value: -1}}).
+			SetSkip(int64((page-1)*limit)).SetLimit(int64(limit)))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load audit log"})
+		return
+	}
+	defer cursor.Close(c.Request.Context())
+	entries := make([]auditEntry, 0)
+	if err := cursor.All(c.Request.Context(), &entries); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to decode audit log"})
+		return
+	}
+	uids := make([]int64, 0, len(entries)*2)
+	for _, entry := range entries {
+		uids = append(uids, entry.Actor, entry.TargetUID)
+	}
+	accounts, _ := h.users.FindByIDs(c.Request.Context(), uids)
+	names := make(map[int64]string, len(accounts))
+	for _, account := range accounts {
+		names[account.ID] = account.Uname
+	}
+	type item struct {
+		auditEntry
+		ActorName  string `json:"actorName,omitempty"`
+		TargetName string `json:"targetName,omitempty"`
+	}
+	items := make([]item, 0, len(entries))
+	for _, entry := range entries {
+		items = append(items, item{
+			auditEntry: entry, ActorName: names[entry.Actor], TargetName: names[entry.TargetUID],
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+		"items": items, "page": page, "limit": limit,
+	}})
 }
 
 type adminIPLogin struct {
@@ -237,6 +306,8 @@ func (h *AdminHandler) updateSettings(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save settings"})
 		return
 	}
+	session, _ := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
+	h.logAudit(c.Request.Context(), session.UserID, "admin.settings", 0, bson.M{"key": "bulletin", "length": len(request.Bulletin)})
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"bulletin": request.Bulletin}})
 }
 
@@ -282,6 +353,9 @@ func (h *AdminHandler) updateUserPriv(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
+	h.logAudit(c.Request.Context(), session.UserID, "user.priv", uid, bson.M{
+		"before": target.Priv, "after": request.Priv,
+	})
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"id": uid, "priv": request.Priv}})
 }
 
@@ -326,6 +400,13 @@ func (h *AdminHandler) setUserBanned(c *gin.Context) {
 			return
 		}
 	}
+	action := "user.unban"
+	if request.Banned {
+		action = "user.ban"
+	}
+	h.logAudit(c.Request.Context(), session.UserID, action, uid, bson.M{
+		"before": target.Priv, "after": priv,
+	})
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
 		"id": uid, "priv": priv, "banned": request.Banned,
 	}})
@@ -369,6 +450,8 @@ func (h *AdminHandler) importUsers(c *gin.Context) {
 	}
 	messages = append(messages, createMessages...)
 	messages = append(messages, fmt.Sprintf("成功创建 %d 个用户", len(uids)))
+	session, _ := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
+	h.logAudit(c.Request.Context(), session.UserID, "admin.user.import", 0, bson.M{"created": len(uids)})
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
 		"users": parsed, "messages": messages, "created": len(uids),
 	}})

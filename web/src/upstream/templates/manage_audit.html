@@ -1,0 +1,42 @@
+{% extends "manage_base.html" %}
+{% block manage_content %}
+<div class="section">
+  <div class="section__header">
+    <h1 class="section__title">{{ _('manage_audit') }}</h1>
+  </div>
+  <div class="section__body no-padding">
+    <table class="data-table">
+      <colgroup>
+        <col class="col--id">
+        <col class="col--user">
+        <col class="col--user">
+        <col>
+        <col class="col--time">
+      </colgroup>
+      <thead>
+        <tr>
+          <th class="col--id">Action</th>
+          <th class="col--user">Operator</th>
+          <th class="col--user">Target</th>
+          <th>Details</th>
+          <th class="col--time">Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for log in logs -%}
+        <tr>
+          <td class="col--id"><code>{{ log.action }}</code></td>
+          <td class="col--user">{{ log.actorName or log.actor }}</td>
+          <td class="col--user">{% if log.targetUid %}{{ log.targetName or log.targetUid }}{% else %}-{% endif %}</td>
+          <td><code>{{ log.details | json }}</code></td>
+          <td class="col--time">{{ datetimeSpan(log.createdAt) | safe }}</td>
+        </tr>
+        {%- endfor -%}
+        {% if not logs.length %}
+        <tr><td colspan="5" class="text-center">{{ _('No audit records') }}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
