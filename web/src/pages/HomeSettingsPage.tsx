@@ -1,13 +1,14 @@
 // Page markup is rendered from the pinned Hydro ui-default template
-// (home_settings.html). The setting schema is the account subset of
-// packages/hydrooj/src/model/setting.ts.
+// (home_settings.html). The preference schema is limited to fields this
+// single-site rewrite actually consumes.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { updateUserSettings, uploadUserAvatar, type UserSettingsInput } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
+import { loadLanguages, type LanguageItem } from '../upstream/languages.ts'
 
 const FLAG_HIDDEN = 1
 const FLAG_DISABLED = 2
@@ -16,6 +17,35 @@ const FLAG_SECRET = 4
 // packages/common/status.ts
 const GENDER_RANGE: Record<number, string> = { 0: 'Boy ♂', 1: 'Girl ♀', 2: 'Other' }
 
+const FONT_RANGE: Record<string, string> = {
+  'Open Sans': 'Open Sans',
+  Seravek: 'Seravek',
+  'Segoe UI': 'Segoe UI',
+  Verdana: 'Verdana',
+  'PingFang SC': 'PingFang SC',
+  'Hiragino Sans GB': 'Hiragino Sans GB',
+  'Microsoft Yahei': 'Microsoft Yahei',
+  'WenQuanYi Micro Hei': 'WenQuanYi Micro Hei',
+  sans: 'sans',
+  'XiaoLai SC': '小赖 SC',
+}
+
+const CODE_FONT_RANGE: Record<string, string> = {
+  monaco: 'Monaco',
+  'Source Code Pro': 'Source Code Pro',
+  Consolas: 'Consolas',
+  'Lucida Console': 'Lucida Console',
+  'Fira Code': 'Fira Code',
+  'Roboto Mono': 'Roboto Mono',
+  Inconsolata: 'Inconsolata',
+  Hack: 'Hack',
+  'Jetbrains Mono': 'Jetbrains Mono',
+  'DM Mono': 'DM Mono',
+  'Ubuntu Mono': 'Ubuntu Mono',
+  'PT Mono': 'PT Mono',
+  'SF Mono': 'SF Mono',
+}
+
 type SettingSchema = {
   family: string
   key: string
@@ -23,7 +53,7 @@ type SettingSchema = {
   name: string
   desc?: string | null
   value: unknown
-  range?: Record<number, string>
+  range?: Record<string | number, string>
   flag?: number
 }
 
@@ -45,11 +75,32 @@ const ACCOUNT_SETTINGS: SettingSchema[] = [
   },
 ]
 
-const EDITABLE_KEYS = ['avatar', 'qq', 'bio', 'school', 'studentId', 'backgroundImage'] as const
+const ACCOUNT_KEYS = ['avatar', 'qq', 'bio', 'school', 'studentId', 'backgroundImage'] as const
+const PREFERENCE_KEYS = ['fontFamily', 'codeFontFamily', 'codeLang', 'codeTemplate'] as const
+
+function preferenceSettings(languages: LanguageItem[]): SettingSchema[] {
+  const codeLanguages = Object.fromEntries(languages.map((language) => [language._id, language.name]))
+  return [
+    { family: 'setting_display', key: 'fontFamily', type: 'select', name: 'Font Family', value: 'Open Sans', range: FONT_RANGE, flag: 0 },
+    { family: 'setting_display', key: 'codeFontFamily', type: 'select', name: 'Code Font Family', value: 'Source Code Pro', range: CODE_FONT_RANGE, flag: 0 },
+    { family: 'setting_display', key: 'skipAnimate', type: 'boolean', name: 'Skip Animation', value: false, flag: 0 },
+    {
+      family: 'setting_usage', key: 'codeLang', type: 'select', name: 'Default Code Language',
+      value: languages[0]?._id || 'cpp', range: codeLanguages, flag: 0,
+    },
+    {
+      family: 'setting_usage', key: 'codeTemplate', type: 'textarea', name: 'Default Code Template',
+      value: '', flag: 0, desc: 'If left blank, the built-in template of the corresponding language will be used.',
+    },
+  ]
+}
 
 export function HomeSettingsPage() {
   const { user, loading, refresh } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const category = searchParams.get('category') === 'preference' ? 'preference' : 'account'
+  const [languages, setLanguages] = useState<LanguageItem[]>([])
   const [saved, setSaved] = useState('')
   const [error, setError] = useState('')
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
@@ -57,6 +108,12 @@ export function HomeSettingsPage() {
   useEffect(() => {
     if (!loading && !user) navigate('/login')
   }, [loading, navigate, user])
+
+  useEffect(() => {
+    void loadLanguages().then(setLanguages)
+  }, [])
+
+  const preferenceSchema = useMemo(() => preferenceSettings(languages), [languages])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = [hydrateHydroEditForm(root)]
@@ -94,14 +151,22 @@ export function HomeSettingsPage() {
     event.preventDefault()
     const data = new FormData(event.target as HTMLFormElement)
     const payload: UserSettingsInput = {}
-    for (const key of EDITABLE_KEYS) {
-      if (data.has(key)) payload[key] = String(data.get(key) ?? '')
+    if (category === 'account') {
+      for (const key of ACCOUNT_KEYS) {
+        if (data.has(key)) payload[key] = String(data.get(key) ?? '')
+      }
+      if (data.has('gender')) payload.gender = Number(data.get('gender'))
+    } else {
+      for (const key of PREFERENCE_KEYS) {
+        if (data.has(key)) payload[key] = String(data.get(key) ?? '')
+      }
+      payload.skipAnimate = data.has('skipAnimate')
     }
-    if (data.has('gender')) payload.gender = Number(data.get('gender'))
     setSaved('')
     setError('')
     try {
       await updateUserSettings(payload)
+      await refresh()
       setSaved('已保存')
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败')
@@ -115,8 +180,8 @@ export function HomeSettingsPage() {
       case 'homepage': return '/'
       case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? user?.id ?? ''))}`
       case 'home_settings': {
-        const category = String(args.category ?? 'account')
-        return `/home/settings?category=${encodeURIComponent(category)}`
+        const nextCategory = String(args.category ?? 'account')
+        return `/home/settings?category=${encodeURIComponent(nextCategory)}`
       }
       case 'home_messages': {
         const params = new URLSearchParams()
@@ -135,17 +200,17 @@ export function HomeSettingsPage() {
   }, [user?.id])
 
   const context = useMemo(() => ({
-    page_name: 'home_account',
-    category: 'account',
+    page_name: category === 'preference' ? 'home_preference' : 'home_account',
+    category,
     current: { ...(user ?? {}) },
-    settings: ACCOUNT_SETTINGS,
+    settings: category === 'preference' ? preferenceSchema : ACCOUNT_SETTINGS,
     model: { setting: { FLAG_HIDDEN, FLAG_DISABLED, FLAG_SECRET } },
     handler: {
       user: {
         _id: user?.id ?? 0,
         uname: user?.username ?? '',
         displayName: user?.displayName ?? '',
-        viewLang: 'zh',
+        viewLang: user?.viewLang || 'zh',
         _dudoc: { join: true },
         hasPriv: (privilege: number) => Boolean(user) && (privilege === 1 || privilege === 2),
         hasPerm: () => false,
@@ -153,11 +218,11 @@ export function HomeSettingsPage() {
       },
       args: { domainId: 'system' },
       request: {
-        query: { category: 'account' },
+        query: { category },
         path: '/home/settings',
         headers: { 'user-agent': navigator.userAgent },
       },
-      session: { legacy: false, viewLang: 'zh' },
+      session: { legacy: false, viewLang: user?.viewLang || 'zh' },
       ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
     },
     perm: {},
@@ -165,7 +230,7 @@ export function HomeSettingsPage() {
     avatarUrl,
     UiContext: {},
     UserContext: user,
-  }), [user])
+  }), [category, preferenceSchema, user])
 
   if (loading) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
   if (!user) return <div className="row"><div className="columns"><div className="nothing-placeholder">需要登录</div></div></div>

@@ -273,6 +273,33 @@ Playwright 验证：
 - 第一页创建新提交后无需刷新，新记录自动出现在首行并保持 20 行分页
 - 浏览器控制台 0 error
 
+## 6.11 用户偏好设置回归（2026-10-30）
+
+恢复 `home_settings.html` 的 `category=preference` 分类，只提供当前站点实际消费的选项：
+
+| 设置 | 生效位置 |
+|---|---|
+| Font Family | 根 CSS `--font-family`，立即更新 |
+| Code Font Family | Monaco、代码 CSS `--code-font-family` |
+| Skip Animation | 上游 section 入场动画 |
+| Default Code Language | 提交页语言选择默认值 |
+| Default Code Template | 提交页代码编辑器初始内容 |
+| viewLang | `UserContext`，当前 UI 只有中文 |
+
+Go User 模型和 settings API 增加字段及校验；非法语言、非法字体和超过 64 KiB 的代码模板返回 400。登录和 `/auth/me` 会返回偏好，前端刷新后重新同步 `UserContext` 与 CSS。
+
+未实现的上游字段没有被做成空壳 UI：`theme`、`rounded`、`timeZone`、highlight 选项等当前站点没有实际消费方。
+
+Playwright 验证：
+
+- 保存 `PingFang SC` / `Fira Code` / `python3` / `print("hello")` / skipAnimate
+- CSS 字体变量和 `UserContext` 立即更新
+- 刷新及重新进入设置页后值保持
+- 提交页默认语言为 Python 3，Monaco 初始内容为 `print("hello")`
+- `skipAnimate=true` 时首页 section 无入场 transition
+- 账户设置页原有头像、资料、隐私字段仍正常渲染
+- Go 集成测试覆盖非法值 400 和合法值持久化
+
 ## 7. 当前已知差异
 
 ```text

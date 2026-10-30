@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,8 +85,24 @@ func TestUserSettingsIntegration(t *testing.T) {
 	if status := patch(`{"backgroundImage":"url(\")"}`, aliceCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid background = %d", status)
 	}
+	if status := patch(`{"viewLang":"xx"}`, aliceCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid view language = %d", status)
+	}
+	if status := patch(`{"fontFamily":"Comic Sans MS"}`, aliceCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid font family = %d", status)
+	}
+	if status := patch(`{"codeFontFamily":"bad;font"}`, aliceCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid code font family = %d", status)
+	}
+	if status := patch(`{"codeLang":"python 3"}`, aliceCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid default code language = %d", status)
+	}
+	longTemplate, _ := json.Marshal(map[string]string{"codeTemplate": strings.Repeat("x", 64*1024+1)})
+	if status := patch(string(longTemplate), aliceCookies); status != http.StatusBadRequest {
+		t.Fatalf("long code template = %d", status)
+	}
 
-	body := `{"avatar":"gravatar:alice@example.com","qq":"123456","gender":1,"bio":"hello","school":"SYUCT","studentId":"2023001","backgroundImage":"/components/profile/backgrounds/1.jpg"}`
+	body := `{"avatar":"gravatar:alice@example.com","qq":"123456","gender":1,"bio":"hello","school":"SYUCT","studentId":"2023001","backgroundImage":"/components/profile/backgrounds/1.jpg","viewLang":"zh","fontFamily":"PingFang SC","codeFontFamily":"Fira Code","codeLang":"python3","codeTemplate":"print(1)","skipAnimate":true}`
 	if status := patch(body, aliceCookies); status != http.StatusOK {
 		t.Fatalf("settings update = %d", status)
 	}
@@ -99,6 +116,10 @@ func TestUserSettingsIntegration(t *testing.T) {
 	}
 	if stored.Gender == nil || *stored.Gender != 1 {
 		t.Fatalf("stored gender = %v", stored.Gender)
+	}
+	if stored.ViewLang != "zh" || stored.FontFamily != "PingFang SC" || stored.CodeFontFamily != "Fira Code" ||
+		stored.CodeLang != "python3" || stored.CodeTemplate != "print(1)" || !stored.SkipAnimate {
+		t.Fatalf("stored preferences = %+v", stored)
 	}
 
 	profile := func(cookies []*http.Cookie) map[string]any {

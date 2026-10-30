@@ -14,6 +14,17 @@ type AuthContextValue = {
   refresh: () => Promise<User | null>
 }
 
+function syncHydroGlobals(nextUser: User | null) {
+  ensureHydroGlobals(nextUser?.id ?? 0, {
+    viewLang: nextUser?.viewLang,
+    fontFamily: nextUser?.fontFamily,
+    codeFontFamily: nextUser?.codeFontFamily,
+    codeLang: nextUser?.codeLang,
+    codeTemplate: nextUser?.codeTemplate,
+    skipAnimate: nextUser?.skipAnimate,
+  })
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -23,16 +34,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     getMe()
       .then((nextUser) => {
-        ensureHydroGlobals(nextUser.id)
+        syncHydroGlobals(nextUser)
         setUser(nextUser)
       })
-      .catch(() => setUser(null))
+      .catch(() => {
+        syncHydroGlobals(null)
+        setUser(null)
+      })
       .finally(() => setLoading(false))
   }, [])
 
   async function login(username: string, password: string, tfa = '') {
     const nextUser = await loginRequest(username, password, tfa)
-    ensureHydroGlobals(nextUser.id)
+    syncHydroGlobals(nextUser)
     setUser(nextUser)
     return nextUser
   }
@@ -41,23 +55,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const begin = await beginWebAuthnLogin(username)
     const credential = await startAuthentication({ optionsJSON: begin.options.publicKey })
     const nextUser = await finishWebAuthnLogin(begin.token, credential)
-    ensureHydroGlobals(nextUser.id)
+    syncHydroGlobals(nextUser)
     setUser(nextUser)
     return nextUser
   }
 
   async function logout() {
     await logoutRequest()
+    syncHydroGlobals(null)
     setUser(null)
   }
 
   async function refresh() {
     try {
       const nextUser = await getMe()
-      ensureHydroGlobals(nextUser.id)
+      syncHydroGlobals(nextUser)
       setUser(nextUser)
       return nextUser
     } catch {
+      syncHydroGlobals(null)
       setUser(null)
       return null
     }
