@@ -509,6 +509,24 @@ Playwright 验证：
 - API 集成测试覆盖登录状态、匿名隔离和训练进度
 - `go test ./... -count=1`、前端 lint/build 通过
 
+## 6.23 讨论浏览量与提及通知（2026-10-30）
+
+- 登录用户首次访问讨论时写入 `document.status.view=true`，并原子递增 `views`
+- 同一用户刷新不会重复计数；匿名访问不计数，与上游一致
+- 主回复和楼中楼回复解析 `@[](/user/<uid>)`，只通知真实存在且非发送者的用户
+- 通知写入现有 `message` 集合，使用 `FlagRichtext | FlagUnread`，并递增接收者 `unreadMsg`
+- 回复操作预填被回复用户的提及标记
+- `/home/messages` 正确渲染系统消息的参数和 `{n:link}` 链接
+
+本地验证：
+
+- API 集成测试覆盖首次/重复/匿名浏览和主回复/楼中楼提及通知
+- Playwright 验证点击回复后编辑器预填 `@[](/user/3)`
+- 提交楼中楼后被提及用户的消息页显示「用户 alice 在 /discuss/... 中提到了你」，链接可点击
+- 同一用户刷新讨论后浏览量不重复增加
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

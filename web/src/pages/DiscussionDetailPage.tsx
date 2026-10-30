@@ -203,11 +203,8 @@ export function DiscussionDetailPage() {
       case 'wiki_help':
       case 'wiki':
         return '/discuss'
-      // Raw history and reaction endpoints are not ported yet.
-      case 'discussion_raw':
-      case 'discussion_reply_raw':
-      case 'discussion_tail_reply_raw':
-        return '#'
+      // Raw history and reaction endpoints are handled by the mounted
+      // DiscussionHistory and DiscussionReaction islands.
       default: return '/'
     }
   }, [did, parentNode?.docId, parentTypeName])
@@ -315,9 +312,15 @@ export function DiscussionDetailPage() {
         closeInlineForm(existing)
         return
       }
+      // The upstream reply action pre-fills the author of the reply being
+      // answered. The link lives in the nearest .media__body for both a
+      // top-level reply and a nested tail reply.
+      const profile = target.closest('.media__body')?.querySelector<HTMLAnchorElement>('.user-profile-name')
+      const profileUID = profile?.getAttribute('href')?.match(/\/user\/(\d+)/)?.[1]
+      const initial = profileUID ? `@[](/user/${profileUID}) ` : ''
       const box = document.createElement('li')
       box.className = 'dczcomments__reply'
-      box.appendChild(buildInlineForm('reply', String(data.drid ?? ''), ''))
+      box.appendChild(buildInlineForm('reply', String(data.drid ?? ''), '', initial))
       holder.appendChild(box)
     } else if (operation === 'edit') {
       const mediaBody = target.closest('.media__body')

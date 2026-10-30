@@ -28,7 +28,7 @@
 - DOM 结构与类名与上游 `components/messagepad/*` 保持一致（`.messagepad__list-item`、`.messagepad__message.side--self/--other` 等），因此直接复用 ui-default 样式
 - 支持 `?target=<uid>` 直接打开某个会话
 - “新消息”按钮打开用户搜索对话框（复用 `/api/v1/users?search=`）
-- 系统消息（`from=1`）的 `{message, params}` 占位符会被替换后展示
+- 系统消息（`from=1`）的 `{message, params}` 占位符会被替换后展示；`{n:link}` 参数渲染为可点击链接，讨论提及通知使用这一格式
 
 ## 已知差异
 

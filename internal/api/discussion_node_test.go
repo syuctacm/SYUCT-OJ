@@ -19,6 +19,7 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/database"
 	"github.com/syuctacm/syuct-oj/internal/discussion"
+	"github.com/syuctacm/syuct-oj/internal/message"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
@@ -65,7 +66,7 @@ func TestVirtualDiscussionNodes(t *testing.T) {
 	authHandler := auth.NewHandler(userRepo, sessions)
 	router := gin.New()
 	authHandler.RegisterRoutes(router.Group("/"))
-	handler.NewDiscussionHandler(discussionRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
+	handler.NewDiscussionHandler(discussionRepo, sessions, userRepo, message.NewRepository(db)).RegisterRoutes(router.Group("/"))
 	server := httptest.NewServer(router)
 	defer server.Close()
 	cookies := loginAssetUser(t, server.URL, "admin", "secret")

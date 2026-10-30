@@ -96,6 +96,79 @@ func NewRepository(db *mongo.Database) *Repository {
 	}
 }
 
+// MarkViewed records the first view of a discussion by a signed-in user.
+// Hydro keeps this marker in document.status, so one user only contributes one
+// view even if the page is refreshed repeatedly.
+func (r *Repository) MarkViewed(ctx context.Context, did bson.ObjectID, uid int64) (bool, error) {
+	if uid <= 0 {
+		return false, nil
+	}
+	base := bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeDiscussion,
+		"docId":    did,
+		"uid":      uid,
+	}
+	result, err := r.statuses.UpdateOne(ctx,
+		bson.M{
+			"domainId": DomainSystem,
+			"docType":  DocumentTypeDiscussion,
+			"docId":    did,
+			"uid":      uid,
+			"view":     bson.M{"$ne": true},
+		},
+		bson.M{"$set": bson.M{"view": true}},
+	)
+	if err != nil {
+		return false, err
+	}
+	if result.MatchedCount > 0 {
+		return true, nil
+	}
+
+	// A status document may already exist with view=true. Do not create a
+	// second status document for the same user in that case.
+	count, err := r.statuses.CountDocuments(ctx, base)
+	if err != nil {
+		return false, err
+	}
+	if count > 0 {
+		return false, nil
+	}
+
+	// The deterministic _id makes concurrent first views safe even when the
+	// database was created without a unique status index.
+	doc := bson.M{
+		"_id":      fmt.Sprintf("discussion-view:%s:%d", did.Hex(), uid),
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeDiscussion,
+		"docId":    did,
+		"uid":      uid,
+		"view":     true,
+	}
+	if _, err := r.statuses.InsertOne(ctx, doc); err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// IncrementViews atomically increases the discussion view counter.
+func (r *Repository) IncrementViews(ctx context.Context, did bson.ObjectID) error {
+	result, err := r.coll.UpdateOne(ctx, bson.M{
+		"_id": did, "domainId": DomainSystem, "docType": DocumentTypeDiscussion,
+	}, bson.M{"$inc": bson.M{"views": 1}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // Starred reports whether the user starred the discussion.
 func (r *Repository) Starred(ctx context.Context, did bson.ObjectID, uid int64) (bool, error) {
 	if uid <= 0 {

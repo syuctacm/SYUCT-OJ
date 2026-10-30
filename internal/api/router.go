@@ -77,7 +77,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		handler.NewActivityFileHandler(trainingRepo, activityStore, sessions, userRepo, "training", "trainings").RegisterRoutes(trainingGroup)
 	}
 	if discussionRepo != nil {
-		handler.NewDiscussionHandler(discussionRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
+		handler.NewDiscussionHandler(discussionRepo, sessions, userRepo, message.NewRepository(db)).RegisterRoutes(router.Group("/"))
 	}
 	if userRepo != nil {
 		mailer := mail.New(mail.Config{

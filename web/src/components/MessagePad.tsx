@@ -1,7 +1,7 @@
 // Port of the upstream ui-default messagepad React app
 // (components/messagepad/*) without Redux. The DOM keeps the upstream class
 // names so the pinned ui-default stylesheet renders it unchanged.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   getMessages, getPublicUser, searchUsers, sendMessage,
   type MessageDialogue, type MessageDoc, type User, type UserChoice,
@@ -36,7 +36,7 @@ function messageText(msg: MessageDoc) {
       const data = JSON.parse(msg.content) as { message?: string; params?: Record<string, unknown> }
       if (typeof data.message === 'string') {
         return data.message.replace(/\{([^{}]+)\}/g, (match, key: string) => {
-          const value = data.params?.[key]
+          const value = data.params?.[key.split(':link')[0]]
           return value === undefined ? match : String(value)
         })
       }
@@ -45,6 +45,39 @@ function messageText(msg: MessageDoc) {
     }
   }
   return msg.content
+}
+
+const SYSTEM_MESSAGE_TRANSLATIONS: Record<string, string> = {
+  'User {0} mentioned you in {1:link}': '用户 {0} 在 {1:link} 中提到了你',
+}
+
+// renderMessageContent keeps the system-message placeholder semantics from
+// ui-default's MessagePadDialogueContentContainer. In particular, params with
+// a :link suffix become real links instead of literal text.
+function renderMessageContent(msg: MessageDoc): ReactNode {
+  if (msg.from !== 1) return msg.content
+  let data: { message?: string; params?: Record<string, unknown> | unknown[] }
+  try {
+    data = JSON.parse(msg.content)
+  } catch {
+    return msg.content
+  }
+  if (typeof data.message !== 'string') return msg.content
+  const params = data.params ?? {}
+  const template = SYSTEM_MESSAGE_TRANSLATIONS[data.message] ?? data.message
+  const parts = template.split(/(\{[^{}]+\})/g)
+  return parts.map((part, index) => {
+    const match = /^\{([^{}]+)\}$/.exec(part)
+    if (!match) return part
+    const key = match[1]
+    const value = Array.isArray(params) ? params[Number(key.split(':link')[0])] : params[key.split(':link')[0]]
+    if (value === undefined || value === null) return part
+    const text = String(value)
+    if (key.endsWith(':link')) {
+      return <a key={index} style={{ color: 'wheat' }} href={text} target="_blank" rel="noreferrer">{text}</a>
+    }
+    return <span key={index} style={{ color: 'wheat' }}>{text}</span>
+  })
 }
 
 function dialogueSummary(dialogue: MessageDialogue) {
@@ -219,7 +252,7 @@ export function MessagePad({ user, target = null, onError }: Props) {
               />
             </div>
             <div className="messagepad__message__body">
-              <div>{messageText(msg)}</div>
+              <div>{renderMessageContent(msg)}</div>
               <time data-tooltip={absoluteTime(msg.createdAt)}>{timeAgo(msg.createdAt)}</time>
             </div>
           </li>
