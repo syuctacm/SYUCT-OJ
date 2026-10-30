@@ -38,17 +38,18 @@ export function HomeworksPage() {
   const page = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
   const [items, setItems] = useState<Contest[]>([])
   const [total, setTotal] = useState(0)
+  const [groups, setGroups] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     setLoading(true)
     setError('')
-    getHomeworks(query, page)
-      .then((data) => { setItems(data.items); setTotal(data.total) })
+    getHomeworks(query, group, page)
+      .then((data) => { setItems(data.items); setTotal(data.total); setGroups(data.groups ?? []) })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '作业加载失败'))
       .finally(() => setLoading(false))
-  }, [query, page])
+  }, [group, query, page])
 
   const calendarEvents = useMemo(() => items.map((homework) => ({
     beginAt: homework.beginAt,
@@ -119,7 +120,7 @@ export function HomeworksPage() {
       tdocs,
       calendar: calendarEvents,
       q: query,
-      groups: [],
+      groups,
       group,
       page,
       tpcount: Math.max(1, Math.ceil(total / 20)),
@@ -160,7 +161,7 @@ export function HomeworksPage() {
       UiContext: { docs: calendarEvents },
       UserContext: user,
     }
-  }, [calendarEvents, group, items, query, user])
+  }, [calendarEvents, group, groups, items, query, user])
 
   if (loading) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>

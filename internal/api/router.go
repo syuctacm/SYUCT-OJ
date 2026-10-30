@@ -35,6 +35,9 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 			"/api/v1/user/security/email"),
 		middleware.IPAutoLogin(cfg.OnsiteIPLogin, userRepo, sessions),
 	)
+	if contestRepo != nil {
+		router.Use(middleware.ContestAssign(contestRepo, userRepo, sessions))
+	}
 
 	v1 := router.Group("/api/v1")
 	{

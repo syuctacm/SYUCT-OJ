@@ -783,6 +783,22 @@ Playwright 验证：
 - Playwright 验证 `/user/2` 显示「基础」「枚举」标签侧栏
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.42 比赛/作业分组访问控制（2026-10-31）
+
+- 列表接口在分页前按 `assign` 过滤，匿名用户只看到公开比赛/作业
+- 普通用户按 `user.group` 分组匹配，所有者、维护者和管理员绕过限制
+- `/api/v1/contests/:tid/*` 和 `/api/v1/homeworks/:tid/*` 统一经过分组中间件
+- 列表返回当前用户分组名，比赛/作业列表恢复分组筛选下拉
+- 详情页收到 403 时渲染 Hydro 403 错误页
+
+验证：
+
+- Go 集成测试覆盖匿名、普通用户、分组用户、所有者、管理员、分页和作业子路由
+- Playwright 验证匿名用户看不到定向比赛、登录后只看到 2026 比赛、分组下拉存在
+- Playwright 验证未分组比赛的 2026/2025 详情与作业详情返回 403 页面
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

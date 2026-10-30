@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  attendHomework, getHomeworkProblems, getUsersByIDs,
+  ApiError, attendHomework, getHomeworkProblems, getUsersByIDs,
   type HomeworkProblemPage, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { ErrorPage } from './ErrorPage.tsx'
 import { CONTEST_PERMS, createContestModel, isDone, isNotStarted } from '../upstream/contest.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 
@@ -17,6 +18,7 @@ export function HomeworkDetailPage() {
   const [data, setData] = useState<HomeworkProblemPage | null>(null)
   const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
+  const [errorStatus, setErrorStatus] = useState(0)
   const [claimError, setClaimError] = useState('')
   const [claiming, setClaiming] = useState(false)
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
@@ -26,7 +28,10 @@ export function HomeworkDetailPage() {
     setError('')
     getHomeworkProblems(tid)
       .then(setData)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : '作业加载失败'))
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : '作业加载失败')
+        setErrorStatus(err instanceof ApiError ? err.status : 0)
+      })
   }, [tid])
 
   useEffect(() => {
@@ -188,6 +193,7 @@ export function HomeworkDetailPage() {
   }
   submitRef.current = (event) => void handleSubmit(event)
 
+  if (errorStatus === 403) return <ErrorPage status={403} />
   if (error) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   }

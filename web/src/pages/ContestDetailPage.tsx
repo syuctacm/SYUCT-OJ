@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  attendContest, earlyEndContest, getContest, getUsersByIDs,
+  ApiError, attendContest, earlyEndContest, getContest, getUsersByIDs,
   type Contest, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { ErrorPage } from './ErrorPage.tsx'
 import { promptDialog } from '../components/dialogs.tsx'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
 import { useHydroContestTimer } from '../upstream/contest-timer.ts'
@@ -19,6 +20,7 @@ export function ContestDetailPage() {
   const [contest, setContest] = useState<Contest | null>(null)
   const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
+  const [errorStatus, setErrorStatus] = useState(0)
   const [attendError, setAttendError] = useState('')
   const [attending, setAttending] = useState(false)
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
@@ -27,9 +29,13 @@ export function ContestDetailPage() {
   useEffect(() => {
     setContest(null)
     setError('')
+    setErrorStatus(0)
     getContest(tid)
       .then(setContest)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : '比赛加载失败'))
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : '比赛加载失败')
+        setErrorStatus(err instanceof ApiError ? err.status : 0)
+      })
   }, [tid])
 
   useEffect(() => {
@@ -196,6 +202,7 @@ export function ContestDetailPage() {
   }
   submitRef.current = (event) => void handleSubmit(event)
 
+  if (errorStatus === 403) return <ErrorPage status={403} />
   if (error) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   }

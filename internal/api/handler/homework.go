@@ -35,17 +35,35 @@ func (h *HomeworkHandler) RegisterRoutes(router *gin.RouterGroup) {
 
 func (h *HomeworkHandler) list(c *gin.Context) {
 	page, limit := parsePaging(c)
-	items, total, err := h.repo.ListHomeworkFiltered(c.Request.Context(), c.Query("q"), page, limit)
+	uid := int64(0)
+	groups := []string{}
+	privileged := false
+	if u, ok := h.currentUser(c); ok {
+		uid = u.ID
+		privileged = u.Priv&1 != 0
+		if h.users != nil {
+			var groupErr error
+			groups, groupErr = h.users.GroupNamesForUID(c.Request.Context(), u.ID)
+			if groupErr != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load user groups"})
+				return
+			}
+		}
+	}
+	access := contest.AssignFilter(uid, groups, privileged)
+	items, total, err := h.repo.ListHomeworkVisibleFiltered(
+		c.Request.Context(), c.Query("q"), c.Query("group"), access, page, limit,
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list homeworks"})
 		return
 	}
-	if u, ok := h.currentUser(c); ok {
+	if uid > 0 {
 		docIDs := make([]bson.ObjectID, 0, len(items))
 		for _, item := range items {
 			docIDs = append(docIDs, item.DocID)
 		}
-		statuses, statusErr := h.repo.UserStatuses(c.Request.Context(), u.ID, docIDs)
+		statuses, statusErr := h.repo.UserStatuses(c.Request.Context(), uid, docIDs)
 		if statusErr != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load homework claims"})
 			return
@@ -56,7 +74,7 @@ func (h *HomeworkHandler) list(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
-		"data": gin.H{"items": items, "total": total, "page": page, "limit": limit},
+		"data": gin.H{"items": items, "total": total, "page": page, "limit": limit, "groups": groups},
 	})
 }
 

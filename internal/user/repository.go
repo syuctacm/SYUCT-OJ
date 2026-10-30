@@ -187,6 +187,34 @@ func (r *Repository) SearchGroups(ctx context.Context, query string, limit int) 
 	return items, nil
 }
 
+// GroupNamesForUID returns the single-site group names containing the user.
+func (r *Repository) GroupNamesForUID(ctx context.Context, uid int64) ([]string, error) {
+	if uid <= 0 {
+		return []string{}, nil
+	}
+	cursor, err := r.groups.Find(ctx, bson.M{
+		"domainId": "system",
+		"uids":     uid,
+	}, options.Find().SetProjection(bson.M{"name": 1}).SetSort(bson.D{{Key: "name", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var items []struct {
+		Name string `bson:"name"`
+	}
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		if name := strings.TrimSpace(item.Name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names, nil
+}
+
 func (r *Repository) FindGroupsByNames(ctx context.Context, names []string) ([]Group, error) {
 	if len(names) == 0 {
 		return []Group{}, nil

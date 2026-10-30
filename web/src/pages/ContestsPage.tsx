@@ -41,17 +41,18 @@ export function ContestsPage() {
   const page = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
   const [items, setItems] = useState<Contest[]>([])
   const [total, setTotal] = useState(0)
+  const [groups, setGroups] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     setLoading(true)
     setError('')
-    getContests(query, rule, page)
-      .then((data) => { setItems(data.items); setTotal(data.total) })
+    getContests(query, rule, group, page)
+      .then((data) => { setItems(data.items); setTotal(data.total); setGroups(data.groups ?? []) })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '比赛加载失败'))
       .finally(() => setLoading(false))
-  }, [query, rule, page])
+  }, [group, query, rule, page])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const form = root.querySelector<HTMLFormElement>('form[name="filter-form"]')
@@ -107,7 +108,7 @@ export function ContestsPage() {
       q: query,
       rule,
       group,
-      groups: [],
+      groups,
       handler: {
         user: {
           _id: user?.id ?? 0,
@@ -139,7 +140,7 @@ export function ContestsPage() {
       avatarUrl,
       UserContext: user,
     }
-  }, [group, items, query, rule, user])
+  }, [group, groups, items, query, rule, user])
 
   if (loading) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
