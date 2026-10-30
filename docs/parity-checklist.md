@@ -777,28 +777,14 @@ Playwright 验证：
 页面：首页 / 作业文件 / 训练文件 / 比赛管理页 / 后台控制面板 / 用户权限 / 登录 / 比赛 / 比赛答疑管理 / 作业 / 训练 / 讨论列表 / 讨论详情 / 讨论创建与编辑 / 用户主页 / 排行榜 / 题目列表 / 题目详情 / 题目编辑 / 比赛列表 / 比赛详情 / 比赛榜单 / 作业列表 / 作业详情 / 训练列表 / 训练详情 / 题目文件 / 题目提交 / 记录列表 / 记录详情
 旧站行为：Nunjucks 模板、Markdown 编辑器、日期控件、自动补全和 Ctrl+Enter
 新站行为：直接渲染 @hydrooj/ui-default 4.58.5 原模板和 tag-stat 插件原模板；比赛/作业/训练上传接入活动文件 API，题目上传接入题目附加文件 API；日期控件、自动补全和编辑器作为交互岛挂载
-差异级别：中
-是否接受：部分接受
+差异级别：低
+是否接受：接受当前核心页面差异
 负责人：待定
-后续处理：继续处理剩余未迁移功能
+后续处理：按 `docs/current-status.md` 处理剩余功能缺口
 ```
 
-## 8. 尚未迁移的模块（2026-10-22 更新）
+## 8. 尚未迁移的模块
 
-| 模块 | 状态 | 说明 |
-|---|---|---|
-| `/home/security` 的 OAuth 部分 | 未迁移 | 第三方账号绑定尚未迁移；Passkey、TOTP、密码、邮箱和活动会话已实现 |
-| onsite-toolkit | 部分迁移 | 打印站、气球页、IP 自动登录和批量导入映射已实现；线下赛模式、CDP 导出未迁移 |
-| a11y | 无需迁移 | 上游 `a11y` 包是安装器辅助脚本（自动设置超管、nexus 布局迁移），与无障碍功能无关 |
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：OAuth、组队赛、讨论节点管理、作业分组/依赖、后台脚本/配置/默认权限/IP 可视化，以及 Hack/交互题/特殊 checker 的完整兼容验证。
 
-已完成的对应记录：
-
-- 题解：见 `docs/problems.md` 的“题解”一节
-- 用户主页“题解被赞”：见 `docs/user-profile.md`
-- 站内消息：见 `docs/messages.md`
-- FPS 导入：见 `docs/problems.md` 的“FPS 导入”一节
-- 题目统计页：见 `docs/problems.md` 的“题目统计”一节
-- 修改密码与活动会话：见 `docs/security.md`
-- Hydro 压缩包导入：见 `docs/problems.md` 的“Hydro 压缩包导入”一节
-- 标签统计、活跃日历：见 `docs/tag-stat.md`、`docs/activity-calendar.md`
-- 签到、倒计时：见 `docs/homepage.md`
+已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、SSR。

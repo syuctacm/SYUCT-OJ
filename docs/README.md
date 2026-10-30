@@ -1,5 +1,6 @@
 # 文档索引
 
+- [当前实现状态](./current-status.md)
 - [目标架构](./architecture.md)
 - [首页](./homepage.md)
 - [数据迁移方案](./migrations.md)

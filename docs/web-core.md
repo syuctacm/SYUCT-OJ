@@ -108,11 +108,11 @@ VITE_API_PROXY=http://127.0.0.1:18080 pnpm dev
 - 页面组件按路由懒加载，首页和登录页保持同步加载以稳定首屏
 - Markdown 站内用户/题目/比赛/作业链接解析为原版富媒体节点
 
-## 尚未完成
+## 仍未覆盖的低优先级项
 
-- 将剩余尚未迁移页面从手写 TSX 结构迁移到 `HydroTemplate`
-- 语言自动补全改为读取服务端语言配置
-- 原版全部下拉菜单和前端插件行为
+- `queryLocalFonts()` 本地字体选择弹窗
+- 超级管理员浏览器版本提示
+- `preferredEditorType` 等少量上游偏好项
 - 自动截图回归基线
 
-已完成：题目/比赛/作业/训练 Markdown 图片上传、讨论图片上传、头像上传、TOTP 两步验证、邮箱修改、首页签到/倒计时、标签榜单原插件模板和 CSV 导出。
+除 `EmailChangeConfirmPage`（流程确认页）和 `RandomProblemPage`（跳转页）外，当前页面均通过 `HydroTemplate` 直接渲染上游模板；语言自动补全、日期控件、下拉、Tooltip、折叠、表格、Tab、滚动恢复、Prism、相对时间、划词标记和富媒体链接运行时已接入。
