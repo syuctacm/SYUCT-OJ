@@ -6,9 +6,15 @@ import { getHomeworks, type Contest } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
+import Calendar from '../upstream/calendar.ts'
 
 function pad(value: number) {
   return String(value).padStart(2, '0')
+}
+
+function colorIndexFor(docId: string) {
+  const timestamp = Number.parseInt(docId.slice(0, 8), 16)
+  return Number.isFinite(timestamp) ? timestamp % 12 : 0
 }
 
 function formatByPattern(value: Date, pattern: string) {
@@ -44,8 +50,18 @@ export function HomeworksPage() {
       .finally(() => setLoading(false))
   }, [query, page])
 
+  const calendarEvents = useMemo(() => items.map((homework) => ({
+    beginAt: homework.beginAt,
+    endAt: homework.endAt,
+    title: homework.title,
+    maskFrom: homework.penaltySince ?? null,
+    maskTitle: '延期',
+    colorIndex: colorIndexFor(homework.docId),
+    link: `/homework/${encodeURIComponent(homework.docId)}`,
+  })), [items])
+
   const handleReady = useCallback((root: HTMLDivElement) => {
-    root.querySelector('.nojs--hide')?.remove()
+    const cleanups: Array<() => void> = []
     const form = root.querySelector<HTMLFormElement>('form[name="filter-form"]')
     const onSubmit = (event: SubmitEvent) => {
       event.preventDefault()
@@ -58,8 +74,33 @@ export function HomeworksPage() {
       navigate(`/homework${params.toString() ? `?${params.toString()}` : ''}`)
     }
     form?.addEventListener('submit', onSubmit)
-    return () => form?.removeEventListener('submit', onSubmit)
-  }, [navigate])
+    cleanups.push(() => form?.removeEventListener('submit', onSubmit))
+
+    const list = root.querySelector<HTMLElement>('.homework__list')
+    const calendarEntry = root.querySelector<HTMLElement>('[name="calendar_entry"]')
+    const displaySelect = root.querySelector<HTMLSelectElement>('[name="homework_display"]')
+    let calendar: Calendar | null = null
+    if (calendarEntry && calendarEvents.length) {
+      calendar = new Calendar(calendarEvents)
+      calendar.getDom().appendTo(calendarEntry)
+      const applyDisplay = (view: string) => {
+        const showCalendar = view === 'calendar'
+        if (list) list.style.display = showCalendar ? 'none' : ''
+        calendarEntry.style.display = showCalendar ? '' : 'none'
+        if (displaySelect) displaySelect.value = showCalendar ? 'calendar' : 'list'
+      }
+      applyDisplay(localStorage.getItem('homework-view') ?? 'list')
+      const onChange = () => {
+        const view = displaySelect?.value === 'calendar' ? 'calendar' : 'list'
+        applyDisplay(view)
+        localStorage.setItem('homework-view', view)
+      }
+      displaySelect?.addEventListener('change', onChange)
+      cleanups.push(() => displaySelect?.removeEventListener('change', onChange))
+      cleanups.push(() => calendar?.getDom().remove())
+    }
+    return () => cleanups.forEach((cleanup) => cleanup())
+  }, [calendarEvents, navigate])
 
   const context = useMemo(() => {
     const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
@@ -76,7 +117,7 @@ export function HomeworksPage() {
     return {
       page_name: 'homework_main',
       tdocs,
-      calendar: [],
+      calendar: calendarEvents,
       q: query,
       groups: [],
       group,
@@ -116,10 +157,10 @@ export function HomeworksPage() {
         return `<span class="time">${formatByPattern(date, pattern)}</span>`
       },
       avatarUrl,
-      UiContext: {},
+      UiContext: { docs: calendarEvents },
       UserContext: user,
     }
-  }, [group, items, query, user])
+  }, [calendarEvents, group, items, query, user])
 
   if (loading) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
