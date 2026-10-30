@@ -1392,9 +1392,11 @@ export type PublicUser = {
   rank?: number
   acceptedProblems?: Array<{ docId: number; pid: string; title: string }>
   qq?: string
+  wechat?: string
   gender?: number
   backgroundImage?: string
   school?: string
+  lastSeenAt?: string
 }
 
 export type RankingUser = {

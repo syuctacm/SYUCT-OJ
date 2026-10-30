@@ -49,6 +49,7 @@ export function UserProfilePage() {
       rank: profile.rank && profile.rank > 0 ? profile.rank : '?',
       gender: profile.gender ?? 2,
       qq: profile.qq ?? '',
+      wechat: profile.wechat ?? '',
       school: profile.school ?? '',
       backgroundImage: profile.backgroundImage ?? '',
       hasPriv: (privilege: number) => privilege === 1,
@@ -63,7 +64,7 @@ export function UserProfilePage() {
     return {
       page_name: 'user_detail',
       udoc,
-      sdoc: null,
+      sdoc: profile.lastSeenAt ? { updateAt: new Date(profile.lastSeenAt) } : null,
       pdocs,
       tags: [],
       isSelfProfile: Boolean(viewer && viewer.id === profile.id),

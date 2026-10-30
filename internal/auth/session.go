@@ -49,6 +49,8 @@ type SessionInfo struct {
 // caller.
 var ErrSessionNotFound = errors.New("session not found")
 
+const sessionTouchInterval = time.Minute
+
 type SessionManager struct {
 	mu         sync.RWMutex
 	sessions   map[string]Session
@@ -72,11 +74,16 @@ func NewMongoSessionManager(ctx context.Context, db *mongo.Database, ttl time.Du
 	manager := NewSessionManager(ttl)
 	manager.sessions = nil
 	manager.collection = db.Collection("session")
-	_, err := manager.collection.Indexes().CreateOne(ctx, mongo.IndexModel{
+	if _, err := manager.collection.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "expiresAt", Value: 1}},
 		Options: options.Index().SetName("session_ttl").SetExpireAfterSeconds(0),
-	})
-	if err != nil {
+	}); err != nil {
+		return nil, err
+	}
+	if _, err := manager.collection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "userId", Value: 1}, {Key: "kind", Value: 1}, {Key: "updateAt", Value: -1}},
+		Options: options.Index().SetName("session_user_activity"),
+	}); err != nil {
 		return nil, err
 	}
 	return manager, nil
@@ -180,6 +187,32 @@ func (s *SessionManager) ListByUser(ctx context.Context, uid int64) ([]SessionIn
 		})
 	}
 	return result, cursor.Err()
+}
+
+// LastActiveAt returns the most recent browser-session activity for a user.
+// Judge sessions are ignored because they do not represent a signed-in person.
+func (s *SessionManager) LastActiveAt(ctx context.Context, uid int64) (time.Time, bool, error) {
+	if uid <= 0 || s.collection == nil {
+		return time.Time{}, false, nil
+	}
+	var document struct {
+		UpdateAt time.Time `bson:"updateAt"`
+	}
+	err := s.collection.FindOne(ctx, bson.M{"userId": uid, "kind": "user"},
+		options.FindOne().
+			SetProjection(bson.M{"updateAt": 1}).
+			SetSort(bson.D{{Key: "updateAt", Value: -1}})).
+		Decode(&document)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if document.UpdateAt.IsZero() {
+		return time.Time{}, false, nil
+	}
+	return document.UpdateAt, true, nil
 }
 
 // RevokeDigest deletes one session of the user identified by its digest.
@@ -295,8 +328,10 @@ func (s *SessionManager) GetContext(ctx context.Context, token string) (Session,
 		_, _ = s.collection.DeleteOne(ctx, bson.M{"_id": hash})
 		return Session{}, false
 	}
-	// Keep "last seen" roughly current without writing on every request.
-	if now := s.now().UTC(); now.Sub(document.UpdateAt) > 10*time.Minute {
+	// Keep "last seen" roughly current without writing on every request. One
+	// minute keeps the profile online indicator inside Hydro's five-minute
+	// freshness window.
+	if now := s.now().UTC(); now.Sub(document.UpdateAt) > sessionTouchInterval {
 		_, _ = s.collection.UpdateOne(ctx, bson.M{"_id": hash}, bson.M{"$set": bson.M{"updateAt": now}})
 	}
 	return Session{UserID: document.UserID, Kind: document.Kind, ExpiresAt: document.ExpiresAt}, true
