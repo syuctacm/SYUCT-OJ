@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout.tsx'
 import { LegacyDomainRedirect } from './components/LegacyDomainRedirect.tsx'
 import { AdminPage } from './pages/AdminPage.tsx'
@@ -19,6 +19,7 @@ import { RankingPage } from './pages/RankingPage.tsx'
 import { StatusPage } from './pages/StatusPage.tsx'
 import { AboutPage } from './pages/AboutPage.tsx'
 import { HelpPage } from './pages/HelpPage.tsx'
+import { NotFoundPage } from './pages/ErrorPage.tsx'
 import { UserDeletePage } from './pages/UserDeletePage.tsx'
 import { ContestEditPage } from './pages/ContestEditPage.tsx'
 import { ContestsPage } from './pages/ContestsPage.tsx'
@@ -58,6 +59,10 @@ import { TrainingEditPage } from './pages/TrainingEditPage.tsx'
 import { TrainingsPage } from './pages/TrainingsPage.tsx'
 import { SubmitPage } from './pages/SubmitPage.tsx'
 import { TagRankingPage } from './pages/TagRankingPage.tsx'
+
+function DevRenderFailure(): never {
+  throw new Error('forced render failure for the local error-boundary check')
+}
 
 export default function App() {
   return (
@@ -135,7 +140,8 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/register/:code" element={<RegisterCodePage />} />
         <Route path="/d/:domainId/*" element={<LegacyDomainRedirect />} />
-        <Route path="*" element={<Navigate to="/p" replace />} />
+        {import.meta.env.DEV ? <Route path="/__error-test" element={<DevRenderFailure />} /> : null}
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   )

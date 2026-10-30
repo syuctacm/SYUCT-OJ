@@ -2,6 +2,7 @@
 // (manage_user_import.html); this file only wires the Preview/Submit buttons.
 import { useCallback, useMemo } from 'react'
 import { useAuth } from '../auth.tsx'
+import { ErrorPage } from './ErrorPage.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { importUsers } from '../api.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
@@ -60,5 +61,6 @@ export function AdminUserImportPage() {
     return '/'
   }, [])
 
+  if (!user || ((user.priv ?? 0) & 1) === 0) return <ErrorPage status={403} />
   return <HydroTemplate template="manage_user_import.html" context={context} url={buildUrl} onReady={handleReady} />
 }

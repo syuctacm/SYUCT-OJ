@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../auth.tsx'
+import { ErrorPage } from './ErrorPage.tsx'
 import { getAdminAudit, type AdminAuditPage as AuditPage } from '../api.ts'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 
@@ -45,7 +46,7 @@ export function AdminAuditPage() {
   }, [])
 
   if (!user || ((user.priv ?? 0) & 1) === 0) {
-    return <div className="row"><div className="columns"><div className="nothing-placeholder">需要管理员权限</div></div></div>
+    return <ErrorPage status={403} />
   }
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   if (!data) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
