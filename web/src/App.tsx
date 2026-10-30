@@ -19,6 +19,7 @@ import { RankingPage } from './pages/RankingPage.tsx'
 import { StatusPage } from './pages/StatusPage.tsx'
 import { AboutPage } from './pages/AboutPage.tsx'
 import { HelpPage } from './pages/HelpPage.tsx'
+import { UserDeletePage } from './pages/UserDeletePage.tsx'
 import { ContestEditPage } from './pages/ContestEditPage.tsx'
 import { ContestsPage } from './pages/ContestsPage.tsx'
 import { DiscussionCreatePage } from './pages/DiscussionCreatePage.tsx'
@@ -122,6 +123,7 @@ export default function App() {
         <Route path="/status" element={<StatusPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/wiki/help" element={<HelpPage />} />
+        <Route path="/user/delete" element={<UserDeletePage />} />
         <Route path="/home/messages" element={<MessagesPage />} />
         <Route path="/home/security" element={<SecurityPage />} />
         <Route path="/home/changeMail/:code" element={<EmailChangeConfirmPage />} />

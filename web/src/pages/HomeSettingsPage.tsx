@@ -117,6 +117,16 @@ export function HomeSettingsPage() {
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = [hydrateHydroEditForm(root)]
+    if (category === 'account') {
+      const row = root.querySelector('.row')
+      if (row) {
+        const section = document.createElement('div')
+        section.className = 'section'
+        section.innerHTML = '<div class="section__header"><h1 class="section__title">账号注销</h1></div><div class="section__body"><p>注销后账号会在 7 天后匿名化，认证数据会被清除。</p><a class="rounded button" href="/user/delete">管理账号注销</a></div>'
+        row.appendChild(section)
+        cleanups.push(() => section.remove())
+      }
+    }
     const avatarButton = root.querySelector<HTMLButtonElement>('button.change-avatar')
     const onAvatarClick = () => {
       const picker = document.createElement('input')
@@ -145,7 +155,7 @@ export function HomeSettingsPage() {
       cleanups.push(() => form.removeEventListener('submit', onSubmit))
     }
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [refresh])
+  }, [category, refresh])
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()

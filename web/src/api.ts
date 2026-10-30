@@ -1498,6 +1498,27 @@ export async function setAdminUserBan(uid: number, banned: boolean): Promise<voi
   })
 }
 
+export type AccountDeletionStatus = {
+  deleteAt: string | null
+}
+
+export async function getAccountDeletion(): Promise<AccountDeletionStatus> {
+  const result = await request<Envelope<AccountDeletionStatus>>('/api/v1/user/delete')
+  return result.data
+}
+
+export async function requestAccountDeletion(password: string): Promise<AccountDeletionStatus> {
+  const result = await request<Envelope<AccountDeletionStatus>>('/api/v1/user/delete', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  })
+  return result.data
+}
+
+export async function cancelAccountDeletion(): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>('/api/v1/user/delete/cancel', { method: 'POST' })
+}
+
 export type AdminAuditEvent = {
   id: string
   action: string

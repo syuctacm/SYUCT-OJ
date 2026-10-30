@@ -60,6 +60,7 @@ func main() {
 	}
 	judgeHandler := judge.NewHandler(cfg.JudgeUsername, cfg.JudgePassword, sessions, judgeStore, hub)
 	userRepo := user.NewRepository(db)
+	go user.RunDeletionWorker(context.Background(), db, sessions, time.Hour)
 	authHandler := auth.NewHandler(userRepo, sessions)
 	webauthnService, err := webauthn.New(ctx, db, userRepo, webauthn.Config{
 		RPID:          cfg.WebAuthnRPID,
