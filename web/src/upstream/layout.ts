@@ -52,7 +52,13 @@ export function layoutChromeContext(user: User | null, pageName: string) {
       session: { legacy: false, viewLang: user?.viewLang || 'zh' },
     },
     model: {
-      system: { get: (key: string) => key === 'server.login' },
+      system: {
+        get: (key: string) => {
+          if (key === 'server.login') return true
+          if (key === 'server.name') return 'SYUCT OJ'
+          return ''
+        },
+      },
       setting: { SETTINGS_BY_KEY: { viewLang: { range: { zh: '简体中文' } } } },
     },
     PRIV: LAYOUT_PRIV,
@@ -78,6 +84,7 @@ export function buildLayoutUrl(name: string, args: Record<string, unknown> = {})
     case 'record_main': return '/record'
     case 'user_login': return '/login'
     case 'user_register': return '/register'
+    case 'user_lostpass': return '/lostpass'
     case 'user_logout': return '/logout'
     case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
     case 'home_messages': return '/home/messages'

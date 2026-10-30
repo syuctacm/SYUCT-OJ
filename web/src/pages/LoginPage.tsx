@@ -1,13 +1,16 @@
 // Page markup is rendered from the pinned Hydro ui-default template. Keep this
 // file limited to the login request and error state.
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { safeLoginRedirect } from '../login-redirect.ts'
 
 export function LoginPage() {
   const { login, passkeyLogin } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirect = safeLoginRedirect(searchParams.get('redirect'))
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [tfaRequired, setTfaRequired] = useState(false)
@@ -71,7 +74,7 @@ export function LoginPage() {
     setError('')
     try {
       await login(username, password, tfa)
-      navigate('/')
+      navigate(redirect, { replace: true })
     } catch (err) {
       const message = err instanceof Error ? err.message : ''
       if (message === '2FA required') {
@@ -101,7 +104,7 @@ export function LoginPage() {
     setError('')
     try {
       await passkeyLogin(username)
-      navigate('/')
+      navigate(redirect, { replace: true })
     } catch (err) {
       const message = err instanceof Error ? err.message : ''
       if (message === 'passkey login is not available for this account') {
