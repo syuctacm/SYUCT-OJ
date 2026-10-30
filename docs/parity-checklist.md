@@ -599,6 +599,20 @@ Playwright 验证：
 - 前后月按钮切换月份，事件条随月份更新
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.29 找回密码流程（2026-10-30）
+
+- 恢复 Hydro `user_lostpass` / `user_lostpass_with_code` 页面
+- 邮件 token 24 小时有效且只能使用一次
+- 重置后更新密码、清除 TFA、删除 Passkey 并撤销全部 session
+- 无 SMTP 的本地开发返回 token；有 SMTP 时不泄露 token
+
+验证：
+
+- API 集成测试覆盖 token 校验、密码替换、TFA/Passkey 清理、旧 session 失效、旧密码失效、token 复用失败和 SMTP 邮件发送
+- Playwright 验证登录页找回密码入口、邮件请求和重置表单
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

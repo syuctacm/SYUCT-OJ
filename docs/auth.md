@@ -77,7 +77,15 @@ Go 实现位于 `internal/user/password.go`。
 - API 重启后用户 Cookie 和判题机 Cookie 继续有效。
 - 登录成功会更新 `loginat` / `loginip`（用户主页“最后登录”）。
 
+## 找回密码
+
+- 前端 `/lostpass` 和 `/lostpass/:code` 直接渲染 Hydro 的 `user_lostpass.html` / `user_lostpass_with_code.html`
+- `POST /api/v1/auth/lostpass` 生成 24 小时有效的一次性 token；配置 SMTP 时发送重置邮件，不在响应中返回 token
+- 未配置 SMTP 的本地开发环境返回 `code`/`link`，与注册、修改邮箱的本地开发行为一致
+- 重置时先消费 token，再更新 Hydro PBKDF2 密码，清除 TFA，删除 WebAuthn credentials，并撤销该用户全部 session
+- 对不存在的邮箱返回同样的成功响应，避免账号枚举；本地无 SMTP 的开发响应是例外
+
 ## 当前限制
 
-- 尚未实现找回密码和 OAuth。
+- 尚未实现 OAuth。
 - 注册 token 仍直接由接口返回；邮箱修改已支持可选 SMTP 发送确认链接，相关配置见 `.env.example`。
