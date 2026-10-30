@@ -756,6 +756,21 @@ Playwright 验证：
 - Playwright：未知路径仍进入 404 页面
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.40 富媒体站内链接（2026-10-31）
+
+- 复用 Hydro `partials/user.html`、`partials/problem.html`、`partials/contest.html`、`partials/homework.html`
+- `.typo` 内的用户、题目、比赛、作业链接通过现有站内 API 解析并替换为原版富媒体节点
+- `div[data-user]` 引用恢复为用户内联组件；XSS 白名单补齐 `data-user`
+- 同一目标使用 Promise 缓存，未知、隐藏或无权限目标保留原链接
+- SPA 路由切换只处理新增正文，不会递归替换已渲染片段
+
+验证：
+
+- Playwright：讨论正文中的 alice/admin 用户、P201、比赛和作业链接均渲染为对应模板片段
+- Playwright：`div[data-user]` 渲染为带头像的用户内联节点
+- Playwright：同一题目只保留一个富媒体结果，没有标签列表递归膨胀
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

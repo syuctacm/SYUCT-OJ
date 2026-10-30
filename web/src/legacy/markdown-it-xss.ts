@@ -89,7 +89,7 @@ const commonRules = {
     cite: [],
     code: ['class'],
     del: ['datetime'],
-    div: ['id', 'class'],
+    div: ['id', 'class', 'data-user'],
     dl: [],
     em: [],
     font: ['color', 'size', 'face'],
