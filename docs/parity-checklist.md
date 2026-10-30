@@ -527,6 +527,21 @@ Playwright 验证：
 - `go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.24 站内消息实时推送（2026-10-30）
+
+- 新增 `/api/v1/messages/events`，登录用户建立 WebSocket，匿名连接返回 401
+- 普通私信和讨论提及通知复用同一个 `message.Repository`，写入后向收件人推送
+- 消息页收到事件后立即刷新会话并弹出 Hydro 风格通知
+- 点击通知切换到对应会话；断线 3 秒重连，重连后重新拉取消息补缺口
+- 移除原 10 秒轮询
+
+验证：
+
+- WebSocket 集成测试覆盖匿名拒绝、私信推送和讨论提及推送
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+- Playwright 验证第二个用户发送消息后，消息页无刷新出现通知和会话内容
+
 ## 7. 当前已知差异
 
 ```text

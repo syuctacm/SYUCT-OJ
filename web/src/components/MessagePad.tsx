@@ -4,13 +4,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   getMessages, getPublicUser, searchUsers, sendMessage,
-  type MessageDialogue, type MessageDoc, type User, type UserChoice,
+  type MessageDialogue, type MessageDoc, type MessageEvent, type User, type UserChoice,
 } from '../api.ts'
 import { Dialog } from './Dialog.tsx'
 import { Icon } from './Icon.tsx'
+import { notifyMessage } from './Notification.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
-
-const POLL_INTERVAL = 10000
 
 function timeAgo(iso: string) {
   const date = new Date(iso)
@@ -121,9 +120,62 @@ export function MessagePad({ user, target = null, onError }: Props) {
 
   useEffect(() => {
     void load()
-    const timer = window.setInterval(() => void load(), POLL_INTERVAL)
-    return () => window.clearInterval(timer)
   }, [load])
+
+  useEffect(() => {
+    if (!user) return
+    let disposed = false
+    let socket: WebSocket | null = null
+    let reconnect: number | undefined
+    const connect = () => {
+      if (disposed) return
+      const url = new URL('/api/v1/messages/events', window.location.href)
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+      socket = new WebSocket(url)
+      socket.onopen = () => {
+        // Catch up on messages sent while the socket was disconnected.
+        void load()
+      }
+      socket.onmessage = (event) => {
+        let data: MessageEvent
+        try {
+          data = JSON.parse(String(event.data)) as MessageEvent
+        } catch {
+          return
+        }
+        const incoming = data.message
+        if (!incoming?.id) return
+        void load()
+        if (incoming.from === user.id) return
+        const openDialogue = () => setActiveId(incoming.from)
+        getPublicUser(String(incoming.from))
+          .then((profile) => {
+            notifyMessage({
+              title: profile.username,
+              message: renderMessageContent(incoming),
+              avatar: avatarUrl(profile.avatar ?? '', 40),
+              onClick: openDialogue,
+            })
+          })
+          .catch(() => {
+            notifyMessage({
+              title: incoming.from === 1 ? '系统消息' : '新消息',
+              message: renderMessageContent(incoming),
+              onClick: openDialogue,
+            })
+          })
+      }
+      socket.onclose = () => {
+        if (!disposed) reconnect = window.setTimeout(connect, 3000)
+      }
+    }
+    connect()
+    return () => {
+      disposed = true
+      if (reconnect) window.clearTimeout(reconnect)
+      socket?.close()
+    }
+  }, [load, user])
 
   // `?target=<uid>` opens (or starts) a conversation with that user.
   useEffect(() => {

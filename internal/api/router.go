@@ -76,8 +76,15 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		handler.NewTrainingHandler(trainingRepo, sessions, userRepo).RegisterRoutes(trainingGroup)
 		handler.NewActivityFileHandler(trainingRepo, activityStore, sessions, userRepo, "training", "trainings").RegisterRoutes(trainingGroup)
 	}
+	var messageRepo *message.Repository
+	var messageHub *message.Hub
+	if discussionRepo != nil || userRepo != nil {
+		messageRepo = message.NewRepository(db)
+		messageHub = message.NewHub()
+		messageRepo.SetPublisher(messageHub.Publish)
+	}
 	if discussionRepo != nil {
-		handler.NewDiscussionHandler(discussionRepo, sessions, userRepo, message.NewRepository(db)).RegisterRoutes(router.Group("/"))
+		handler.NewDiscussionHandler(discussionRepo, sessions, userRepo, messageRepo).RegisterRoutes(router.Group("/"))
 	}
 	if userRepo != nil {
 		mailer := mail.New(mail.Config{
@@ -85,7 +92,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 			Password: cfg.MailPassword, From: cfg.MailFrom,
 		})
 		handler.NewUserHandler(userRepo, sessions, problemRepo).RegisterRoutes(router.Group("/"))
-		handler.NewMessageHandler(message.NewRepository(db), sessions, userRepo).RegisterRoutes(router.Group("/"))
+		handler.NewMessageHandler(messageRepo, sessions, userRepo, messageHub).RegisterRoutes(router.Group("/"))
 		handler.NewUserFileHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
 		handler.NewUserAvatarHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
 		handler.NewUserEmailHandler(userRepo, sessions, mailer).RegisterRoutes(router.Group("/"))

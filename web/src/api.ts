@@ -1591,6 +1591,10 @@ export type MessageDialogue = {
   messages: MessageDoc[]
 }
 
+export type MessageEvent = {
+  message: MessageDoc
+}
+
 export type MessagePadData = {
   items: MessageDialogue[]
   unread: number
