@@ -179,6 +179,64 @@ func TestProblemAssetManagementIntegration(t *testing.T) {
 		t.Fatalf("testdata archive = %#v", archiveFiles)
 	}
 
+	renamePayload, _ := json.Marshal(map[string]any{
+		"type": "testdata", "names": []string{"1.in"}, "newNames": []string{"input1.txt"},
+	})
+	request, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/problems/P5/assets/rename", bytes.NewReader(renamePayload))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range adminCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	renameBody, _ := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("rename testdata = %d: %s", response.StatusCode, renameBody)
+	}
+	renamedContent, err := os.ReadFile(filepath.Join(storeRootPath, "problem", "system", "5", "testdata", "input1.txt"))
+	if err != nil || string(renamedContent) != "7 8\n" {
+		t.Fatalf("renamed content = %q err=%v", renamedContent, err)
+	}
+	if _, err := os.Stat(filepath.Join(storeRootPath, "problem", "system", "5", "testdata", "1.in")); !os.IsNotExist(err) {
+		t.Fatalf("old testdata still exists: %v", err)
+	}
+	pdoc, err = problemRepo.GetForEditor(ctx, "P5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasRenamed := false
+	for _, file := range pdoc.Data {
+		if file.Name == "input1.txt" {
+			hasRenamed = true
+		}
+		if file.Name == "1.in" {
+			t.Fatalf("old testdata metadata still exists: %+v", pdoc.Data)
+		}
+	}
+	if !hasRenamed {
+		t.Fatalf("renamed testdata missing from metadata: %+v", pdoc.Data)
+	}
+
+	renamePayload, _ = json.Marshal(map[string]any{
+		"type": "additional", "names": []string{"notes.txt"}, "newNames": []string{"notes-renamed.txt"},
+	})
+	request, _ = http.NewRequest(http.MethodPost, server.URL+"/api/v1/problems/P5/assets/rename", bytes.NewReader(renamePayload))
+	request.Header.Set("Content-Type", "application/json")
+	for _, cookie := range normalCookies {
+		request.AddCookie(cookie)
+	}
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("non-owner rename = %d", response.StatusCode)
+	}
+
 	request, _ = http.NewRequest(http.MethodGet, server.URL+"/api/v1/problems/P5/assets/download-all", nil)
 	for _, cookie := range normalCookies {
 		request.AddCookie(cookie)
@@ -205,7 +263,7 @@ func TestProblemAssetManagementIntegration(t *testing.T) {
 		t.Fatalf("non-owner asset access = %d", response.StatusCode)
 	}
 
-	payload, _ := json.Marshal(map[string]any{"type": "testdata", "names": []string{"1.in", "1.out", "config.yaml"}})
+	payload, _ := json.Marshal(map[string]any{"type": "testdata", "names": []string{"input1.txt", "1.out", "config.yaml"}})
 	request, _ = http.NewRequest(http.MethodDelete, server.URL+"/api/v1/problems/P5/assets", bytes.NewReader(payload))
 	request.Header.Set("Content-Type", "application/json")
 	for _, cookie := range adminCookies {

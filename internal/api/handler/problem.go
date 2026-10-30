@@ -65,6 +65,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/problems/:pid/assets", h.listAssets)
 	router.POST("/api/v1/problems/:pid/assets", h.uploadAssets)
 	router.DELETE("/api/v1/problems/:pid/assets", h.deleteAssets)
+	router.POST("/api/v1/problems/:pid/assets/rename", h.renameAssets)
 	router.GET("/api/v1/problems/:pid/assets/download", h.downloadAsset)
 	router.GET("/api/v1/problems/:pid/assets/download-all", h.downloadAllAssets)
 	router.GET("/api/v1/problems/:pid", h.get)
@@ -634,6 +635,166 @@ func (h *ProblemHandler) deleteAssets(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": assetList(c.Param("pid"), updated)})
+}
+
+func (h *ProblemHandler) renameAssets(c *gin.Context) {
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	if h.store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "problem file storage is unavailable"})
+		return
+	}
+	var request struct {
+		Type     string   `json:"type"`
+		Names    []string `json:"names"`
+		NewNames []string `json:"newNames"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || !validProblemFileKind(request.Type) || len(request.Names) == 0 || len(request.Names) != len(request.NewNames) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type, names and newNames are required"})
+		return
+	}
+	if len(request.Names) > maxProblemFiles {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", maxProblemFiles)})
+		return
+	}
+	existing := assetsForKind(pdoc, request.Type)
+	existingNames := make(map[string]bool, len(existing))
+	for _, file := range existing {
+		existingNames[file.Name] = true
+	}
+	requestedOldNames := make(map[string]bool, len(request.Names))
+	for _, raw := range request.Names {
+		name, err := sanitizeAssetName(raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		requestedOldNames[name] = true
+	}
+	renames := make([]struct{ old, new string }, 0, len(request.Names))
+	oldNames := make(map[string]bool, len(request.Names))
+	newNames := make(map[string]bool, len(request.Names))
+	for index, raw := range request.Names {
+		oldName, err := sanitizeAssetName(raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		newName, err := sanitizeAssetName(request.NewNames[index])
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if oldName == newName {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "new filename must differ from the original"})
+			return
+		}
+		if !existingNames[oldName] {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("file not found: %s", oldName)})
+			return
+		}
+		if oldNames[oldName] || newNames[newName] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "duplicate filename in rename request"})
+			return
+		}
+		if existingNames[newName] && !requestedOldNames[newName] {
+			c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("file already exists: %s", newName)})
+			return
+		}
+		oldNames[oldName] = true
+		newNames[newName] = true
+		renames = append(renames, struct{ old, new string }{oldName, newName})
+	}
+
+	created := make([]string, 0, len(renames))
+	rollback := func() {
+		_ = h.repo.DeleteFiles(c.Request.Context(), pdoc.DocID, request.Type, created)
+		for _, name := range created {
+			h.deleteStoredFile(request.Type, pdoc.DocID, name)
+		}
+	}
+	for _, item := range renames {
+		reader, err := h.openAsset(request.Type, pdoc.DocID, item.old)
+		if err != nil {
+			rollback()
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("file not found: %s", item.old)})
+			return
+		}
+		stored, err := h.putAsset(request.Type, pdoc.DocID, item.new, reader)
+		_ = reader.Close()
+		if err != nil {
+			rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to copy problem file"})
+			return
+		}
+		created = append(created, item.new)
+		file := problem.ProblemFile{
+			ID: problemFileID(pdoc.DocID, request.Type, item.new), Name: item.new,
+			Size: stored.Size, ETag: stored.ETag, LastModified: stored.LastModified,
+		}
+		if err := h.repo.UpsertFile(c.Request.Context(), pdoc.DocID, request.Type, file); err != nil {
+			rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update problem file metadata"})
+			return
+		}
+	}
+	oldList := make([]string, 0, len(renames))
+	for _, item := range renames {
+		oldList = append(oldList, item.old)
+	}
+	if err := h.repo.DeleteFiles(c.Request.Context(), pdoc.DocID, request.Type, oldList); err != nil && !errors.Is(err, problem.ErrNotFound) {
+		rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update problem file metadata"})
+		return
+	}
+	hadConfig := false
+	hasConfig := false
+	for _, item := range renames {
+		h.deleteStoredFile(request.Type, pdoc.DocID, item.old)
+		if request.Type == problemFileKindData && isConfigFile(item.old) {
+			hadConfig = true
+		}
+		if request.Type == problemFileKindData && isConfigFile(item.new) {
+			hasConfig = true
+		}
+	}
+	if hadConfig && !hasConfig {
+		_ = h.repo.UpdateConfig(c.Request.Context(), pdoc.DocID, "")
+	}
+	if hasConfig {
+		for _, item := range renames {
+			if isConfigFile(item.new) {
+				if err := h.updateProblemConfig(c, pdoc.DocID, item.new); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to reload problem config"})
+					return
+				}
+			}
+		}
+	}
+	updated, err := h.repo.GetForEditor(c.Request.Context(), c.Param("pid"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to reload problem files"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": assetList(c.Param("pid"), updated)})
+}
+
+func (h *ProblemHandler) openAsset(kind string, docID int64, name string) (io.ReadCloser, error) {
+	pid := strconv.FormatInt(docID, 10)
+	if kind == problemFileKindData {
+		return h.store.OpenProblemFile(problem.DomainSystem, pid, name)
+	}
+	return h.store.OpenAdditionalFile(problem.DomainSystem, pid, name)
+}
+
+func (h *ProblemHandler) putAsset(kind string, docID int64, name string, reader io.Reader) (judge.StoredFile, error) {
+	pid := strconv.FormatInt(docID, 10)
+	if kind == problemFileKindData {
+		return h.store.PutProblemFile(problem.DomainSystem, pid, name, reader)
+	}
+	return h.store.PutAdditionalFile(problem.DomainSystem, pid, name, reader)
 }
 
 func (h *ProblemHandler) downloadAsset(c *gin.Context) {
