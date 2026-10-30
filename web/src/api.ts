@@ -1498,6 +1498,29 @@ export async function setAdminUserBan(uid: number, banned: boolean): Promise<voi
   })
 }
 
+export type AdminAuditEvent = {
+  id: string
+  action: string
+  actor: number
+  actorName?: string
+  targetUid?: number
+  targetName?: string
+  details?: Record<string, unknown>
+  createdAt: string
+}
+
+export type AdminAuditPage = {
+  items: AdminAuditEvent[]
+  page: number
+  limit: number
+}
+
+export async function getAdminAudit(page = 1, limit = 50): Promise<AdminAuditPage> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  const result = await request<Envelope<AdminAuditPage>>(`/api/v1/admin/audit?${params.toString()}`)
+  return result.data
+}
+
 export type SolutionReply = {
   id: string
   owner: number

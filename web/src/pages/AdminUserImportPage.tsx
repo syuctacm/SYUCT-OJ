@@ -55,6 +55,7 @@ export function AdminUserImportPage() {
     if (name === 'manage_dashboard') return '/admin'
     if (name === 'manage_user_priv') return '/admin/users'
     if (name === 'manage_user_import') return '/admin/users/import'
+    if (name === 'manage_audit') return '/admin/audit'
     if (name === 'manage_setting') return '/admin/settings'
     return '/'
   }, [])

@@ -642,6 +642,20 @@ Playwright 验证：
 - `TEST_MONGO_URI=... go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.32 后台操作审计（2026-10-31）
+
+- 管理员权限变更、用户封禁/解封、公告修改和批量导入写入 `oplog`
+- 新增仅管理员可访问的 `/api/v1/admin/audit`
+- 新增 `/admin/audit` 页面，展示操作者、目标、动作、前后值和 UTC 时间
+- 控制面板侧栏增加审计入口
+
+验证：
+
+- Go 集成测试覆盖权限修改和封禁审计记录、操作者/目标名称解析
+- Playwright 验证审计页面和菜单入口
+- `TEST_MONGO_URI=... go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text
