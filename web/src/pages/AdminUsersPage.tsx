@@ -2,9 +2,10 @@
 // (manage_user_priv.html). Keep this file limited to data mapping and the
 // privilege dialog that the template expects.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getAdminUsers, updateAdminUserPriv, type AdminUserPage } from '../api.ts'
+import { getAdminUsers, setAdminUserBan, updateAdminUserPriv, type AdminUserPage } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { Dialog } from '../components/Dialog.tsx'
+import { confirmDialog } from '../components/dialogs.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { UserSelectAutoComplete } from '../components/autocomplete/UserSelectAutoComplete.tsx'
 import { PRIV_DEFAULT, PRIV_OPTIONS } from '../upstream/priv.ts'
@@ -35,10 +36,23 @@ export function AdminUsersPage() {
     // Changing the system default privilege needs a settings page that this
     // rewrite does not have yet; keep the informational row but drop its link.
     root.querySelector('tr[data-uid="default"] [name="set_priv"]')?.remove()
+    for (const item of data?.items ?? []) {
+      if (item.id === 1 || item.priv & 1) continue
+      const row = root.querySelector<HTMLElement>(`tr[data-uid="${item.id}"]`)
+      const actions = row?.querySelector<HTMLElement>('.col--actions')
+      if (!actions || actions.querySelector('[name="toggle_ban"]')) continue
+      const link = document.createElement('a')
+      link.setAttribute('name', 'toggle_ban')
+      link.dataset.uid = String(item.id)
+      link.dataset.banned = item.banned ? 'true' : 'false'
+      link.textContent = item.banned ? '解封' : '封禁'
+      link.style.marginLeft = '0.75rem'
+      actions.appendChild(link)
+    }
     const onClick = (event: Event) => clickRef.current(event)
     root.addEventListener('click', onClick)
     return () => root.removeEventListener('click', onClick)
-  }, [])
+  }, [data])
 
   function openPrivDialog(uid: number, priv: number) {
     const body = document.querySelector('.dialog__body--set-priv > div')
@@ -48,7 +62,7 @@ export function AdminUsersPage() {
   }
 
   function handleClick(event: Event) {
-    const target = (event.target as HTMLElement).closest<HTMLElement>('[name="set_priv"], [name="select_user"]')
+    const target = (event.target as HTMLElement).closest<HTMLElement>('[name="set_priv"], [name="select_user"], [name="toggle_ban"]')
     if (!target) return
     if (target.getAttribute('name') === 'select_user') {
       event.preventDefault()
@@ -57,6 +71,19 @@ export function AdminUsersPage() {
       return
     }
     event.preventDefault()
+    if (target.getAttribute('name') === 'toggle_ban') {
+      const uid = Number(target.dataset.uid ?? 0)
+      const banned = target.dataset.banned === 'true'
+      const item = data?.items.find((entry) => entry.id === uid)
+      void confirmDialog(`${banned ? '解封' : '封禁'}用户 ${item?.username ?? uid}？`).then((ok) => {
+        if (!ok) return
+        setActionError('')
+        setAdminUserBan(uid, !banned)
+          .then(load)
+          .catch((err: unknown) => setActionError(err instanceof Error ? err.message : '用户状态更新失败'))
+      })
+      return
+    }
     openPrivDialog(Number(target.dataset.uid ?? 0), Number(target.dataset.priv ?? 0))
   }
   clickRef.current = handleClick

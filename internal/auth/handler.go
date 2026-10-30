@@ -64,6 +64,10 @@ func (h *Handler) login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
+	if user.IsBanned(u) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "account is banned"})
+		return
+	}
 	if u.TFA != "" {
 		if strings.TrimSpace(req.TFA) == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "2FA required", "tfaRequired": true})
@@ -94,7 +98,9 @@ func (h *Handler) me(c *gin.Context) {
 		return
 	}
 	u, err := h.users.FindByID(c.Request.Context(), session.UserID)
-	if err != nil {
+	if err != nil || user.IsBanned(u) {
+		h.sessions.RevokeContext(c.Request.Context(), token)
+		ClearSessionCookie(c)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}

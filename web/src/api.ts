@@ -1463,6 +1463,7 @@ export type AdminUser = {
   email: string
   studentId?: string
   priv: number
+  banned?: boolean
   avatar?: string
   regAt: string
   loginAt: string
@@ -1487,6 +1488,13 @@ export async function updateAdminUserPriv(uid: number, priv: number): Promise<vo
   await request<Envelope<{ id: number; priv: number }>>(`/api/v1/admin/users/${uid}/priv`, {
     method: 'PATCH',
     body: JSON.stringify({ priv }),
+  })
+}
+
+export async function setAdminUserBan(uid: number, banned: boolean): Promise<void> {
+  await request<Envelope<{ id: number; priv: number; banned: boolean }>>(`/api/v1/admin/users/${uid}/ban`, {
+    method: 'PATCH',
+    body: JSON.stringify({ banned }),
   })
 }
 
