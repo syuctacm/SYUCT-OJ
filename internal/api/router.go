@@ -29,7 +29,8 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		middleware.BodyLimit(middleware.DefaultBodyLimit),
 		middleware.RateLimit(cfg.LoginRateLimit, cfg.LoginRateWindow,
 			"/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/webauthn/login/begin",
-			"/api/v1/auth/webauthn/login/finish", "/api/v1/user/security/webauthn/register/begin",
+			"/api/v1/auth/webauthn/login/finish", "/api/v1/auth/lostpass",
+			"/api/v1/user/security/webauthn/register/begin",
 			"/api/v1/user/security/webauthn/register/finish", "/api/v1/user/security/password",
 			"/api/v1/user/security/email"),
 		middleware.IPAutoLogin(cfg.OnsiteIPLogin, userRepo, sessions),
@@ -92,6 +93,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 			Password: cfg.MailPassword, From: cfg.MailFrom,
 		})
 		handler.NewUserHandler(userRepo, sessions, problemRepo).RegisterRoutes(router.Group("/"))
+		handler.NewLostPassHandler(userRepo, sessions, mailer).RegisterRoutes(router.Group("/"))
 		handler.NewMessageHandler(messageRepo, sessions, userRepo, messageHub).RegisterRoutes(router.Group("/"))
 		handler.NewUserFileHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
 		handler.NewUserAvatarHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))

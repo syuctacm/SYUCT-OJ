@@ -19,16 +19,13 @@ export function LoginPage() {
     handler: { loginMethods: [] },
   }), [])
   const loginUrl = useCallback((name: string) => (
-    name === 'user_lostpass' ? '/login?lostpass=1' : name === 'user_oauth' ? '/login' : '/'
+    name === 'user_lostpass' ? '/lostpass' : name === 'user_oauth' ? '/login' : '/'
   ), [])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const form = root.querySelector('form')
     const onSubmit = (event: SubmitEvent) => submitRef.current(event)
     form?.addEventListener('submit', onSubmit)
-    // The Go backend does not expose password recovery yet; keep the template
-    // structure but remove the dead recovery link.
-    root.querySelector('a[href="/login?lostpass=1"]')?.closest('.row')?.remove()
     if (tfaRequired && form) {
       const hidden = form.querySelector<HTMLInputElement>('input[name="tfa"]')
       const submitRow = hidden?.closest('.row')

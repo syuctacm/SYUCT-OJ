@@ -10,6 +10,8 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/') return basic('homepage', '首页')
   if (pathname.startsWith('/d/')) return basic('redirect', '跳转中')
   if (pathname === '/login') return { name: 'user_login', layout: 'immersive', title: '登录' }
+  if (pathname === '/lostpass') return { name: 'user_lostpass', layout: 'immersive', title: '找回密码' }
+  if (/^\/lostpass\/[^/]+\/?$/.test(pathname)) return { name: 'user_lostpass_with_code', layout: 'immersive', title: '重置密码' }
   if (pathname === '/register') return { name: 'user_register', layout: 'immersive', title: '注册' }
   if (/^\/register\/[^/]+\/?$/.test(pathname)) return { name: 'user_register_with_code', layout: 'immersive', title: '注册' }
   if (pathname === '/p') return basic('problem_main', '题库')

@@ -1785,6 +1785,34 @@ export async function importHydroProblems(
   return result.data
 }
 
+export type LostPassRequestResult = {
+  sent: boolean
+  code?: string
+  link?: string
+}
+
+export async function requestLostPass(mail: string): Promise<LostPassRequestResult> {
+  const result = await request<Envelope<LostPassRequestResult>>('/api/v1/auth/lostpass', {
+    method: 'POST',
+    body: JSON.stringify({ mail }),
+  })
+  return result.data
+}
+
+export async function getLostPass(code: string): Promise<{ username: string }> {
+  const result = await request<Envelope<{ username: string }>>(
+    `/api/v1/auth/lostpass/${encodeURIComponent(code)}`,
+  )
+  return result.data
+}
+
+export async function resetLostPass(code: string, password: string, verifyPassword: string): Promise<void> {
+  await request<Envelope<Record<string, unknown>>>(
+    `/api/v1/auth/lostpass/${encodeURIComponent(code)}`,
+    { method: 'POST', body: JSON.stringify({ password, verifyPassword }) },
+  )
+}
+
 export type RegistrationRequestResult = { mail: string; code: string }
 
 export async function requestRegistration(mail: string): Promise<RegistrationRequestResult> {

@@ -28,6 +28,8 @@ import { HomeSettingsPage } from './pages/HomeSettingsPage.tsx'
 import { EmailChangeConfirmPage } from './pages/EmailChangeConfirmPage.tsx'
 import { HomeworksPage } from './pages/HomeworksPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
+import { LostPassPage } from './pages/LostPassPage.tsx'
+import { LostPassCodePage } from './pages/LostPassCodePage.tsx'
 import { RegisterPage } from './pages/RegisterPage.tsx'
 import { RegisterCodePage } from './pages/RegisterCodePage.tsx'
 import { MessagesPage } from './pages/MessagesPage.tsx'
@@ -118,6 +120,8 @@ export default function App() {
         <Route path="/home/settings" element={<HomeSettingsPage />} />
         <Route path="/file" element={<UserFilesPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/lostpass" element={<LostPassPage />} />
+        <Route path="/lostpass/:code" element={<LostPassCodePage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/register/:code" element={<RegisterCodePage />} />
         <Route path="/d/:domainId/*" element={<LegacyDomainRedirect />} />
