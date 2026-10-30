@@ -14,6 +14,12 @@ import { initHydroTabs, installHydroTabListener } from './tabs.ts'
 import { cleanupHydroTables, initHydroTables } from './table.ts'
 import { installHydroTextboxFocus } from './textbox.ts'
 
+function isHydroPageLoading(main: HTMLElement) {
+  const placeholder = main.querySelector('.nothing-placeholder')
+  if (!placeholder) return false
+  return /加载中|loading/i.test(placeholder.textContent ?? '')
+}
+
 let installed = false
 
 export function installHydroRuntime(main: HTMLElement) {
@@ -41,6 +47,7 @@ export function installHydroRuntime(main: HTMLElement) {
     }
     running = true
     try {
+      if (isHydroPageLoading(main)) return
       initHydroCollapsibleContent(main)
       initHydroTabs(main)
       initHydroMenus(main)
@@ -74,9 +81,13 @@ export function installHydroRuntime(main: HTMLElement) {
         }
       }
     }
-    if (mutations.some((mutation) => mutation.addedNodes.length || mutation.removedNodes.length)) schedule()
+    const affectsLoadingPlaceholder = mutations.some((mutation) => (
+      mutation.type === 'characterData'
+      && mutation.target.parentElement?.closest('.nothing-placeholder')
+    ))
+    if (affectsLoadingPlaceholder || mutations.some((mutation) => mutation.addedNodes.length || mutation.removedNodes.length)) schedule()
   })
-  observer.observe(main, { childList: true, subtree: true })
+  observer.observe(main, { childList: true, characterData: true, subtree: true })
   schedule()
 
   return () => {

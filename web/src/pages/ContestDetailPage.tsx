@@ -10,6 +10,7 @@ import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { promptDialog } from '../components/dialogs.tsx'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
+import { useHydroContestTimer } from '../upstream/contest-timer.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 
 export function ContestDetailPage() {
@@ -21,6 +22,7 @@ export function ContestDetailPage() {
   const [attendError, setAttendError] = useState('')
   const [attending, setAttending] = useState(false)
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
+  useHydroContestTimer(contest)
 
   useEffect(() => {
     setContest(null)

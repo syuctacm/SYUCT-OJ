@@ -1,5 +1,6 @@
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import $ from 'jquery'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { Outlet, useLocation, useNavigationType, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth.tsx'
 import { applyPageMeta, pageMetaForPath } from '../page-meta.ts'
 import { initHydroFooter } from '../upstream/footer.ts'
@@ -15,12 +16,88 @@ export function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const navigationType = useNavigationType()
   const mainRef = useRef<HTMLDivElement>(null)
+  const scrollPositions = useRef(new Map<string, number>())
+  const activeLocationKey = useRef(location.key)
+  const pendingScrollRestore = useRef<number | null>(null)
+  const firstLocation = useRef(true)
   const pageName = pageMetaForPath(location.pathname).name
 
   useLayoutEffect(() => {
     applyPageMeta(pageMetaForPath(location.pathname))
   }, [location.pathname])
+
+  useEffect(() => {
+    const previous = history.scrollRestoration
+    history.scrollRestoration = 'manual'
+    return () => {
+      history.scrollRestoration = previous
+    }
+  }, [])
+
+  useEffect(() => {
+    let frame = 0
+    const saveCurrent = () => {
+      scrollPositions.current.set(activeLocationKey.current, window.scrollY)
+    }
+    const saveScroll = () => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        if (activeLocationKey.current === location.key) {
+          scrollPositions.current.set(location.key, window.scrollY)
+        }
+      })
+    }
+    saveScroll()
+    document.addEventListener('click', saveCurrent, true)
+    window.addEventListener('scroll', saveScroll, { passive: true })
+    return () => {
+      window.cancelAnimationFrame(frame)
+      document.removeEventListener('click', saveCurrent, true)
+      window.removeEventListener('scroll', saveScroll)
+    }
+  }, [location.key])
+
+  useLayoutEffect(() => {
+    activeLocationKey.current = location.key
+    if (firstLocation.current) {
+      firstLocation.current = false
+      return
+    }
+    if (!location.hash) {
+      $(document).trigger('vjPageLoading')
+    }
+    if (location.hash) {
+      pendingScrollRestore.current = null
+      return
+    }
+    if (navigationType === 'POP') {
+      const top = scrollPositions.current.get(location.key) ?? 0
+      pendingScrollRestore.current = top > 0 ? top : null
+      return
+    }
+    pendingScrollRestore.current = null
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.hash, location.key, location.pathname, location.search, navigationType])
+
+  useEffect(() => {
+    const restore = () => {
+      const top = pendingScrollRestore.current
+      if (top === null) return
+      pendingScrollRestore.current = null
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top, left: 0, behavior: 'auto' })
+      })
+    }
+    $(document).on('vjPageFullyInitialized.hydroScrollRestore', restore)
+    return () => {
+      $(document).off('vjPageFullyInitialized.hydroScrollRestore', restore)
+    }
+  }, [])
 
   useLayoutEffect(() => {
     if (!mainRef.current) return

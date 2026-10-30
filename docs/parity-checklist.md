@@ -226,6 +226,35 @@ Playwright 回归结果：
 - 390px 移动布局下编辑模式、选择区和批量菜单正常显示
 - 修复了选择区 React root 在模板刷新时同步 unmount 的控制台告警，改用项目已有的 root 复用工具
 
+## 6.9 SPA 导航与比赛倒计时回归（2026-10-30）
+
+### SPA 导航
+
+- 路由切换触发 `vjPageLoading`，新页面完成数据加载和 section 初始化后触发 `vjPageFullyInitialized` 并淡出 Page Loader
+- Loader 会等待数据页完成，不会在仅渲染“加载中...”占位时提前消失；15 秒超时只作为异常兜底
+- 普通前进导航滚到页面顶部，浏览器后退恢复离开时的 `scrollY`
+- 浏览器原生 `scrollRestoration` 切换为 `manual`，避免浏览器恢复与 SPA 恢复互相覆盖
+- Hash 地址不触发回到顶部，继续由 smooth-scroll 展开折叠内容并定位锚点
+- 快速连续导航最终只保留一个 Loader，并最终正常隐藏
+- MutationObserver 增加加载占位文本变化监听，修复 404 边界页从“加载中”改为“404 Not Found”时 Loader 卡住的问题
+
+Playwright 验证：
+
+- 从已滚动 1000px 的首页进入 `/p`：Loader 立即出现，`/p` 完成后消失，`scrollY=0`
+- 在 `/p` 滚动到 300px 后进入题目详情再后退：恢复 `scrollY=300`
+- 手动 Hash 定位后 `scrollY=1332`，没有被导航恢复逻辑拉回顶部
+- 延迟 `/api/v1/problems` 1.5 秒时，Loader 在“加载中...”阶段持续显示，数据到达后消失
+- 管理员 58 条路由全量回归：无 Loader 残留、无模板错误、无页面异常
+
+### 比赛倒计时
+
+- 移植上游 `contest.page.ts` 和 `formatSeconds`
+- 比赛详情、题目列表和榜单均显示 `HH:MM:SS` 剩余时间
+- NProgress 顶部进度条按比赛已用时间推进，关闭 trickle 和 spinner
+- 未开始、已结束和作业页面不显示倒计时
+- 离开比赛路由或提前结束比赛时清理计时器、DOM 节点和 NProgress
+- Playwright 验证三个比赛页面倒计时每秒变化；进行中显示，已结束隐藏，作业页和离开后的 DOM 中均无计时器/NProgress 残留
+
 ## 7. 当前已知差异
 
 ```text
