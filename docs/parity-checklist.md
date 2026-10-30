@@ -727,6 +727,21 @@ Playwright 验证：
 - Playwright：题目列表链接 target 为 `_blank`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.38 403 / 404 / 500 错误页（2026-10-31）
+
+- 未知路径渲染 Hydro `error.html` 的 404 页面，不再静默跳转 `/p`
+- 后台页面无权限时渲染 403 页面
+- `ErrorBoundary` 捕获页面渲染异常并渲染 500 页面
+- 错误页保留导航和页脚，只显示错误类型及用户可读信息，不输出堆栈
+- 本地开发提供 `/__error-test` 仅用于验证 error boundary，生产构建不注册该路由
+
+验证：
+
+- Playwright：`/does-not-exist` 显示 `NotFoundError` 404 页面，标题为「页面不存在」
+- Playwright：匿名访问 `/admin` 显示 `PermissionDeniedError` 403 页面
+- Playwright：访问 `/__error-test` 被 `ErrorBoundary` 捕获，显示 `InternalServerError` 500 页面
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

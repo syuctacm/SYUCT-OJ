@@ -104,6 +104,7 @@ VITE_API_PROXY=http://127.0.0.1:18080 pnpm dev
 - 代码块通过 Prism 高亮，样例输入/输出按原版双栏展示
 - 支持相对时间、题面划词标记、题目列表新标签页打开
 - 样例输入可填入 Scratchpad 预测试面板
+- 403 / 404 / 500 使用 Hydro 错误模板；页面渲染异常由 React error boundary 兜底
 
 ## 尚未完成
 

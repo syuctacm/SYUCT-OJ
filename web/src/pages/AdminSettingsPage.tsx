@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getAdminSettings, updateAdminSettings } from '../api.ts'
 import { useAuth } from '../auth.tsx'
+import { ErrorPage } from './ErrorPage.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
@@ -95,7 +96,7 @@ export function AdminSettingsPage() {
   }), [bulletin, user])
 
   if (!user || ((user.priv ?? 0) & 1) === 0) {
-    return <div className="row"><div className="columns"><div className="nothing-placeholder">需要管理员权限</div></div></div>
+    return <ErrorPage status={403} />
   }
   if (bulletin === null) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder">{error || '加载中...'}</div></div></div>

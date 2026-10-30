@@ -8,6 +8,7 @@ import { buildLayoutUrl, layoutChromeContext } from '../upstream/layout.ts'
 import { initHydroNavigation } from '../upstream/navigation.ts'
 import { cleanupHydroOverlays } from '../upstream/overlays.ts'
 import { installHydroRuntime } from '../upstream/runtime.ts'
+import { ErrorBoundary } from './ErrorBoundary.tsx'
 import { HydroTemplate } from './HydroTemplate.tsx'
 import { NotificationsHost } from './Notification.tsx'
 import { PageLoader } from './PageLoader.tsx'
@@ -26,6 +27,9 @@ export function Layout() {
   const pageName = pageMetaForPath(location.pathname).name
 
   useLayoutEffect(() => {
+    // ErrorPage sets its own title and body classes after the route content
+    // renders. Do not immediately overwrite them with the normal route meta.
+    if (document.querySelector('.error__container')) return
     applyPageMeta(pageMetaForPath(location.pathname))
   }, [location.pathname])
 
@@ -145,7 +149,7 @@ export function Layout() {
           context={context}
           url={buildLayoutUrl}
         />
-        <div className="main" ref={mainRef}><Outlet /></div>
+        <div className="main" ref={mainRef}><ErrorBoundary key={location.key}><Outlet /></ErrorBoundary></div>
         <HydroTemplate
           template="partials/footer.html"
           className="hydro-template-contents"
