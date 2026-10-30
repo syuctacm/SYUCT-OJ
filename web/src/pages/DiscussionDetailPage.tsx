@@ -1,5 +1,6 @@
 // Page markup is rendered from the pinned Hydro ui-default template. Keep this
 // file limited to data mapping and the reply/lock interactions.
+import $ from 'jquery'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
@@ -13,6 +14,7 @@ import { confirmDialog } from '../components/dialogs.tsx'
 import { mountDiscussionReactions } from '../components/DiscussionReaction.tsx'
 import { mountDiscussionHistory } from '../components/DiscussionHistory.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
+import { slideDown, slideUp } from '../upstream/motion.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 
 const DIS_PERMS = {
@@ -42,6 +44,7 @@ export function DiscussionDetailPage() {
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
   const clickRef = useRef<(event: Event) => void>(() => {})
   const inlineEditorCleanups = useRef(new Map<HTMLFormElement, () => void>())
+  const closingForms = useRef(new WeakSet<HTMLFormElement>())
 
   const load = useCallback(async () => {
     const [ddoc, drdocs, vnodes] = await Promise.all([
@@ -248,25 +251,48 @@ export function DiscussionDetailPage() {
     cleanups.push(() => root.removeEventListener('click', onClick))
     return () => {
       cleanups.forEach((cleanup) => cleanup())
-      for (const cleanup of inlineEditorCleanups.current.values()) cleanup()
+      for (const form of [...inlineEditorCleanups.current.keys()]) {
+        closeInlineForm(form, false)
+      }
       inlineEditorCleanups.current.clear()
     }
   }, [did, navigate, user])
 
-  // Inline boxes created for reply/edit follow the same markup the upstream JS
-  // builds at runtime.
-  function closeInlineForm(form: HTMLFormElement) {
-    inlineEditorCleanups.current.get(form)?.()
-    inlineEditorCleanups.current.delete(form)
-    form.remove()
+  // Inline boxes created for reply/edit follow the same markup and motion the
+  // upstream JS builds at runtime.
+  async function closeInlineForm(form: HTMLFormElement, animate = true) {
+    const wrapper = (form.dataset.inlineKind === 'reply' ? form.closest('.dczcomments__reply') : form) as HTMLElement | null
+    const shouldAnimate = animate && Boolean(wrapper?.isConnected) && !globalThis.UserContext?.skipAnimate
+    if (shouldAnimate && closingForms.current.has(form)) return
+    closingForms.current.add(form)
+    const cleanup = () => {
+      inlineEditorCleanups.current.get(form)?.()
+      inlineEditorCleanups.current.delete(form)
+      wrapper?.remove()
+      closingForms.current.delete(form)
+    }
+    if (!shouldAnimate) {
+      cleanup()
+      return
+    }
+    const target = wrapper as HTMLElement
+    const $wrapper = $(target)
+    $wrapper.css({ opacity: 1 })
+    try {
+      await $wrapper.transition({ opacity: 0 }, 200, 'easeOutCubic').promise()
+      await slideUp($wrapper, 300)
+    } finally {
+      cleanup()
+    }
   }
 
   function buildInlineForm(kind: 'reply' | 'edit', drid: string, drrid: string, initial = '') {
     const form = document.createElement('form')
     form.className = 'dczcomments__box'
+    form.dataset.inlineKind = kind
     form.method = 'post'
     form.dataset.hotkey = 'ctrl+enter:submit,esc:vjCommentBoxCancel'
-    form.addEventListener('vjCommentBoxCancel', () => closeInlineForm(form))
+    form.addEventListener('vjCommentBoxCancel', () => { void closeInlineForm(form) })
     form.innerHTML = `
       <div><textarea class="textbox" name="content" data-markdown required></textarea></div>
       <div>
@@ -286,12 +312,12 @@ export function DiscussionDetailPage() {
       void run(async () => {
         if (kind === 'reply') await createDiscussionReply(did, content, drid)
         else await updateDiscussionReply(did, drrid || drid, content)
+        await closeInlineForm(form)
         await load()
-        closeInlineForm(form)
       })
     })
     form.querySelector<HTMLInputElement>('input[name="cancel"]')?.addEventListener('click', () => {
-      closeInlineForm(form)
+      void closeInlineForm(form)
     })
     inlineEditorCleanups.current.set(form, hydrateHydroEditForm(form, { uploadToUserFiles: true }))
     return form
@@ -309,7 +335,7 @@ export function DiscussionDetailPage() {
       if (!holder) return
       const existing = holder.querySelector<HTMLFormElement>('form.dczcomments__box')
       if (existing) {
-        closeInlineForm(existing)
+        void closeInlineForm(existing)
         return
       }
       // The upstream reply action pre-fills the author of the reply being
@@ -320,15 +346,27 @@ export function DiscussionDetailPage() {
       const initial = profileUID ? `@[](/user/${profileUID}) ` : ''
       const box = document.createElement('li')
       box.className = 'dczcomments__reply'
+      box.style.display = 'none'
       box.appendChild(buildInlineForm('reply', String(data.drid ?? ''), '', initial))
       holder.appendChild(box)
+      if (globalThis.UserContext?.skipAnimate) {
+        box.style.display = ''
+      } else {
+        const $box = $(box)
+        void slideDown($box, 300, { opacity: 0 }, { opacity: 0 })
+          .then(() => (box.isConnected ? $box.transition({ opacity: 1 }, 200, 'easeOutCubic').promise() : undefined))
+          .catch(() => {
+            box.style.display = ''
+            box.style.opacity = ''
+          })
+      }
     } else if (operation === 'edit') {
       const mediaBody = target.closest('.media__body')
       const content = mediaBody?.querySelector('.typo.richmedia')
       if (!mediaBody || !content) return
       const existing = mediaBody.querySelector<HTMLFormElement>('form.dczcomments__box')
       if (existing) {
-        closeInlineForm(existing)
+        void closeInlineForm(existing)
         return
       }
       const drid = String(data.drid ?? '')

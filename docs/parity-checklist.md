@@ -556,6 +556,21 @@ Playwright 验证：
 - 刷新后 `#filter=all` 保持
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.26 讨论回复框动画（2026-10-30）
+
+- 主回复和楼中楼回复框恢复 Hydro 原版 300ms 展开 + 200ms 淡入
+- 取消、提交、再次点击回复时执行 200ms 淡出 + 300ms 收起
+- `skipAnimate` 用户立即打开/关闭
+- 提交时先完成关闭再刷新讨论，避免模板重渲染打断动画
+- 离开页面时清理编辑器、回复框和未完成动画
+
+验证：
+
+- Playwright 验证打开 50ms 时 opacity 仍为 0、650ms 后 opacity 为 1，高度从展开中间态恢复到完整表单
+- 取消 50ms 时 opacity 正在淡出，650ms 后回复框数量为 0
+- 提交回复后内容出现，`form.dczcomments__box` 数量为 0
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text
