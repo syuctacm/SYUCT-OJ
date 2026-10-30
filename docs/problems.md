@@ -99,6 +99,16 @@
 
 前端直接复用上游 `problem_sidebar_contest.html`、`problem_sidebar_homework.html`、`contest_sidebar.html` 和 `homework_sidebar.html`，保留比赛题目 A/B/C 导航、已提交状态、比赛内提交链接、比赛侧栏和倒计时。普通 `/p/:pid` 仍使用 `problem_detail` 模式。
 
+### 多语言题面
+
+Hydro 将多语言题面存为以语言代码为键的 JSON 对象。`contentLang` 和 `content` 过滤器现在按同一结构解析：
+
+- 单语言 Markdown/HTML 字符串保持原行为
+- JSON 对象返回全部语言 Tab
+- `?lang=` 精确选择语言；未命中时回退到用户语言、中文或第一个可用语言
+- 语言切换只更新 `lang` 参数，比赛/作业的 `tid` 和其他查询参数保持不变
+- Tab 继续使用上游 `data-lang`、`section__tab-header-item` 和 `tab--active` DOM
+
 题目创建和编辑页由 `HydroTemplate` 直接渲染上游 `problem_edit.html`：
 
 - `/p/new`
@@ -248,7 +258,6 @@ problem/system/<docId>/additional_file/<name>
 - 题目分类配置尚未从 Go 设置接口读取，分类侧栏目前为空
 - 题目文件重命名和批量选择脚本尚未接入
 - 题目收藏、题面下载/复制和 Scratchpad 尚未接入
-- 题面多语言切换暂未实现
 
 ## 响应
 

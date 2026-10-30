@@ -1,7 +1,7 @@
 // Page markup is rendered from the pinned Hydro ui-default template. Keep this
 // file limited to data and interaction adapters.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   downloadProblemsArchive,
   getProblem,
@@ -20,8 +20,17 @@ import { avatarUrl } from '../upstream/avatar.ts'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
 import { useHydroContestTimer } from '../upstream/contest-timer.ts'
 import { renderMarkdown } from '../upstream/markdown.ts'
+import { selectLocalizedContent } from '../upstream/problem-content.ts'
 
 const VIEW_PROBLEM_SOLUTION_PERM = 16
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  zh: '中文',
+  en: 'English',
+  ja: '日本語',
+  ko: '한국어',
+  ru: 'Русский',
+}
 
 const PROBLEM_PERMS = {
   PERM_EDIT_PROBLEM: 1,
@@ -54,9 +63,11 @@ function appendQuery(path: string, values: Record<string, unknown>) {
 
 export function ProblemDetailPage() {
   const { pid = '' } = useParams()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const tid = searchParams.get('tid') ?? ''
+  const language = searchParams.get('lang') ?? user?.viewLang ?? 'zh'
   const [problem, setProblem] = useState<ProblemDetail | null>(null)
   const [users, setUsers] = useState<Array<{ id: number; username: string; displayName?: string; avatar?: string }>>([])
   const [error, setError] = useState('')
@@ -146,6 +157,17 @@ export function ProblemDetailPage() {
       }
     }
 
+    root.querySelectorAll<HTMLElement>('[data-lang]').forEach((tab) => {
+      const onClick = (event: Event) => {
+        event.preventDefault()
+        const next = new URL(window.location.href)
+        next.searchParams.set('lang', tab.dataset.lang ?? 'zh')
+        navigate(`${next.pathname}${next.search}${next.hash}`)
+      }
+      tab.addEventListener('click', onClick)
+      cleanups.push(() => tab.removeEventListener('click', onClick))
+    })
+
     const tagToggle = root.querySelector<HTMLElement>('[name="show_tags"]')
     if (tagToggle) {
       const onClick = () => {
@@ -160,7 +182,7 @@ export function ProblemDetailPage() {
       cleanups.push(() => tagToggle.removeEventListener('click', onClick))
     }
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [pid, tid])
+  }, [navigate, pid, tid])
 
   const context = useMemo(() => {
     if (!problem) return null
@@ -214,7 +236,7 @@ export function ProblemDetailPage() {
     const handler = {
       user: {
         _id: user?.id ?? 0,
-        viewLang: 'zh',
+        viewLang: user?.viewLang || language,
         codeLang: user?.codeLang || 'cpp',
         codeTemplate: user?.codeTemplate ?? '',
         _dudoc: { join: true },
@@ -254,11 +276,14 @@ export function ProblemDetailPage() {
       },
       args: { domainId: 'system' },
       request: {
-        query: { ...(tid ? { tid } : {}), lang: 'zh' },
+        query: { ...(tid ? { tid } : {}), lang: language },
         headers: { 'user-agent': navigator.userAgent },
       },
-      session: { legacy: false, viewLang: 'zh' },
-      ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
+      session: { legacy: false, viewLang: user?.viewLang || language },
+      ctx: {
+        setting: { get: () => '' },
+        i18n: { get: (key: string, value: string) => key === '__langname' ? LANGUAGE_NAMES[value] ?? value : '' },
+      },
     }
     const contestModel = contest ? createContestModel(handler) : null
     const target = encodeURIComponent(problem.pid || String(problem.docId))
@@ -282,7 +307,9 @@ export function ProblemDetailPage() {
       mode: contest ? problem.contestMode ?? 'contest' : 'normal',
       showAccept: canViewRecord,
       // Imported FPS problemsets keep pre-rendered HTML; the rest is markdown.
-      renderredContent: problem.html ? problem.content : renderMarkdown(problem.content || ''),
+      renderredContent: problem.html
+        ? selectLocalizedContent(problem.content, language)
+        : renderMarkdown(selectLocalizedContent(problem.content, language)),
       handler,
       perm: { ...PROBLEM_PERMS, ...CONTEST_PERMS, PERM_VIEW_PROBLEM_SOLUTION: VIEW_PROBLEM_SOLUTION_PERM },
       PRIV: { PRIV_USER_PROFILE: 1, PRIV_READ_PROBLEM_DATA: 2, PRIV_REGISTER_USER: 3 },
@@ -313,7 +340,7 @@ export function ProblemDetailPage() {
       },
       UserContext: user,
     }
-  }, [problem, tid, user, users])
+  }, [language, problem, tid, user, users])
 
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   if (!problem || !context) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
