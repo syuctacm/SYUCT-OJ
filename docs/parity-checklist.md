@@ -475,6 +475,23 @@ Playwright 验证：
 - `go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.21 多赛制榜单（2026-10-30）
+
+- ACM 榜单恢复 CE/系统错误排除、封榜 pending 和最早 AC 浅绿色高亮
+- OI/IOI 按每题最高分和题目分值权重计算总分
+- Strict IOI 合并每题历史最佳 subtask 分数
+- Homework 按最新提交、`penaltySince` 和 `penaltyRules` 计算延期系数
+- Ledo 恢复 0.95 衰减和最低 0.7 系数
+- 同分时按上游规则排名（OI/Ledo 同分并列，ACM 按 solved/time）
+- 前端表头、单元格、CSV 和正确率统计随规则切换
+
+本地验证：
+
+- repository 集成测试覆盖 ACM、OI、IOI、Strict IOI、Homework、Ledo、封榜 pending 和首 AC
+- Playwright 验证 OI 总分/加权题分、Homework 分数与延期、ACM pending 和首 AC 样式
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

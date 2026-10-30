@@ -29,6 +29,10 @@ function pad(value: number) {
 }
 
 // Derived from `formatSeconds` in Hydro `framework/utils/lib/common.ts`.
+function formatScore(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+}
+
 function formatSeconds(seconds: number, showSeconds = true) {
   const value = Math.max(0, Math.floor(seconds))
   let result = `${showSeconds ? pad(Math.floor(value / 3600)) : Math.floor(value / 3600)}:${pad(Math.floor((value % 3600) / 60))}`
@@ -96,26 +100,47 @@ export function ContestScoreboardPage() {
         if (cell.solved) stats[String(pid)].accept += 1
       }
     }
+    const rule = contest.rule
+    const scoreBased = ['oi', 'ioi', 'strictioi', 'homework', 'ledo'].includes(rule)
+    const summaryHeader: ScoreboardColumn = scoreBased
+      ? {
+          type: 'total_score',
+          value: ['homework', 'ledo'].includes(rule)
+            ? `${translate('Score')}\n${translate('Total Time')}`
+            : translate('Total Score'),
+        }
+      : { type: 'solved', value: `${translate('Solved')}\n${translate('Total Time')}` }
     const header: ScoreboardColumn[] = [
       { type: 'rank', value: '#' },
       { type: 'user', value: translate('User') },
-      { type: 'solved', value: `${translate('Solved')}\n${translate('Total Time')}` },
+      summaryHeader,
       ...pids.map((pid, index) => ({
         type: 'problem',
         value: String.fromCharCode(65 + index),
         raw: String(pid),
       })),
     ]
-    const scoreBased = ['oi', 'ioi', 'strictioi'].includes(contest?.rule ?? '')
+    const weightOf = (pid: number) => (contest.score?.[String(pid)] ?? 100) / 100
     const body = rows.map((row) => {
+      const summary: ScoreboardColumn = scoreBased
+        ? {
+            type: 'total_score',
+            value: ['homework', 'ledo'].includes(rule)
+              ? `${formatScore(row.score)}\n${formatSeconds(row.time ?? 0, false)}`
+              : formatScore(row.score),
+            hover: row.originalScore !== undefined && row.originalScore !== row.score
+              ? `原始分数: ${formatScore(row.originalScore)}`
+              : '',
+          }
+        : {
+            type: 'time',
+            value: `${row.solved}\n${formatSeconds(row.penalty * 60, false)}`,
+            hover: formatSeconds(row.penalty * 60),
+          }
       const columns: ScoreboardColumn[] = [
         { type: 'rank', value: String(row.rank) },
         { type: 'user', value: udict[String(row.uid)]?.uname ?? `UID ${row.uid}`, raw: String(row.uid) },
-        {
-          type: 'time',
-          value: `${row.solved}\n${formatSeconds(row.penalty * 60, false)}`,
-          hover: formatSeconds(row.penalty * 60),
-        },
+        summary,
       ]
       for (const pid of pids) {
         const cell = row.problems[String(pid)]
@@ -123,16 +148,24 @@ export function ContestScoreboardPage() {
           columns.push({ type: 'record', value: '' })
           continue
         }
-        // Score based rules show the score itself, XCPC keeps the solved/penalty cell.
+        const pending = cell.pending
+          ? `<span style="color:orange">+${cell.pending}</span>`
+          : ''
+        const firstStyle = cell.first ? 'background-color: rgb(217, 240, 199);' : undefined
         if (scoreBased) {
-          const configured = contest?.score?.[String(pid)]
-          const score = cell.score > 0 ? cell.score : (cell.solved ? (configured ?? 100) : 0)
+          const rawScore = ['homework', 'ledo'].includes(rule)
+            ? cell.penaltyScore ?? 0
+            : cell.score
+          const score = rawScore * weightOf(pid)
           columns.push({
             type: 'record',
             score,
-            value: String(score),
-            hover: cell.solved ? formatSeconds(cell.time * 60) : '',
+            value: `${score ? formatScore(score) : ''}${pending}`,
+            hover: ['homework', 'ledo'].includes(rule) && cell.score !== rawScore
+              ? `原始分数: ${formatScore(cell.score * weightOf(pid))}`
+              : cell.solved ? formatSeconds(cell.time) : '',
             raw: cell.rid ?? '',
+            style: firstStyle,
           })
           continue
         }
@@ -144,9 +177,10 @@ export function ContestScoreboardPage() {
         columns.push({
           type: 'record',
           score: cell.solved ? 100 : 0,
-          value,
+          value: `${value}${pending}`,
           hover: cell.solved ? formatSeconds(cell.time * 60) : '',
           raw: cell.rid ?? '',
+          style: firstStyle,
         })
       }
       return columns
@@ -253,20 +287,33 @@ export function ContestScoreboardPage() {
   const downloadCSV = useCallback(() => {
     if (!contest) return
     const pids = contest.pids ?? []
-    const header = ['Rank', 'User', 'Solved', 'Penalty', ...pids.map((_, index) => String.fromCharCode(65 + index))]
+    const rule = contest.rule
+    const scoreBased = ['oi', 'ioi', 'strictioi', 'homework', 'ledo'].includes(rule)
+    const header = [
+      'Rank', 'User',
+      ...(scoreBased ? ['Score'] : ['Solved', 'Penalty']),
+      ...(scoreBased && ['homework', 'ledo'].includes(rule) ? ['Total Time'] : []),
+      ...pids.map((_, index) => String.fromCharCode(65 + index)),
+    ]
     const lines = [header.join(',')]
+    const weightOf = (pid: number) => (contest.score?.[String(pid)] ?? 100) / 100
     for (const row of rows) {
       const cells = [
         String(row.rank),
         udict[String(row.uid)]?.uname ?? String(row.uid),
-        String(row.solved),
-        String(row.penalty),
+        ...(scoreBased
+          ? [formatScore(row.score), ...(['homework', 'ledo'].includes(rule) ? [String(row.time ?? 0)] : [])]
+          : [String(row.solved), String(row.penalty)]),
       ]
       for (const pid of pids) {
         const cell = row.problems[String(pid)]
         let value = ''
-        if (cell?.solved) value = `AC(${cell.attempts})/${cell.time}`
+        if (scoreBased) {
+          const raw = ['homework', 'ledo'].includes(rule) ? cell?.penaltyScore ?? 0 : cell?.score ?? 0
+          value = formatScore(raw * weightOf(pid))
+        } else if (cell?.solved) value = `AC(${cell.attempts})/${cell.time}`
         else if (cell?.attempts) value = `-${cell.attempts}`
+        if (cell?.pending) value += `${value ? ' ' : ''}+${cell.pending}`
         cells.push(value)
       }
       lines.push(cells.join(','))

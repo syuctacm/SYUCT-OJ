@@ -35,13 +35,13 @@ func TestContestRepositoryIntegration(t *testing.T) {
 	_, err = db.Collection("document").InsertMany(ctx, []any{
 		bson.M{
 			"_id": bson.NewObjectID(), "domainId": "system", "docType": 30,
-			"docId": oldID, "title": "Old Contest", "rule": "acm",
+			"docId": oldID, "title": "Old Contest", "rule": "ledo",
 			"beginAt": time.Now().Add(-48 * time.Hour), "endAt": time.Now().Add(-47 * time.Hour),
 			"attend": int64(10), "pids": []int64{1, 2},
 		},
 		bson.M{
 			"_id": bson.NewObjectID(), "domainId": "system", "docType": 30,
-			"docId": newID, "title": "New Contest", "rule": "oi",
+			"docId": newID, "title": "New Contest", "rule": "acm",
 			"beginAt": time.Now().Add(-2 * time.Hour), "endAt": time.Now().Add(-1 * time.Hour),
 			"attend": int64(20), "pids": []int64{2, 1},
 		},
@@ -79,7 +79,7 @@ func TestContestRepositoryIntegration(t *testing.T) {
 		t.Fatalf("contest search: items=%+v err=%v", items, err)
 	}
 	items, _, err = repo.ListFiltered(ctx, "", "acm", 1, 20)
-	if err != nil || len(items) != 1 || items[0].Title != "Old Contest" {
+	if err != nil || len(items) != 1 || items[0].Title != "New Contest" {
 		t.Fatalf("contest rule filter: items=%+v err=%v", items, err)
 	}
 	contestPage1, contestTotal, err := repo.ListFiltered(ctx, "", "", 1, 1)
