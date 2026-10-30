@@ -61,11 +61,17 @@ export function UserProfilePage() {
       title: problem.title,
       hidden: false,
     }))
+    const tdocs = (profile.tdocs ?? []).map((item) => ({
+      docId: item.docId,
+      title: item.title,
+      rule: item.rule,
+    }))
     return {
       page_name: 'user_detail',
       udoc,
       sdoc: profile.lastSeenAt ? { updateAt: new Date(profile.lastSeenAt) } : null,
       pdocs,
+      tdocs,
       tags: [],
       isSelfProfile: Boolean(viewer && viewer.id === profile.id),
       handler: {
@@ -87,6 +93,18 @@ export function UserProfilePage() {
         ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
       },
       perm: USER_PERMS,
+      model: {
+        contest: {
+          RULES: {
+            acm: { TEXT: 'XCPC' },
+            oi: { TEXT: 'OI' },
+            ioi: { TEXT: 'IOI' },
+            strictioi: { TEXT: 'IOI(Strict)' },
+            ledo: { TEXT: 'Ledo' },
+            homework: { TEXT: 'Assignment' },
+          },
+        },
+      },
       PRIV: { PRIV_USER_PROFILE: 1, PRIV_CREATE_FILE: 2, PRIV_MOD_BADGE: 3 },
       avatarUrl,
       UiContext: {},

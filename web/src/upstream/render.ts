@@ -271,7 +271,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     },
     STATUS,
     datetimeSpan,
-    findSubModule: () => [],
+    findSubModule: (prefix: string) => (prefix === 'partials/user_detail/' ? ['partials/user_detail/activity.html'] : []),
     templateExists: (name: string) => sources.has(name),
     model: {
       builtin: {

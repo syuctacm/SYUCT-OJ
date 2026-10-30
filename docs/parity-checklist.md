@@ -613,6 +613,20 @@ Playwright 验证：
 - `go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.30 用户最近比赛/作业（2026-10-30）
+
+- 用户资料 API 增加 `tdocs`，读取 `document.status` 中用户已参加的比赛和作业
+- `findSubModule` 启用上游 `partials/user_detail/activity.html`
+- 比赛/作业链接和赛制标签沿用上游模板，不新增自定义 DOM
+- 匿名用户无记录时显示原模板空状态
+
+验证：
+
+- API 集成测试覆盖比赛与作业两类记录、规则返回和未参加用户隔离
+- Playwright 验证用户主页最近活动标签、比赛/作业链接和空状态
+- `TEST_MONGO_URI=... go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text
