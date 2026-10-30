@@ -18,16 +18,30 @@ type MessageHandler struct {
 	repo     *message.Repository
 	sessions *auth.SessionManager
 	users    *user.Repository
+	hub      *message.Hub
 }
 
-func NewMessageHandler(repo *message.Repository, sessions *auth.SessionManager, users *user.Repository) *MessageHandler {
-	return &MessageHandler{repo: repo, sessions: sessions, users: users}
+func NewMessageHandler(repo *message.Repository, sessions *auth.SessionManager, users *user.Repository, hub *message.Hub) *MessageHandler {
+	return &MessageHandler{repo: repo, sessions: sessions, users: users, hub: hub}
 }
 
 func (h *MessageHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/messages", h.list)
 	router.POST("/api/v1/messages", h.send)
 	router.DELETE("/api/v1/messages/:mid", h.delete)
+	if h.hub != nil {
+		router.GET("/api/v1/messages/events", h.events)
+	}
+}
+
+func (h *MessageHandler) events(c *gin.Context) {
+	uid, ok := h.requireUser(c)
+	if !ok {
+		return
+	}
+	if err := h.hub.Serve(c.Writer, c.Request, uid); err != nil {
+		return
+	}
 }
 
 type messageDialogue struct {

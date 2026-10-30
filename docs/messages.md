@@ -7,6 +7,7 @@
 | GET | `/api/v1/messages` | 按会话分组返回最近的私信，并把当前用户的未读计数清零 |
 | POST | `/api/v1/messages` | 发送私信，body 为 `{uid, content}` |
 | DELETE | `/api/v1/messages/:mid` | 删除自己发出的消息 |
+| GET | `/api/v1/messages/events` | 登录用户的新消息 WebSocket |
 
 未登录访问返回 `401`；给不存在的用户发送返回 `404`。
 
@@ -29,9 +30,11 @@
 - 支持 `?target=<uid>` 直接打开某个会话
 - “新消息”按钮打开用户搜索对话框（复用 `/api/v1/users?search=`）
 - 系统消息（`from=1`）的 `{message, params}` 占位符会被替换后展示；`{n:link}` 参数渲染为可点击链接，讨论提及通知使用这一格式
+- 页面通过 `/api/v1/messages/events` 接收实时消息，收到后立即刷新会话列表并显示通知；点击通知切换到对应会话
+- WebSocket 断开后 3 秒重连，重连成功会重新拉取消息以补齐断线期间的内容
 
 ## 已知差异
 
-- 上游通过 WebSocket 推送新消息并弹通知；重写版本改为页面打开时每 10 秒轮询，没有实时推送和弹窗
 - 上游消息删除入口在当前 UI 中并未暴露（只有接口），重写保持一致，只提供 API
 - 发送权限：上游要求 `PRIV_SEND_MESSAGE`，重写沿用项目现有的“登录即可”策略
+- WebSocket 推送当前使用单 API 实例内的内存 Hub，与现有提交记录事件流一致；多实例部署需要后续接入共享广播

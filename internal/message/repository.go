@@ -33,13 +33,22 @@ type Message struct {
 	CreatedAt time.Time     `bson:"-" json:"createdAt"`
 }
 
+type Publisher func([]int64, *Message)
+
 type Repository struct {
-	coll  *mongo.Collection
-	users *mongo.Collection
+	coll      *mongo.Collection
+	users     *mongo.Collection
+	publisher Publisher
 }
 
 func NewRepository(db *mongo.Database) *Repository {
 	return &Repository{coll: db.Collection("message"), users: db.Collection("user")}
+}
+
+// SetPublisher attaches the realtime fan-out hook. It is configured once at
+// startup before HTTP handlers begin serving requests.
+func (r *Repository) SetPublisher(publisher Publisher) {
+	r.publisher = publisher
 }
 
 func (r *Repository) touch(items []Message) {
@@ -67,6 +76,9 @@ func (r *Repository) Send(ctx context.Context, from int64, to []int64, content s
 	if flag&FlagUnread != 0 && len(to) > 0 {
 		_, _ = r.users.UpdateMany(ctx, bson.M{"_id": bson.M{"$in": to}},
 			bson.M{"$inc": bson.M{"unreadMsg": int64(1)}})
+	}
+	if r.publisher != nil {
+		r.publisher(to, &item)
 	}
 	return &item, nil
 }
