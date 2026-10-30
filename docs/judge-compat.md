@@ -12,7 +12,7 @@
 | GET | `/judge/files` | 检查登录状态 |
 | POST | `/judge/files` | 获取提交代码下载地址 |
 | POST | `/d/:domainId/judge/files` | 获取题目测试数据下载地址 |
-| POST | `/judge/upload` | 接收判题机生成/上传的文件 |
+| POST | `/judge/upload` | 接收判题机生成/上传的文件，兼容无 filename 的 multipart part |
 | GET | `/judge/conn` | 判题机 WebSocket 连接 |
 | GET | `/judge/files/submission/:id/code` | 下载提交代码 |
 | GET | `/judge/files/problem/:domainId/:pid/:filename` | 下载题目测试文件 |
@@ -27,7 +27,7 @@ domainId = "system"
 
 - 浏览器/判题机登录使用 `sid` HttpOnly Cookie。
 - WebSocket 同时支持 `Authorization: Bearer <session>`。
-- 当前 Session 存储是内存实现，仅用于本地开发；正式认证阶段会替换为持久化实现。
+- 当前 Session 使用 MongoDB 持久化，API 重启后登录状态仍有效。
 
 ## WebSocket 消息
 
@@ -80,6 +80,7 @@ docker compose -f deploy/compose.dev.yaml --profile judge up -d --build judge
 - 真实 `hydrojudge` 建立 `/judge/conn`
 - C++ 编译、运行并通过
 - Python 编译、运行并通过
+- `type=generate` 自动生成测试数据：生成器/标准程序编译运行、逐文件上传、题目 testdata 元数据落库和最终 Accepted
 - 状态链路：`waiting(0) → compiling(21) → judging(20) → accepted(1)`
 - 编译错误写入 `compilerTexts`
 - WA 的测试点结果写入 `testCases`
@@ -96,7 +97,6 @@ JUDGE_TASK_LEASE=3s go run ./cmd/api
 
 ## 尚未完成
 
-- 持久化 Session
 - 重判、Hack、交互题和特殊 checker 的完整验证
 - 生产判题机版本与服务端协议的长期兼容矩阵
 

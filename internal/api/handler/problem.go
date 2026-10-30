@@ -73,6 +73,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/problems/:pid", h.get)
 	router.GET("/api/v1/starred-problems", h.starred)
 	router.POST("/api/v1/problems/:pid/star", h.star)
+	router.POST("/api/v1/problems/:pid/generate", h.generateTestdata)
 }
 
 type problemEditRequest struct {
@@ -419,6 +420,42 @@ func (h *ProblemHandler) get(c *gin.Context) {
 }
 
 // starred lists the problems the caller starred, newest first.
+func (h *ProblemHandler) generateTestdata(c *gin.Context) {
+	uid, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	if h.submissions == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "judge service is unavailable"})
+		return
+	}
+	var request struct {
+		Generator string `json:"gen"`
+		Standard  string `json:"std"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	request.Generator = strings.TrimSpace(request.Generator)
+	request.Standard = strings.TrimSpace(request.Standard)
+	if request.Generator == "" || request.Standard == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "generator and standard solution are required"})
+		return
+	}
+	record, err := h.submissions.CreateGenerate(c.Request.Context(), uid, pdoc.PID, request.Generator, request.Standard)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{"code": 0, "message": "success", "data": record})
+}
+
 func (h *ProblemHandler) starred(c *gin.Context) {
 	uid, ok := h.currentUser(c)
 	if !ok {

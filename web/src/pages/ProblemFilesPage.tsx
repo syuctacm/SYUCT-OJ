@@ -5,15 +5,19 @@ import { useParams } from 'react-router-dom'
 import {
   deleteProblemAssets,
   downloadProblemAssetsArchive,
+  generateProblemTestdata,
   getProblemAssets,
+  getSubmission,
   renameProblemAssets,
   uploadProblemAssets,
   type ProblemAssetList,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { FileSelectAutoComplete } from '../components/autocomplete/FileSelectAutoComplete.tsx'
 import { batchRenameDialog, confirmDialog, createFileDialog, promptDialog } from '../components/dialogs.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
+import { clearRendered, renderInto } from '../upstream/roots.ts'
 
 type AssetKind = 'testdata' | 'additional_file'
 
@@ -33,6 +37,7 @@ export function ProblemFilesPage() {
   const [data, setData] = useState<ProblemAssetList | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     setError('')
@@ -52,10 +57,34 @@ export function ProblemFilesPage() {
       cleanups.push(() => element.removeEventListener(type, listener as EventListener))
     }
 
-    // Testdata generation still needs a dedicated judge workflow.
-    root.querySelector('.generate')?.closest('.section')?.remove()
 
     const assetType = (kind: AssetKind) => kind === 'testdata' ? 'testdata' : 'additional'
+
+    const testdataFiles = (data?.testdata ?? []).map((file) => ({ name: file.name, size: file.size }))
+    for (const input of root.querySelectorAll<HTMLInputElement>('input[name="gen"], input[name="std"]')) {
+      if (!testdataFiles.length) continue
+      const host = document.createElement('div')
+      input.hidden = true
+      input.classList.add('autocomplete-dummy')
+      input.parentElement?.appendChild(host)
+      renderInto(host, (
+        <FileSelectAutoComplete
+          data={testdataFiles}
+          selectedKeys={input.value ? [input.value] : []}
+          placeholder={input.placeholder}
+          onChange={(value) => {
+            input.value = value
+            input.dispatchEvent(new Event('change', { bubbles: true }))
+          }}
+        />
+      ))
+      cleanups.push(() => {
+        clearRendered(host)
+        host.remove()
+        input.hidden = false
+        input.classList.remove('autocomplete-dummy')
+      })
+    }
 
     root.querySelectorAll<HTMLButtonElement>('[name="create_testdata"], [name="create_file"]').forEach((button) => {
       listen(button, 'click', async () => {
@@ -136,6 +165,37 @@ export function ProblemFilesPage() {
       })
     })
 
+    root.querySelectorAll<HTMLButtonElement>('[name="generate_testdata"]').forEach((button) => {
+      listen(button, 'click', async () => {
+        const gen = root.querySelector<HTMLInputElement>('input[name="gen"]')?.value.trim() ?? ''
+        const std = root.querySelector<HTMLInputElement>('input[name="std"]')?.value.trim() ?? ''
+        if (!gen || !std) {
+          setError('请选择数据生成器和标准程序。')
+          return
+        }
+        setBusy('正在生成测试数据...')
+        setNotice('')
+        setError('')
+        try {
+          let record = await generateProblemTestdata(pid, gen, std)
+          const deadline = Date.now() + 90_000
+          while ([0, 20, 21].includes(record.status) && Date.now() < deadline) {
+            await new Promise((resolve) => window.setTimeout(resolve, 1000))
+            record = await getSubmission(record.id)
+          }
+          if (record.status !== 1) {
+            throw new Error(`生成失败，状态 ${record.status}，记录 ${record.id}`)
+          }
+          setData(await getProblemAssets(pid))
+          setNotice('测试数据生成完成。')
+        } catch (err) {
+          setError(err instanceof Error ? err.message : '测试数据生成失败')
+        } finally {
+          setBusy('')
+        }
+      })
+    })
+
     root.querySelectorAll<HTMLButtonElement>('[name="rename_selected"]').forEach((button) => {
       listen(button, 'click', async () => {
         const kind = (button.closest('[data-type]')?.getAttribute('data-type') as AssetKind | null) ?? 'testdata'
@@ -211,7 +271,7 @@ export function ProblemFilesPage() {
     })
 
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [pid])
+  }, [data?.testdata, pid])
 
   const context = useMemo(() => {
     if (!data) return null
@@ -289,7 +349,8 @@ export function ProblemFilesPage() {
   return (
     <>
       {error ? <div className="row"><div className="columns"><blockquote className="warn"><p>{error}</p></blockquote></div></div> : null}
-      {busy ? <div className="row"><div className="columns"><blockquote className="note"><p>正在处理文件...</p></blockquote></div></div> : null}
+      {notice ? <div className="row"><div className="columns"><blockquote className="note"><p>{notice}</p></blockquote></div></div> : null}
+      {busy ? <div className="row"><div className="columns"><blockquote className="note"><p>{busy}</p></blockquote></div></div> : null}
       <HydroTemplate
         template="problem_files.html"
         context={context}

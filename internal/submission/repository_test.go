@@ -39,6 +39,8 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 		"data": []bson.M{
 			{"_id": "problem/system/1/1.in", "name": "1.in", "size": int64(2)},
 			{"_id": "problem/system/1/1.out", "name": "1.out", "size": int64(2)},
+			{"_id": "problem/system/1/gen.cpp", "name": "gen.cpp", "size": int64(10)},
+			{"_id": "problem/system/1/std.cpp", "name": "std.cpp", "size": int64(10)},
 		},
 	})
 	if err != nil {
@@ -64,6 +66,13 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 	if record.Contest == nil || *record.Contest != contestID {
 		t.Fatalf("record contest = %v", record.Contest)
 	}
+	pdoc, err := problemRepo.Get(ctx, "P1001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pdoc.NSubmit != 1 || pdoc.NAccept != 0 {
+		t.Fatalf("unexpected counters after submission: submit=%d accept=%d", pdoc.NSubmit, pdoc.NAccept)
+	}
 	taskCount, err := db.Collection("task").CountDocuments(ctx, bson.M{"rid": record.ID})
 	if err != nil {
 		t.Fatal(err)
@@ -77,6 +86,33 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 	}
 	if task["type"] != "judge" || task["domainId"] != "system" || task["config"] == nil {
 		t.Fatalf("unexpected task: %+v", task)
+	}
+
+	generation, err := repo.CreateGenerate(ctx, 7, "P1001", "gen.cpp", "std.cpp")
+	if err != nil {
+		t.Fatalf("create generation: %v", err)
+	}
+	var generationTask bson.M
+	if err := db.Collection("task").FindOne(ctx, bson.M{"rid": generation.ID}).Decode(&generationTask); err != nil {
+		t.Fatal(err)
+	}
+	if generationTask["type"] != "generate" || generationTask["code"] != "gen.cpp\nstd.cpp" || generationTask["pid"] != int64(1) {
+		t.Fatalf("unexpected generation task: %+v", generationTask)
+	}
+	if _, err := repo.CreateGenerate(ctx, 7, "P1001", "missing.cpp", "std.cpp"); err == nil {
+		t.Fatal("generation with missing source file was accepted")
+	}
+	if err := repo.ApplyJudgeResult(ctx, map[string]any{
+		"key": "end", "rid": generation.ID.Hex(), "status": float64(1), "score": float64(100),
+	}); err != nil {
+		t.Fatalf("apply generation result: %v", err)
+	}
+	pdoc, err = problemRepo.Get(ctx, "P1001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pdoc.NSubmit != 1 || pdoc.NAccept != 0 {
+		t.Fatalf("generation changed problem counters: submit=%d accept=%d", pdoc.NSubmit, pdoc.NAccept)
 	}
 
 	if err := repo.ApplyJudgeResult(ctx, map[string]any{
@@ -95,6 +131,13 @@ func TestSubmissionFlowIntegration(t *testing.T) {
 	}
 	if updated.JudgeAt == nil {
 		t.Fatal("judgeAt was not set")
+	}
+	pdoc, err = problemRepo.Get(ctx, "P1001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pdoc.NSubmit != 1 || pdoc.NAccept != 1 {
+		t.Fatalf("unexpected counters after accepted submission: submit=%d accept=%d", pdoc.NSubmit, pdoc.NAccept)
 	}
 
 	_, err = db.Collection("user").InsertMany(ctx, []any{

@@ -71,6 +71,7 @@ func main() {
 		os.Exit(1)
 	}
 	problemRepo := problem.NewRepository(db)
+	judgeHandler.EnableGenerateUpload(db, problemRepo)
 	contestRepo := contest.NewRepository(db)
 	trainingRepo := training.NewRepository(db)
 	discussionRepo := discussion.NewRepository(db)

@@ -530,6 +530,14 @@ export async function getProblems(query = '', page = 1, sort = 'default', tag = 
   return result.data
 }
 
+export async function generateProblemTestdata(pid: string, gen: string, std: string): Promise<Submission> {
+  const result = await request<Envelope<Submission>>(`/api/v1/problems/${encodeURIComponent(pid)}/generate`, {
+    method: 'POST',
+    body: JSON.stringify({ gen, std }),
+  })
+  return result.data
+}
+
 export async function getProblem(pid: string): Promise<ProblemDetail> {
   const result = await request<Envelope<ProblemDetail>>(`/api/v1/problems/${encodeURIComponent(pid)}`)
   return result.data

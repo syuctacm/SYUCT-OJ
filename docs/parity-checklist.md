@@ -378,7 +378,24 @@ Playwright 验证：
 - 无变化时 Dialog 不关闭并显示错误
 - 控制台 0 error
 
-testdata 生成工具仍需要独立的判题生成工作流，继续由 #277 跟踪。
+## 6.17 题目测试数据自动生成（2026-10-30）
+
+恢复上游题目文件页的“生成测试数据(Beta)”区域，不新增独立执行器，直接复用 `hydrojudge` 原生 `type=generate` 任务：
+
+- Go API 的 `POST /api/v1/problems/:pid/generate` 校验生成器和标准程序必须是已有 testdata，并创建 `type=generate` task
+- TaskPump 同时领取 `judge` 与 `generate` 任务，继续沿用 lease、续租和断线恢复
+- `/judge/upload` 把生成的 `1.in`、`1.out` 等文件写入题目 testdata 和题目元数据
+- 兼容 `hydrojudge@4.0.6` 使用 `superagent.attach()` 时不发送 filename 的 multipart 文件字段；此前 Go `FormFile` 会把该字段当作普通表单值并返回 400
+- 前端复用上游 `FileSelectAutoComplete` 选择生成器和标准程序，提交后轮询生成记录，完成后刷新文件表并展示完成提示
+- 普通记录列表、重判和题目提交/通过计数排除 `type=generate`，不会混入用户评测数据
+
+Playwright 验证：
+
+- 生成器与标准程序自动补全均可搜索并选中
+- 点击“生成”后显示生成状态，完成后显示“测试数据生成完成”
+- testdata 表新增 `1.in` 至 `10.in`、`1.out` 至 `10.out`
+- 新生成的 `1.in` 可通过上游 `[data-preview]` Dialog 预览
+- 真实本地 `hydrojudge@4.0.6 + go-judge v1.13.3` 任务状态最终为 `accepted(1)`，所有生成文件写入 MongoDB 元数据和磁盘存储
 
 ## 6.16 题目包导出（2026-10-30）
 
