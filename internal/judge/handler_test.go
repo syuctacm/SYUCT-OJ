@@ -2,12 +2,17 @@ package judge
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +22,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
+	"github.com/syuctacm/syuct-oj/internal/database"
+	"github.com/syuctacm/syuct-oj/internal/problem"
 )
 
 func newTestHandler(t *testing.T) (*Handler, *Hub, *auth.SessionManager, *gin.Engine) {
@@ -277,5 +284,86 @@ func TestTaskRIDFromBSON(t *testing.T) {
 	rid := bson.NewObjectID()
 	if got := taskRID(bson.M{"rid": rid}); got != rid.Hex() {
 		t.Fatalf("taskRID(bson.M) = %q, want %q", got, rid.Hex())
+	}
+}
+
+func TestGenerateUploadPersistsTestdata(t *testing.T) {
+	uri := os.Getenv("TEST_MONGO_URI")
+	if uri == "" {
+		t.Skip("TEST_MONGO_URI is not set; start local Docker MongoDB to run this integration test")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	dbName := fmt.Sprintf("syuct_oj_judge_generate_test_%d", time.Now().UnixNano())
+	client, db, err := database.Connect(ctx, uri, dbName, 5*time.Second)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer func() {
+		_ = db.Drop(context.Background())
+		_ = client.Disconnect(context.Background())
+	}()
+	if _, err := db.Collection("document").InsertOne(ctx, bson.M{
+		"_id": bson.NewObjectID(), "domainId": "system", "docType": 10,
+		"docId": int64(1), "pid": "P1", "title": "Generate", "owner": int64(7),
+		"data": []bson.M{
+			{"_id": "problem/system/1/testdata/gen.cpp", "name": "gen.cpp", "size": int64(10)},
+			{"_id": "problem/system/1/testdata/std.cpp", "name": "std.cpp", "size": int64(10)},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rid := bson.NewObjectID()
+	if _, err := db.Collection("task").InsertOne(ctx, bson.M{
+		"_id": bson.NewObjectID(), "type": "generate", "rid": rid, "pid": int64(1), "domainId": "system",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	handler, _, _, router := newTestHandler(t)
+	problemRepo := problem.NewRepository(db)
+	handler.EnableGenerateUpload(db, problemRepo)
+	cookies := loginCookies(t, router)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	_ = writer.WriteField("rid", rid.Hex())
+	_ = writer.WriteField("name", "1.in")
+	part, _ := writer.CreatePart(textproto.MIMEHeader{
+		"Content-Disposition": {`form-data; name="file"`},
+		"Content-Type":        {"application/octet-stream"},
+	})
+	_, _ = part.Write([]byte("hello generated\n"))
+	_ = writer.Close()
+	request := httptest.NewRequest(http.MethodPost, "/judge/upload", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("generate upload = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	reader, err := handler.store.OpenProblemFile(problem.DomainSystem, "1", "1.in")
+	if err != nil {
+		t.Fatalf("open generated testdata: %v", err)
+	}
+	content, _ := io.ReadAll(reader)
+	_ = reader.Close()
+	if string(content) != "hello generated\n" {
+		t.Fatalf("generated content = %q", content)
+	}
+	pdoc, err := problemRepo.GetForEditor(ctx, "P1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, file := range pdoc.Data {
+		if file.Name == "1.in" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("generated file missing from problem metadata: %+v", pdoc.Data)
 	}
 }

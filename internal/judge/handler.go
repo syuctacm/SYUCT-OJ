@@ -1,15 +1,25 @@
 package judge
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
+	"github.com/syuctacm/syuct-oj/internal/problem"
 )
+
+const problemFileKindTestdata = "testdata"
 
 type Handler struct {
 	username string
@@ -17,6 +27,8 @@ type Handler struct {
 	sessions *auth.SessionManager
 	store    *FileStore
 	hub      *Hub
+	db       *mongo.Database
+	problems *problem.Repository
 }
 
 func NewHandler(username, password string, sessions *auth.SessionManager, store *FileStore, hub *Hub) *Handler {
@@ -25,6 +37,13 @@ func NewHandler(username, password string, sessions *auth.SessionManager, store 
 
 func (h *Handler) Store() *FileStore {
 	return h.store
+}
+
+// EnableGenerateUpload lets /judge/upload persist generated testdata into the
+// problem referenced by an active type=generate task.
+func (h *Handler) EnableGenerateUpload(db *mongo.Database, problems *problem.Repository) {
+	h.db = db
+	h.problems = problems
 }
 
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
@@ -124,24 +143,130 @@ func (h *Handler) problemFileLinks(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"links": links})
 }
 
+type judgeUpload struct {
+	rid  string
+	name string
+	file *os.File
+}
+
+func readJudgeUpload(c *gin.Context) (*judgeUpload, error) {
+	reader, err := c.Request.MultipartReader()
+	if err != nil {
+		return nil, err
+	}
+	upload := &judgeUpload{}
+	cleanup := func() {
+		if upload.file != nil {
+			name := upload.file.Name()
+			_ = upload.file.Close()
+			_ = os.Remove(name)
+			upload.file = nil
+		}
+	}
+	for {
+		part, err := reader.NextPart()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			cleanup()
+			return nil, err
+		}
+		switch part.FormName() {
+		case "rid", "name":
+			value, err := io.ReadAll(io.LimitReader(part, 1<<20))
+			if err != nil {
+				_ = part.Close()
+				cleanup()
+				return nil, err
+			}
+			if part.FormName() == "rid" {
+				upload.rid = string(value)
+			} else {
+				upload.name = string(value)
+			}
+		case "file":
+			if upload.file != nil {
+				_ = part.Close()
+				cleanup()
+				return nil, fmt.Errorf("duplicate file")
+			}
+			upload.file, err = os.CreateTemp("", "syuct-oj-judge-upload-*")
+			if err == nil {
+				_, err = io.Copy(upload.file, part)
+			}
+			if err != nil {
+				_ = part.Close()
+				cleanup()
+				return nil, err
+			}
+			if _, err := upload.file.Seek(0, io.SeekStart); err != nil {
+				_ = part.Close()
+				cleanup()
+				return nil, err
+			}
+		}
+		_ = part.Close()
+	}
+	if upload.rid == "" || upload.name == "" || upload.file == nil {
+		cleanup()
+		return nil, fmt.Errorf("rid, name and file are required")
+	}
+	return upload, nil
+}
+
 func (h *Handler) upload(c *gin.Context) {
-	rid := c.PostForm("rid")
-	name := c.PostForm("name")
-	if rid == "" || name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "rid and name are required"})
-		return
-	}
-	file, err := c.FormFile("file")
+	upload, err := readJudgeUpload(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	source, err := file.Open()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unable to open file"})
-		return
+	defer func() {
+		name := upload.file.Name()
+		_ = upload.file.Close()
+		_ = os.Remove(name)
+	}()
+	rid, name, source := upload.rid, upload.name, upload.file
+
+	if h.db != nil && h.problems != nil {
+		ridObjectID, err := bson.ObjectIDFromHex(rid)
+		if err == nil {
+			var task struct {
+				Type string `bson:"type"`
+				PID  int64  `bson:"pid"`
+			}
+			if err := h.db.Collection("task").FindOne(c.Request.Context(), bson.M{"rid": ridObjectID}).Decode(&task); err == nil && task.Type == "generate" && task.PID > 0 {
+				name = path.Base(strings.ReplaceAll(name, "\\", "/"))
+				if name == "" || name == "." || name == ".." {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "invalid filename"})
+					return
+				}
+				stored, err := h.store.PutProblemFile(problem.DomainSystem, strconv.FormatInt(task.PID, 10), name, source)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save generated testdata"})
+					return
+				}
+				pdoc, err := h.problems.GetForEditor(c.Request.Context(), strconv.FormatInt(task.PID, 10))
+				if err != nil {
+					_ = h.store.DeleteProblemFile(problem.DomainSystem, strconv.FormatInt(task.PID, 10), name)
+					c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
+					return
+				}
+				generated := problem.ProblemFile{
+					ID:   fmt.Sprintf("problem/%s/%d/testdata/%s", problem.DomainSystem, task.PID, name),
+					Name: name, Size: stored.Size, ETag: stored.ETag, LastModified: stored.LastModified,
+				}
+				if err := h.problems.UpsertFile(c.Request.Context(), pdoc.DocID, problemFileKindTestdata, generated); err != nil {
+					_ = h.store.DeleteProblemFile(problem.DomainSystem, strconv.FormatInt(task.PID, 10), name)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update generated testdata metadata"})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{"ok": 1})
+				return
+			}
+		}
 	}
-	defer source.Close()
+
 	if err := h.store.SaveUpload(rid, name, source); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save file"})
 		return

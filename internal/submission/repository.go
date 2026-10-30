@@ -154,6 +154,57 @@ func (r *Repository) Create(ctx context.Context, uid int64, pid, lang, code stri
 	return savedRecord, err
 }
 
+// CreateGenerate queues hydrojudge's native generate task. The generator and
+// standard solution are existing testdata source files; generated cases are
+// uploaded back through /judge/upload before the task ends.
+func (r *Repository) CreateGenerate(ctx context.Context, uid int64, pid, gen, std string) (*Record, error) {
+	pdoc, err := r.problems.GetForEditor(ctx, pid)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[string]bool, len(pdoc.Data))
+	for _, file := range pdoc.Data {
+		names[file.Name] = true
+	}
+	if !names[gen] || !names[std] {
+		return nil, fmt.Errorf("generator and standard solution must be existing testdata files")
+	}
+	config, err := configMap(pdoc.Config)
+	if err != nil {
+		return nil, err
+	}
+	rid := bson.NewObjectID()
+	now := time.Now().UTC()
+	record := bson.M{
+		"_id": rid, "uid": uid, "pid": pdoc.DocID, "domainId": "system",
+		"lang": "_", "code": gen + "\n" + std, "status": StatusWaiting,
+		"type": "generate", "score": 0, "time": 0, "memory": 0,
+		"judgeTexts": []any{}, "compilerTexts": []string{}, "testCases": []any{},
+		"judger": nil, "judgeAt": nil, "rejudged": false,
+		"source": fmt.Sprintf("system/%d", pdoc.DocID), "createdAt": now,
+	}
+	if _, err := r.records.InsertOne(ctx, record); err != nil {
+		return nil, err
+	}
+	task := bson.M{
+		"_id": bson.NewObjectID(), "type": "generate", "rid": rid,
+		"lang": "_", "code": gen + "\n" + std, "uid": uid, "pid": pdoc.DocID,
+		"domainId": "system", "data": pdoc.Data,
+		"source": fmt.Sprintf("system/%d", pdoc.DocID), "config": config,
+		"meta": bson.M{"problemOwner": pdoc.Owner}, "priority": 10,
+		"trusted": false, "input": []string{},
+	}
+	if _, err := r.tasks.InsertOne(ctx, task); err != nil {
+		_, _ = r.records.DeleteOne(ctx, bson.M{"_id": rid})
+		return nil, err
+	}
+	savedRecord, err := r.Get(ctx, rid.Hex())
+	if err == nil {
+		r.emit(savedRecord)
+	}
+	return savedRecord, err
+}
+
 // buildJudgeTask assembles the hydrojudge task shared by submit and rejudge.
 func buildJudgeTask(pdoc *problem.Problem, rid bson.ObjectID, uid int64, lang, code string, contest *bson.ObjectID) (bson.M, error) {
 	config, err := configMap(pdoc.Config)
@@ -184,7 +235,7 @@ func (r *Repository) RejudgeProblem(ctx context.Context, pid string) (int64, err
 		return 0, err
 	}
 	cursor, err := r.records.Find(ctx,
-		bson.M{"domainId": "system", "pid": pdoc.DocID},
+		bson.M{"domainId": "system", "pid": pdoc.DocID, "type": bson.M{"$ne": "generate"}},
 		options.Find().SetProjection(bson.M{"_id": 1, "uid": 1, "lang": 1, "code": 1, "status": 1, "contest": 1}))
 	if err != nil {
 		return 0, err
@@ -208,7 +259,7 @@ func (r *Repository) RejudgeProblem(ctx context.Context, pid string) (int64, err
 		}
 	}
 	if _, err := r.records.UpdateMany(ctx,
-		bson.M{"domainId": "system", "pid": pdoc.DocID},
+		bson.M{"domainId": "system", "pid": pdoc.DocID, "type": bson.M{"$ne": "generate"}},
 		bson.M{"$set": bson.M{
 			"status": StatusWaiting, "score": 0, "time": 0, "memory": 0,
 			"judgeTexts": []any{}, "compilerTexts": []string{}, "testCases": []any{},
@@ -247,6 +298,7 @@ func (r *Repository) RejudgeRecord(ctx context.Context, rid string) (*Record, er
 		Lang    string         `bson:"lang"`
 		Code    string         `bson:"code"`
 		Status  int            `bson:"status"`
+		Type    string         `bson:"type"`
 		Contest *bson.ObjectID `bson:"contest"`
 	}
 	if err := r.records.FindOne(ctx, bson.M{"_id": oid}).Decode(&current); err != nil {
@@ -254,6 +306,9 @@ func (r *Repository) RejudgeRecord(ctx context.Context, rid string) (*Record, er
 			return nil, ErrNotFound
 		}
 		return nil, err
+	}
+	if current.Type == "generate" {
+		return nil, fmt.Errorf("generate records cannot be rejudged")
 	}
 	pdoc, err := r.problems.GetForEditor(ctx, strconv.FormatInt(current.PID, 10))
 	if err != nil {
@@ -295,10 +350,11 @@ func (r *Repository) CancelRecord(ctx context.Context, rid string) (*Record, err
 		return nil, ErrNotFound
 	}
 	var current struct {
-		PID    int64 `bson:"pid"`
-		Status int   `bson:"status"`
+		PID    int64  `bson:"pid"`
+		Status int    `bson:"status"`
+		Type   string `bson:"type"`
 	}
-	if err := r.records.FindOne(ctx, bson.M{"_id": oid}, options.FindOne().SetProjection(bson.M{"pid": 1, "status": 1})).Decode(&current); err != nil {
+	if err := r.records.FindOne(ctx, bson.M{"_id": oid}, options.FindOne().SetProjection(bson.M{"pid": 1, "status": 1, "type": 1})).Decode(&current); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
 		}
@@ -331,7 +387,7 @@ func (r *Repository) CancelRecord(ctx context.Context, rid string) (*Record, err
 
 func (r *Repository) List(ctx context.Context, opts ListFilter) (*ListResult, error) {
 	opts = normalizeListFilter(opts)
-	filter := bson.M{"domainId": "system"}
+	filter := bson.M{"domainId": "system", "type": bson.M{"$ne": "generate"}}
 	if opts.UID > 0 {
 		filter["uid"] = opts.UID
 	}
@@ -520,9 +576,10 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 		PID    int64  `bson:"pid"`
 		Lang   string `bson:"lang"`
 		Status int    `bson:"status"`
+		Type   string `bson:"type"`
 	}
 	if err := r.records.FindOne(ctx, bson.M{"_id": oid},
-		options.FindOne().SetProjection(bson.M{"uid": 1, "pid": 1, "lang": 1, "status": 1})).Decode(&current); err != nil {
+		options.FindOne().SetProjection(bson.M{"uid": 1, "pid": 1, "lang": 1, "status": 1, "type": 1})).Decode(&current); err != nil {
 		if !errors.Is(err, mongo.ErrNoDocuments) {
 			return err
 		}
@@ -558,18 +615,20 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 	if _, err = r.records.UpdateOne(ctx, bson.M{"_id": oid}, update); err != nil {
 		return err
 	}
-	if status, ok := set["status"]; ok && current.PID > 0 {
-		wasAccepted := current.Status == StatusAccepted
-		nowAccepted := isAccepted(status)
-		delta := int64(0)
-		if !wasAccepted && nowAccepted {
-			delta = 1
-		} else if wasAccepted && !nowAccepted {
-			delta = -1
-		}
-		if delta != 0 {
-			if err := r.problems.IncStats(ctx, current.PID, 0, delta); err != nil {
-				slog.Warn("unable to update problem accept counter", "pid", current.PID, "error", err)
+	if current.Type != "generate" {
+		if status, ok := set["status"]; ok && current.PID > 0 {
+			wasAccepted := current.Status == StatusAccepted
+			nowAccepted := isAccepted(status)
+			delta := int64(0)
+			if !wasAccepted && nowAccepted {
+				delta = 1
+			} else if wasAccepted && !nowAccepted {
+				delta = -1
+			}
+			if delta != 0 {
+				if err := r.problems.IncStats(ctx, current.PID, 0, delta); err != nil {
+					slog.Warn("unable to update problem accept counter", "pid", current.PID, "error", err)
+				}
 			}
 		}
 	}
@@ -601,7 +660,7 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 		event.JudgeAt = &value
 	}
 	r.emitUpdate(event)
-	if hook := r.acceptedHook; hook != nil && isAccepted(set["status"]) {
+	if hook := r.acceptedHook; hook != nil && current.Type != "generate" && isAccepted(set["status"]) {
 		var record struct {
 			UID     int64          `bson:"uid"`
 			PID     int64          `bson:"pid"`
