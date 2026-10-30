@@ -147,6 +147,11 @@ func (h *UserHandler) get(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load recent contests"})
 		return
 	}
+	problemTags, err := h.users.AcceptedProblemTags(c.Request.Context(), uid, 20)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load problem tags"})
+		return
+	}
 	viewer, isViewer := h.currentUser(c)
 	canSeePrivate := isViewer && viewer == uid
 	if isViewer && !canSeePrivate {
@@ -183,6 +188,7 @@ func (h *UserHandler) get(c *gin.Context) {
 	}
 	payload := profilePayload(u, canSeePrivate, submit, accepted, rp, level, rank, acceptedProblems, nSolution, nLiked, lastSeen)
 	payload["tdocs"] = recentContests
+	payload["tags"] = problemTags
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
 		"data": payload,

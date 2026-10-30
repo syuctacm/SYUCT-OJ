@@ -398,6 +398,53 @@ func (r *Repository) AcceptedProblems(ctx context.Context, uid int64, limit int6
 	return items, nil
 }
 
+type TagCount struct {
+	Tag   string `bson:"_id" json:"tag"`
+	Count int64  `bson:"count" json:"count"`
+}
+
+// AcceptedProblemTags counts tags across the user's accepted, visible problems.
+// Repeated accepted submissions for the same problem are counted once by the
+// distinct docId step, matching Hydro's user profile tag statistics.
+func (r *Repository) AcceptedProblemTags(ctx context.Context, uid int64, limit int64) ([]TagCount, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	result := r.records.Distinct(ctx, "pid", bson.M{"uid": uid, "domainId": "system", "status": 1})
+	if err := result.Err(); err != nil {
+		return nil, err
+	}
+	var pids []any
+	if err := result.Decode(&pids); err != nil {
+		return nil, err
+	}
+	if len(pids) == 0 {
+		return []TagCount{}, nil
+	}
+	cursor, err := r.documents.Aggregate(ctx, bson.A{
+		bson.D{{Key: "$match", Value: bson.M{
+			"domainId": "system", "docType": 10, "hidden": bson.M{"$ne": true},
+			"docId": bson.M{"$in": pids},
+		}}},
+		bson.D{{Key: "$unwind", Value: "$tag"}},
+		bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: "$tag"},
+			{Key: "count", Value: bson.M{"$sum": 1}},
+		}}},
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "count", Value: -1}, {Key: "_id", Value: 1}}}},
+		bson.D{{Key: "$limit", Value: limit}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	items := make([]TagCount, 0)
+	if err := cursor.All(ctx, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // RankingEntry is one row of the site ranking.
 type RankingEntry struct {
 	UID   int64   `json:"uid"`
