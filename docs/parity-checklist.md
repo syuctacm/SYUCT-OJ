@@ -656,6 +656,18 @@ Playwright 验证：
 - `TEST_MONGO_URI=... go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.33 服务状态页（2026-10-31）
+
+- 恢复上游 `status.html` 和页脚「服务状态」入口
+- `GET /api/v1/status` 返回 API/数据库状态、运行时信息、内存、请求计数和判题语言命令
+- 不暴露连接串、路径、密钥或用户数据
+
+验证：
+
+- Go 集成测试覆盖状态接口和语言列表
+- Playwright 验证 `/status` 页面、服务状态行和页脚入口
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

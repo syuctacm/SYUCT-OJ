@@ -1521,6 +1521,28 @@ export async function getAdminAudit(page = 1, limit = 50): Promise<AdminAuditPag
   return result.data
 }
 
+export type StatusStat = {
+  id: string
+  status: string
+  isOnline: boolean
+  updateAt: string
+  osinfo: Record<string, string>
+  cpu: Record<string, string>
+  memory: Record<string, number>
+  reqCount: number
+}
+
+export type StatusPageData = {
+  stats: StatusStat[]
+  languages: Record<string, string>
+  compilers: Array<{ key: string[]; message: string }>
+}
+
+export async function getStatusPage(): Promise<StatusPageData> {
+  const result = await request<Envelope<StatusPageData>>('/api/v1/status')
+  return result.data
+}
+
 export type SolutionReply = {
   id: string
   owner: number

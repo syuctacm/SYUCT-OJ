@@ -16,6 +16,7 @@ import { ContestPrintPage } from './pages/ContestPrintPage.tsx'
 import { ContestScoreboardPage } from './pages/ContestScoreboardPage.tsx'
 import { ContestUserPage } from './pages/ContestUserPage.tsx'
 import { RankingPage } from './pages/RankingPage.tsx'
+import { StatusPage } from './pages/StatusPage.tsx'
 import { ContestEditPage } from './pages/ContestEditPage.tsx'
 import { ContestsPage } from './pages/ContestsPage.tsx'
 import { DiscussionCreatePage } from './pages/DiscussionCreatePage.tsx'
@@ -116,6 +117,7 @@ export default function App() {
         <Route path="/record/:rid" element={<SubmissionPage />} />
         <Route path="/user/:uid" element={<UserProfilePage />} />
         <Route path="/ranking" element={<RankingPage />} />
+        <Route path="/status" element={<StatusPage />} />
         <Route path="/home/messages" element={<MessagesPage />} />
         <Route path="/home/security" element={<SecurityPage />} />
         <Route path="/home/changeMail/:code" element={<EmailChangeConfirmPage />} />

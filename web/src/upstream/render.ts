@@ -216,6 +216,7 @@ function defaultUrl(name: string, args: Record<string, unknown> = {}) {
   const id = String(args.tid ?? args.pid ?? '')
   const routes: Record<string, string> = {
     contest_create: '/contest/new',
+    status: '/status',
     homework_create: '/homework/new',
     training_create: '/training/new',
     contest_edit: `/contest/${encodeURIComponent(id)}/edit`,

@@ -69,6 +69,7 @@ export function layoutChromeContext(user: User | null, pageName: string) {
 export function buildLayoutUrl(name: string, args: Record<string, unknown> = {}) {
   switch (name) {
     case 'homepage': return '/'
+    case 'status': return '/status'
     case 'problem_main': return '/p'
     case 'training_main': return '/training'
     case 'contest_main': return '/contest'

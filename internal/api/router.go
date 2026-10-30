@@ -40,6 +40,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	{
 		v1.GET("/health", handler.NewHealthHandler(db).Get)
 		v1.GET("/info", handler.NewInfoHandler().Get)
+		handler.NewStatusHandler(db).RegisterRoutes(router.Group("/"))
 		handler.NewSettingsHandler(db).RegisterRoutes(router.Group("/"))
 		handler.NewCountdownHandler(cfg.CountdownTitle, cfg.CountdownMax, cfg.CountdownDates).RegisterRoutes(router.Group("/"))
 	}
