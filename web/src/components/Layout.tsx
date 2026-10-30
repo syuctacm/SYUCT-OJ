@@ -1,5 +1,5 @@
 import $ from 'jquery'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { Outlet, useLocation, useNavigationType, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth.tsx'
 import { applyPageMeta, pageMetaForPath } from '../page-meta.ts'
@@ -149,7 +149,7 @@ export function Layout() {
           context={context}
           url={buildLayoutUrl}
         />
-        <div className="main" ref={mainRef}><ErrorBoundary key={location.key}><Outlet /></ErrorBoundary></div>
+        <div className="main" ref={mainRef}><ErrorBoundary key={location.key}><Suspense fallback={<div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>}><Outlet /></Suspense></ErrorBoundary></div>
         <HydroTemplate
           template="partials/footer.html"
           className="hydro-template-contents"

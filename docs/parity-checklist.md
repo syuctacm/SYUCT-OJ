@@ -742,6 +742,20 @@ Playwright 验证：
 - Playwright：访问 `/__error-test` 被 `ErrorBoundary` 捕获，显示 `InternalServerError` 500 页面
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.39 路由级代码拆分（2026-10-31）
+
+- `App.tsx` 仅预加载首页、登录页、错误页和布局壳，其余页面改为 `React.lazy` 动态导入
+- 路由切换继续由现有 `Suspense` 占位和 `PageLoader` 承担，不改变 URL 和页面 DOM
+- Monaco、Markdown 编辑器、ECharts、题目配置器等只在对应页面或交互触发后加载
+- 生产主包由约 2.7 MB（gzip 824 KB）降至约 1.61 MB（gzip 462 KB）
+- 惰性加载失败由现有 `ErrorBoundary` 兜底
+
+验证：
+
+- Playwright：直接访问 `/contest`、导航到 `/p`、浏览器后退均正确完成且无 loader 残留
+- Playwright：未知路径仍进入 404 页面
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text
