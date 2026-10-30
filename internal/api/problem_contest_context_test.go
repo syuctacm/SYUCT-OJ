@@ -164,6 +164,12 @@ func TestContestProblemAccessAndContextIntegration(t *testing.T) {
 	if status != http.StatusForbidden || !bytes.Contains(body, []byte("attend")) {
 		t.Fatalf("unattended contest problem = %d: %s", status, body)
 	}
+	status, body = request(http.MethodPost, "/api/v1/problems/1/pretest", map[string]any{
+		"lang": "cpp", "code": "int main(){}", "input": []string{"1 2\n"}, "tid": liveID.Hex(),
+	}, aliceCookies)
+	if status != http.StatusForbidden {
+		t.Fatalf("unattended pretest = %d: %s", status, body)
+	}
 	status, body = request(http.MethodGet, "/api/v1/problems/1?tid="+unrelatedID.Hex(), nil, aliceCookies)
 	if status != http.StatusNotFound {
 		t.Fatalf("problem outside contest = %d: %s", status, body)
@@ -195,6 +201,22 @@ func TestContestProblemAccessAndContextIntegration(t *testing.T) {
 	}
 	if storedStatus.StartAt == nil {
 		t.Fatal("stored contest status has no startAt")
+	}
+	status, body = request(http.MethodPost, "/api/v1/problems/1/pretest", map[string]any{
+		"lang": "cpp", "code": "int main(){}", "input": []string{"1 2\n"}, "tid": liveID.Hex(),
+	}, aliceCookies)
+	if status != http.StatusAccepted || !bytes.Contains(body, []byte(`"type":"pretest"`)) {
+		t.Fatalf("contest pretest = %d: %s", status, body)
+	}
+	tooManyInputs := make([]string, 11)
+	for i := range tooManyInputs {
+		tooManyInputs[i] = "1\n"
+	}
+	status, body = request(http.MethodPost, "/api/v1/problems/1/pretest", map[string]any{
+		"lang": "cpp", "code": "int main(){}", "input": tooManyInputs, "tid": liveID.Hex(),
+	}, aliceCookies)
+	if status != http.StatusBadRequest {
+		t.Fatalf("oversized pretest = %d: %s", status, body)
 	}
 
 	status, body = request(http.MethodPost, "/api/v1/homeworks/"+homeworkID.Hex()+"/attend", nil, aliceCookies)

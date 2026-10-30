@@ -5,6 +5,7 @@
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | POST | `/api/v1/submissions` | 创建提交并写入 judge task |
+| POST | `/api/v1/problems/:pid/pretest` | 创建 hydrojudge 原生 pretest task |
 | GET | `/api/v1/submissions` | 提交记录列表、筛选和分页 |
 | GET | `/api/v1/submissions/:rid` | 查询提交状态和结果 |
 | GET | `/api/v1/submissions/:rid/code` | 下载提交代码（所有者或管理员） |
@@ -33,6 +34,27 @@
   "contestId": "比赛 ObjectId（可选）"
 }
 ```
+
+## 预测试
+
+Scratchpad 的 F9 预测试调用 `POST /api/v1/problems/:pid/pretest`：
+
+```json
+{
+  "pid": "P1001",
+  "lang": "cpp",
+  "code": "int main() {}",
+  "input": ["1 2\n"],
+  "tid": "比赛 ObjectId（可选）"
+}
+```
+
+- 仅支持默认评测题
+- 每次最多 10 组输入、输入总量 1 MiB、代码 128 KiB
+- 比赛/作业模式复用题目访问控制
+- task 使用 hydrojudge 原生 `pretest`，`contest` 写入全零 ObjectId
+- pretest 记录不进入普通记录列表、统计、重判、题目提交/通过计数
+- 前端轮询单条记录并在 Scratchpad 输出面板显示状态、编译信息和首组运行信息
 
 ## 数据流
 

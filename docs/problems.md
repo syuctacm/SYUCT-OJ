@@ -109,6 +109,17 @@ Hydro 将多语言题面存为以语言代码为键的 JSON 对象。`contentLan
 - 语言切换只更新 `lang` 参数，比赛/作业的 `tid` 和其他查询参数保持不变
 - Tab 继续使用上游 `data-lang`、`section__tab-header-item` 和 `tab--active` DOM
 
+### Scratchpad
+
+题目详情页恢复上游 `problem-sidebar__open-scratchpad` / `quit-scratchpad`：
+
+- Alt+E 进入、Alt+Q 退出，使用上游 500ms/200ms 展开、收起和淡入淡出
+- 复用上游 Allotment 布局、工具栏、Monaco、题目面板、预测试面板和记录面板
+- 草稿按用户、题目和比赛维度写入 IndexedDB `hydro/scratchpad-drafts`
+- F9 调用 pretest API，F10 使用现有正式提交 API
+- 比赛/作业模式保留 `tid`，退出后恢复原题面 DOM 和页面滚动状态
+- 编辑器字号、Tab 宽度和主题写入本地 `editor.config`
+
 题目创建和编辑页由 `HydroTemplate` 直接渲染上游 `problem_edit.html`：
 
 - `/p/new`
@@ -257,7 +268,6 @@ problem/system/<docId>/additional_file/<name>
 - 题目删除 API 尚未实现，编辑页暂不展示原模板删除按钮
 - 题目分类配置尚未从 Go 设置接口读取，分类侧栏目前为空
 - 题目文件重命名和批量选择脚本尚未接入
-- 题目收藏、题面下载/复制和 Scratchpad 尚未接入
 
 ## 响应
 

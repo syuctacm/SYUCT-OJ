@@ -18,6 +18,7 @@ import { applyPageMeta } from '../page-meta.ts'
 import { activityRoute } from '../upstream/activity-url.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
+import { ProblemPageExtender, fadeInScratchpad, fadeOutScratchpad } from '../upstream/scratchpad-mode.ts'
 import { useHydroContestTimer } from '../upstream/contest-timer.ts'
 import { renderMarkdown } from '../upstream/markdown.ts'
 import { selectLocalizedContent } from '../upstream/problem-content.ts'
@@ -105,7 +106,96 @@ export function ProblemDetailPage() {
   }, [problem])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
+    if (!problem) return () => {}
     const cleanups: Array<() => void> = []
+    let scratchpadRoot: import('react-dom/client').Root | null = null
+    let extender: ProblemPageExtender | null = null
+    let scratchpadOpen = false
+    let scratchpadProgress = false
+    const scratchpadContainer = root.querySelector<HTMLElement>('.scratchpad-container')
+    const problemContent = root.querySelector<HTMLElement>('.problem-content')
+    const problemContentParent = problemContent?.parentElement ?? null
+    const problemContentNext = problemContent?.nextSibling ?? null
+
+    const resetScratchpadLayout = () => {
+      document.body.classList.remove('header--collapsed', 'mode--scratchpad')
+      document.body.style.overflow = ''
+      document.querySelectorAll<HTMLElement>('.main > .row').forEach((element) => { element.style.display = '' })
+      document.querySelectorAll<HTMLElement>('.footer').forEach((element) => { element.style.display = '' })
+      if (problemContent && problemContentParent) problemContentParent.insertBefore(problemContent, problemContentNext)
+      if (scratchpadContainer) {
+        scratchpadContainer.removeAttribute('style')
+        scratchpadContainer.style.display = 'none'
+      }
+    }
+
+    const leaveScratchpad = async () => {
+      if (!scratchpadOpen || scratchpadProgress) return
+      scratchpadProgress = true
+      try {
+        await fadeOutScratchpad()
+        const mounted = scratchpadRoot
+        scratchpadRoot = null
+        mounted?.unmount()
+        scratchpadOpen = false
+        await extender?.collapse()
+      } finally {
+        scratchpadProgress = false
+      }
+    }
+
+    const enterScratchpad = async () => {
+      if (scratchpadOpen || scratchpadProgress || !user) return
+      scratchpadProgress = true
+      try {
+        extender = new ProblemPageExtender()
+        await extender.extend()
+        const mount = scratchpadContainer?.querySelector<HTMLElement>('#scratchpad')
+        if (!mount) {
+          await extender.collapse()
+          return
+        }
+        const [{ createRoot }, { Scratchpad }] = await Promise.all([
+          import('react-dom/client'),
+          import('../components/Scratchpad.tsx'),
+        ])
+        scratchpadRoot = createRoot(mount)
+        scratchpadOpen = true
+        const isAdmin = Boolean(user.priv && user.priv & 1)
+        const contestWritable = !problem.contest
+          || Boolean(problem.contest.owner === user.id || isAdmin)
+          || !problem.contest.keepScoreboardHidden
+        scratchpadRoot.render(
+          <Scratchpad
+            problem={problem}
+            user={user}
+            contestId={tid}
+            canViewRecord={contestWritable}
+            onExit={() => { void leaveScratchpad() }}
+            onSubmitted={(submission) => {
+              navigate(`/record/${encodeURIComponent(submission.id)}${tid ? `?tid=${encodeURIComponent(tid)}` : ''}`)
+            }}
+          />,
+        )
+        await fadeInScratchpad()
+      } finally {
+        scratchpadProgress = false
+      }
+    }
+
+    for (const [selector, handler] of [
+      ['[name="problem-sidebar__open-scratchpad"]', enterScratchpad],
+      ['[name="problem-sidebar__quit-scratchpad"]', leaveScratchpad],
+    ] as const) {
+      const element = root.querySelector<HTMLElement>(selector)
+      if (!element) continue
+      const onClick = (event: Event) => {
+        event.preventDefault()
+        void handler()
+      }
+      element.addEventListener('click', onClick)
+      cleanups.push(() => element.removeEventListener('click', onClick))
+    }
     root.querySelectorAll('[name="problem-sidebar__copy"]')
       .forEach((element) => element.closest('li')?.remove())
     const download = root.querySelector<HTMLElement>('[name="problem-sidebar__download"]')
@@ -181,8 +271,17 @@ export function ProblemDetailPage() {
       tagToggle.addEventListener('click', onClick)
       cleanups.push(() => tagToggle.removeEventListener('click', onClick))
     }
-    return () => cleanups.forEach((cleanup) => cleanup())
-  }, [navigate, pid, tid])
+    return () => {
+      cleanups.forEach((cleanup) => cleanup())
+      if (scratchpadOpen) {
+        const mounted = scratchpadRoot
+        scratchpadRoot = null
+        scratchpadOpen = false
+        resetScratchpadLayout()
+        queueMicrotask(() => mounted?.unmount())
+      }
+    }
+  }, [navigate, pid, problem, tid, user])
 
   const context = useMemo(() => {
     if (!problem) return null
@@ -281,7 +380,10 @@ export function ProblemDetailPage() {
       },
       session: { legacy: false, viewLang: user?.viewLang || language },
       ctx: {
-        setting: { get: () => '' },
+        setting: {
+          get: (key: string) => key === 'ui-default.enableScratchpad'
+            && Boolean(user) && (problem.problemType || 'default') === 'default',
+        },
         i18n: { get: (key: string, value: string) => key === '__langname' ? LANGUAGE_NAMES[value] ?? value : '' },
       },
     }

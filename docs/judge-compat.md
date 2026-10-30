@@ -81,6 +81,7 @@ docker compose -f deploy/compose.dev.yaml --profile judge up -d --build judge
 - C++ 编译、运行并通过
 - Python 编译、运行并通过
 - `type=generate` 自动生成测试数据：生成器/标准程序编译运行、逐文件上传、题目 testdata 元数据落库和最终 Accepted
+- `type=pretest` Scratchpad 预测试：自定义输入编译运行、状态/时间/内存回写，且不影响正式题目统计
 - 状态链路：`waiting(0) → compiling(21) → judging(20) → accepted(1)`
 - 编译错误写入 `compilerTexts`
 - WA 的测试点结果写入 `testCases`

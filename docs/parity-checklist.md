@@ -453,6 +453,28 @@ Playwright 验证：
 - 控制台 0 error
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.20 题目 Scratchpad 预测试（2026-10-30）
+
+- 恢复上游 Scratchpad 展开/收起动画、Allotment 分栏、Monaco 编辑器和工具栏
+- 支持 Alt+E 进入、Alt+Q 退出、F9 预测试、F10 正式提交、Alt+P/Alt+R 面板切换
+- 草稿按用户/题目/比赛写入 IndexedDB，刷新和重新进入后恢复
+- 编辑器字号、Tab 宽度、主题保存在本地配置
+- pretest API 使用 hydrojudge 原生 `type=pretest`，不修改判题机
+- pretest task 与正式记录隔离，不进入列表、统计、重判或题目通过计数
+- 比赛/作业中调用预测试继续执行题目访问控制并保留 `tid`
+
+本地真实判题验证：
+
+- `hydrojudge@4.0.6 + go-judge v1.13.3`
+- C++ 输入 `10 20` 返回 `30`，显示 `Accepted 1.082ms 256KiB`
+- F10 正式提交跳转记录详情并 Accepted
+- 退出 Scratchpad 后原题面 DOM、页面滚动和布局恢复
+- 重新进入草稿代码恢复
+- 记录面板显示最近正式提交
+- 控制台无新增运行时错误
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

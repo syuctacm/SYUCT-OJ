@@ -561,6 +561,20 @@ export async function createSubmission(pid: string, lang: string, code: string, 
   return result.data
 }
 
+export async function createPretest(
+  pid: string,
+  lang: string,
+  code: string,
+  input: string[],
+  tid = '',
+): Promise<Submission> {
+  const result = await request<Envelope<Submission>>(`/api/v1/problems/${encodeURIComponent(pid)}/pretest`, {
+    method: 'POST',
+    body: JSON.stringify({ lang, code, input, tid }),
+  })
+  return result.data
+}
+
 export async function getSubmission(rid: string): Promise<Submission> {
   const result = await request<Envelope<Submission>>(`/api/v1/submissions/${encodeURIComponent(rid)}`)
   return result.data

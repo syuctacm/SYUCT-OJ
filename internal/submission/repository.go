@@ -56,6 +56,7 @@ type Record struct {
 	Judger        *int64         `bson:"judger" json:"judger,omitempty"`
 	JudgeAt       *time.Time     `bson:"judgeAt" json:"judgeAt,omitempty"`
 	Rejudged      bool           `bson:"rejudged" json:"rejudged"`
+	Type          string         `bson:"type,omitempty" json:"type,omitempty"`
 	Source        string         `bson:"source" json:"source,omitempty"`
 	Contest       *bson.ObjectID `bson:"contest,omitempty" json:"contest,omitempty"`
 	Length        int            `bson:"length" json:"length,omitempty"`
@@ -205,6 +206,49 @@ func (r *Repository) CreateGenerate(ctx context.Context, uid int64, pid, gen, st
 	return savedRecord, err
 }
 
+// CreatePretest queues hydrojudge's native pretest flow. The supplied inputs
+// replace the problem's testdata for this run and never affect problem stats.
+func (r *Repository) CreatePretest(ctx context.Context, uid int64, pid, lang, code string, input []string) (*Record, error) {
+	pdoc, err := r.problems.GetForEditor(ctx, pid)
+	if err != nil {
+		return nil, err
+	}
+	if lang == "" || code == "" {
+		return nil, fmt.Errorf("lang and code are required")
+	}
+	if len(input) == 0 {
+		return nil, fmt.Errorf("pretest input is required")
+	}
+	rid := bson.NewObjectID()
+	now := time.Now().UTC()
+	pretestContest := bson.NilObjectID
+	record := bson.M{
+		"_id": rid, "uid": uid, "pid": pdoc.DocID, "domainId": "system",
+		"lang": lang, "code": code, "status": StatusWaiting,
+		"type": "pretest", "contest": pretestContest, "input": input,
+		"score": 0, "time": 0, "memory": 0,
+		"judgeTexts": []any{}, "compilerTexts": []string{}, "testCases": []any{},
+		"judger": nil, "judgeAt": nil, "rejudged": false,
+		"source": fmt.Sprintf("system/%d", pdoc.DocID), "createdAt": now,
+	}
+	if _, err := r.records.InsertOne(ctx, record); err != nil {
+		return nil, err
+	}
+	task, err := buildJudgeTask(pdoc, rid, uid, lang, code, &pretestContest)
+	if err != nil {
+		_, _ = r.records.DeleteOne(ctx, bson.M{"_id": rid})
+		return nil, err
+	}
+	task["type"] = "pretest"
+	task["input"] = input
+	task["priority"] = -20
+	if _, err := r.tasks.InsertOne(ctx, task); err != nil {
+		_, _ = r.records.DeleteOne(ctx, bson.M{"_id": rid})
+		return nil, err
+	}
+	return r.Get(ctx, rid.Hex())
+}
+
 // buildJudgeTask assembles the hydrojudge task shared by submit and rejudge.
 func buildJudgeTask(pdoc *problem.Problem, rid bson.ObjectID, uid int64, lang, code string, contest *bson.ObjectID) (bson.M, error) {
 	config, err := configMap(pdoc.Config)
@@ -235,7 +279,7 @@ func (r *Repository) RejudgeProblem(ctx context.Context, pid string) (int64, err
 		return 0, err
 	}
 	cursor, err := r.records.Find(ctx,
-		bson.M{"domainId": "system", "pid": pdoc.DocID, "type": bson.M{"$ne": "generate"}},
+		bson.M{"domainId": "system", "pid": pdoc.DocID, "type": bson.M{"$nin": []string{"generate", "pretest"}}},
 		options.Find().SetProjection(bson.M{"_id": 1, "uid": 1, "lang": 1, "code": 1, "status": 1, "contest": 1}))
 	if err != nil {
 		return 0, err
@@ -259,7 +303,7 @@ func (r *Repository) RejudgeProblem(ctx context.Context, pid string) (int64, err
 		}
 	}
 	if _, err := r.records.UpdateMany(ctx,
-		bson.M{"domainId": "system", "pid": pdoc.DocID, "type": bson.M{"$ne": "generate"}},
+		bson.M{"domainId": "system", "pid": pdoc.DocID, "type": bson.M{"$nin": []string{"generate", "pretest"}}},
 		bson.M{"$set": bson.M{
 			"status": StatusWaiting, "score": 0, "time": 0, "memory": 0,
 			"judgeTexts": []any{}, "compilerTexts": []string{}, "testCases": []any{},
@@ -307,8 +351,8 @@ func (r *Repository) RejudgeRecord(ctx context.Context, rid string) (*Record, er
 		}
 		return nil, err
 	}
-	if current.Type == "generate" {
-		return nil, fmt.Errorf("generate records cannot be rejudged")
+	if current.Type == "generate" || current.Type == "pretest" {
+		return nil, fmt.Errorf("synthetic records cannot be rejudged")
 	}
 	pdoc, err := r.problems.GetForEditor(ctx, strconv.FormatInt(current.PID, 10))
 	if err != nil {
@@ -360,6 +404,9 @@ func (r *Repository) CancelRecord(ctx context.Context, rid string) (*Record, err
 		}
 		return nil, err
 	}
+	if current.Type == "generate" || current.Type == "pretest" {
+		return nil, fmt.Errorf("synthetic records cannot be canceled")
+	}
 	if _, err := r.records.UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$set": bson.M{
 		"status": StatusCanceled, "score": 0, "time": 0, "memory": 0,
 		"testCases": []any{bson.M{
@@ -387,7 +434,7 @@ func (r *Repository) CancelRecord(ctx context.Context, rid string) (*Record, err
 
 func (r *Repository) List(ctx context.Context, opts ListFilter) (*ListResult, error) {
 	opts = normalizeListFilter(opts)
-	filter := bson.M{"domainId": "system", "type": bson.M{"$ne": "generate"}}
+	filter := bson.M{"domainId": "system", "type": bson.M{"$nin": []string{"generate", "pretest"}}}
 	if opts.UID > 0 {
 		filter["uid"] = opts.UID
 	}
@@ -615,7 +662,7 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 	if _, err = r.records.UpdateOne(ctx, bson.M{"_id": oid}, update); err != nil {
 		return err
 	}
-	if current.Type != "generate" {
+	if current.Type != "generate" && current.Type != "pretest" {
 		if status, ok := set["status"]; ok && current.PID > 0 {
 			wasAccepted := current.Status == StatusAccepted
 			nowAccepted := isAccepted(status)
@@ -659,8 +706,10 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 	if value, ok := set["judgeAt"].(time.Time); ok {
 		event.JudgeAt = &value
 	}
-	r.emitUpdate(event)
-	if hook := r.acceptedHook; hook != nil && current.Type != "generate" && isAccepted(set["status"]) {
+	if current.Type != "pretest" {
+		r.emitUpdate(event)
+	}
+	if hook := r.acceptedHook; hook != nil && current.Type != "generate" && current.Type != "pretest" && isAccepted(set["status"]) {
 		var record struct {
 			UID     int64          `bson:"uid"`
 			PID     int64          `bson:"pid"`
@@ -836,7 +885,7 @@ func normalizeStatisticsFilter(filter StatisticsFilter) StatisticsFilter {
 // the charts need.
 func (r *Repository) Statistics(ctx context.Context, filter StatisticsFilter) (*StatisticsResult, error) {
 	filter = normalizeStatisticsFilter(filter)
-	match := bson.M{"domainId": "system", "pid": filter.DocID}
+	match := bson.M{"domainId": "system", "pid": filter.DocID, "type": bson.M{"$nin": []string{"generate", "pretest"}}}
 	if filter.Lang != "" {
 		match["lang"] = filter.Lang
 	}
@@ -915,7 +964,7 @@ func (r *Repository) problemStatistics(ctx context.Context, docID int64) (map[st
 		}}}
 	}
 	cursor, err := r.records.Aggregate(ctx, []bson.M{
-		{"$match": bson.M{"domainId": "system", "pid": docID}},
+		{"$match": bson.M{"domainId": "system", "pid": docID, "type": bson.M{"$nin": []string{"generate", "pretest"}}}},
 		{"$group": group},
 	})
 	if err != nil {

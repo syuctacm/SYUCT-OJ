@@ -33,6 +33,9 @@ const (
 	maxProblemFiles       = 100
 	maxProblemFilesSize   = 256 << 20
 	maxProblemMultipart   = 32 << 20
+	maxPretestInputs      = 10
+	maxPretestInputSize   = 1 << 20
+	maxPretestCodeSize    = 128 << 10
 	problemFileKindData   = "testdata"
 	problemFileKindAttach = "additional"
 )
@@ -76,6 +79,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/starred-problems", h.starred)
 	router.POST("/api/v1/problems/:pid/star", h.star)
 	router.POST("/api/v1/problems/:pid/generate", h.generateTestdata)
+	router.POST("/api/v1/problems/:pid/pretest", h.pretest)
 }
 
 type problemEditRequest struct {
@@ -484,6 +488,82 @@ func (h *ProblemHandler) getContestProblem(c *gin.Context, tid string) {
 		Problem: pdoc, Contest: item, ContestStatus: status,
 		ContestStatuses: statuses, ContestMode: mode,
 	}})
+}
+
+func (h *ProblemHandler) pretest(c *gin.Context) {
+	uid, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	var request struct {
+		Lang  string   `json:"lang"`
+		Code  string   `json:"code"`
+		Input []string `json:"input"`
+		TID   string   `json:"tid"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	request.Lang = strings.TrimSpace(request.Lang)
+	request.TID = strings.TrimSpace(request.TID)
+	if request.Lang == "" || request.Code == "" || len(request.Input) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "lang, code and input are required"})
+		return
+	}
+	if len(request.Code) > maxPretestCodeSize || len(request.Input) > maxPretestInputs {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pretest code or input count exceeds the limit"})
+		return
+	}
+	totalInput := 0
+	for i := range request.Input {
+		totalInput += len(request.Input[i])
+	}
+	if totalInput > maxPretestInputSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pretest input exceeds the size limit"})
+		return
+	}
+	var pdoc *problem.Problem
+	var err error
+	if request.TID != "" {
+		pdoc, err = h.repo.GetForEditor(c.Request.Context(), c.Param("pid"))
+	} else {
+		pdoc, err = h.repo.Get(c.Request.Context(), c.Param("pid"))
+	}
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
+		return
+	}
+	if request.TID != "" {
+		if _, _, err := h.contests.ProblemAccess(c.Request.Context(), request.TID, pdoc.DocID, uid); err != nil {
+			switch {
+			case errors.Is(err, contest.ErrNotFound):
+				c.JSON(http.StatusNotFound, gin.H{"error": "contest or problem not found"})
+			case errors.Is(err, contest.ErrContestNotLive):
+				c.JSON(http.StatusForbidden, gin.H{"error": "contest is not running"})
+			case errors.Is(err, contest.ErrContestNotAttended):
+				c.JSON(http.StatusForbidden, gin.H{"error": "attend the contest first"})
+			default:
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest problem"})
+			}
+			return
+		}
+	}
+	if pdoc.ProblemType != "" && pdoc.ProblemType != "default" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pretest is only available for default problems"})
+		return
+	}
+	if h.submissions == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "judge service is unavailable"})
+		return
+	}
+	record, err := h.submissions.CreatePretest(c.Request.Context(), uid, pdoc.PID, request.Lang, request.Code, request.Input)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{"code": 0, "message": "success", "data": record})
 }
 
 // starred lists the problems the caller starred, newest first.

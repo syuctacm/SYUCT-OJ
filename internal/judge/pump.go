@@ -70,7 +70,7 @@ func (p *TaskPump) Run(ctx context.Context) {
 func (p *TaskPump) leaseNext(ctx context.Context) (bson.M, error) {
 	now := time.Now().UTC()
 	filter := bson.M{
-		"type": bson.M{"$in": []string{"judge", "generate"}},
+		"type": bson.M{"$in": []string{"judge", "generate", "pretest"}},
 		"$or": []bson.M{
 			{"leaseUntil": bson.M{"$exists": false}},
 			{"leaseUntil": bson.M{"$lte": now}},
