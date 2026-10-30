@@ -799,6 +799,21 @@ Playwright 验证：
 - `go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.43 讨论节点管理（2026-10-31）
+
+- 新增 `/admin/discussion-nodes` 管理页面和控制面板入口
+- 管理员可创建、编辑、删除全局讨论节点；节点 ID 创建后只读
+- 重复 ID 返回 409；仍被主题引用的节点拒绝删除
+- 非管理员访问 API 或页面返回 403
+
+验证：
+
+- Go 集成测试覆盖管理员 CRUD、非管理员拒绝、重复 ID、非法 ID 和引用保护
+- Playwright 验证管理页面创建、编辑、删除和确认对话框
+- Playwright 验证控制面板入口
+- `go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

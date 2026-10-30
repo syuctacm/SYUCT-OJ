@@ -16,6 +16,7 @@ import { size } from './format.ts'
 import manageAuditTemplate from './templates/manage_audit.html?raw'
 import wikiHelpSingleSiteTemplate from './templates/wiki_help_single_site.html?raw'
 import userDeleteConfirmTemplate from './templates/user_delete_confirm.html?raw'
+import manageDiscussionNodesTemplate from './templates/manage_discussion_nodes.html?raw'
 import { renderMarkdown } from './markdown.ts'
 import { contentLanguages, selectLocalizedContent } from './problem-content.ts'
 import { datetimeSpan } from './datetime.ts'
@@ -59,6 +60,7 @@ sources.set('partials/footer.html', footerTemplate)
 sources.set('manage_audit.html', manageAuditTemplate)
 sources.set('wiki_help.html', wikiHelpSingleSiteTemplate)
 sources.set('user_delete_confirm.html', userDeleteConfirmTemplate)
+sources.set('manage_discussion_nodes.html', manageDiscussionNodesTemplate)
 
 // The app already owns the shared <nav>/<footer> shell. Page templates continue
 // to extend the upstream layout so their block structure stays untouched, but
@@ -277,7 +279,7 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     // manage_base.html renders whatever getNodes('ControlPanel') returns.
     ui: {
       getNodes: (family: string) => (family === 'ControlPanel'
-        ? [{ name: 'manage_dashboard' }, { name: 'manage_user_priv' }, { name: 'manage_user_import' }, { name: 'manage_setting' }, { name: 'manage_audit' }]
+        ? [{ name: 'manage_dashboard' }, { name: 'manage_user_priv' }, { name: 'manage_user_import' }, { name: 'manage_setting' }, { name: 'manage_audit' }, { name: 'manage_discussion_nodes' }]
         : []),
     },
     STATUS,

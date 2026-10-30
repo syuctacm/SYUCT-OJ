@@ -35,7 +35,6 @@ TEST_MONGO_URI='mongodb://syuct:syuct_dev_password@127.0.0.1:27017/?authSource=a
 
 - OAuth 第三方登录/绑定；当前没有配置 provider
 - 比赛组队模式
-- 讨论节点的创建、编辑和删除管理
 - 作业题目依赖和进度
 - 用户主页可选题解历史；上游模板只展示题解数量和被赞数
 - 后台脚本管理、配置管理、默认权限编辑、IP 自动登录可视化页面

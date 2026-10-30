@@ -30,7 +30,10 @@ func NewDiscussionHandler(repo *discussion.Repository, sessions *auth.SessionMan
 	return &DiscussionHandler{repo: repo, sessions: sessions, users: users, messages: messages}
 }
 
-var mentionPattern = regexp.MustCompile(`@\[\]\(/user/([0-9]+)\)`)
+var (
+	mentionPattern = regexp.MustCompile(`@\[\]\(/user/([0-9]+)\)`)
+	nodeIDPattern  = regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`)
+)
 
 func mentionedUIDs(content string) []int64 {
 	matches := mentionPattern.FindAllStringSubmatch(content, -1)
@@ -91,6 +94,10 @@ func (h *DiscussionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/discussions", h.list)
 	router.GET("/api/v1/discussion-nodes", h.listNodes)
 	router.GET("/api/v1/discussion-nodes/:type/:name", h.getNode)
+	router.GET("/api/v1/admin/discussion-nodes", h.adminListNodes)
+	router.POST("/api/v1/admin/discussion-nodes", h.createNode)
+	router.PATCH("/api/v1/admin/discussion-nodes/:id", h.updateNode)
+	router.DELETE("/api/v1/admin/discussion-nodes/:id", h.deleteNode)
 	router.POST("/api/v1/discussions", h.create)
 	router.PATCH("/api/v1/discussions/:did", h.update)
 	router.DELETE("/api/v1/discussions/:did", h.delete)
@@ -126,6 +133,130 @@ func (h *DiscussionHandler) listNodes(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"items": items, "total": len(items)}})
+}
+
+func (h *DiscussionHandler) adminListNodes(c *gin.Context) {
+	if _, ok := h.requireAdmin(c); !ok {
+		return
+	}
+	items, err := h.repo.ListNodes(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list discussion nodes"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"items": items, "total": len(items)}})
+}
+
+func nodeInput(c *gin.Context, requireID bool) (discussion.NodeInput, bool) {
+	var input discussion.NodeInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return input, false
+	}
+	input.ID = strings.TrimSpace(input.ID)
+	input.Title = strings.TrimSpace(input.Title)
+	input.Category = strings.TrimSpace(input.Category)
+	input.Pic = strings.TrimSpace(input.Pic)
+	if requireID && !nodeIDPattern.MatchString(input.ID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "node id must use 1-32 letters, digits, underscores or hyphens"})
+		return input, false
+	}
+	if input.Title == "" || input.Category == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "title and category are required"})
+		return input, false
+	}
+	if len(input.Title) > 64 || len(input.Category) > 64 || len(input.Pic) > 64 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "node fields are too long"})
+		return input, false
+	}
+	return input, true
+}
+
+func (h *DiscussionHandler) createNode(c *gin.Context) {
+	u, ok := h.requireAdmin(c)
+	if !ok {
+		return
+	}
+	input, ok := nodeInput(c, true)
+	if !ok {
+		return
+	}
+	node, err := h.repo.CreateNode(c.Request.Context(), u.ID, input)
+	if err != nil {
+		if errors.Is(err, discussion.ErrNodeExists) {
+			c.JSON(http.StatusConflict, gin.H{"error": "discussion node already exists"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to create discussion node"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "success", "data": node})
+}
+
+func (h *DiscussionHandler) updateNode(c *gin.Context) {
+	if _, ok := h.requireAdmin(c); !ok {
+		return
+	}
+	input, ok := nodeInput(c, false)
+	if !ok {
+		return
+	}
+	input.ID = strings.TrimSpace(c.Param("id"))
+	if !nodeIDPattern.MatchString(input.ID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid discussion node id"})
+		return
+	}
+	node, err := h.repo.UpdateNode(c.Request.Context(), input.ID, input)
+	if err != nil {
+		if errors.Is(err, discussion.ErrNodeNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "discussion node not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update discussion node"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": node})
+}
+
+func (h *DiscussionHandler) deleteNode(c *gin.Context) {
+	if _, ok := h.requireAdmin(c); !ok {
+		return
+	}
+	nodeID := strings.TrimSpace(c.Param("id"))
+	if !nodeIDPattern.MatchString(nodeID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid discussion node id"})
+		return
+	}
+	if err := h.repo.DeleteNode(c.Request.Context(), nodeID); err != nil {
+		switch {
+		case errors.Is(err, discussion.ErrNodeNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "discussion node not found"})
+		case errors.Is(err, discussion.ErrNodeInUse):
+			c.JSON(http.StatusConflict, gin.H{"error": "discussion node is still in use"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to delete discussion node"})
+		}
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *DiscussionHandler) requireAdmin(c *gin.Context) (*user.User, bool) {
+	if h.sessions == nil || h.users == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, false
+	}
+	session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
+	if !ok || session.Kind != "user" || session.UserID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return nil, false
+	}
+	u, err := h.users.FindByID(c.Request.Context(), session.UserID)
+	if err != nil || u.Priv&1 == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return nil, false
+	}
+	return u, true
 }
 
 func (h *DiscussionHandler) getNode(c *gin.Context) {

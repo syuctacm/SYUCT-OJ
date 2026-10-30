@@ -1268,6 +1268,38 @@ export async function getDiscussionNode(type: string, name: string): Promise<Dis
   return result.data
 }
 
+export type DiscussionNodeInput = {
+  docId?: string
+  title: string
+  category: string
+  pic?: string
+}
+
+export async function getAdminDiscussionNodes(): Promise<DiscussionNode[]> {
+  const result = await request<Envelope<{ items: DiscussionNode[]; total: number }>>('/api/v1/admin/discussion-nodes')
+  return result.data.items
+}
+
+export async function createDiscussionNode(input: DiscussionNodeInput): Promise<DiscussionNode> {
+  const result = await request<Envelope<DiscussionNode>>('/api/v1/admin/discussion-nodes', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return result.data
+}
+
+export async function updateDiscussionNode(id: string, input: DiscussionNodeInput): Promise<DiscussionNode> {
+  const result = await request<Envelope<DiscussionNode>>(`/api/v1/admin/discussion-nodes/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  return result.data
+}
+
+export async function deleteDiscussionNode(id: string): Promise<void> {
+  await request(`/api/v1/admin/discussion-nodes/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
 export async function createDiscussion(input: {
   nodeType?: string
   nodeId: string
