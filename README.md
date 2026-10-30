@@ -18,34 +18,31 @@ SYUCT ACM 的新一代 OJ 平台，目前处于 **开发阶段**。
 - 使用 React 重写前端，直接复用 Hydro `ui-default` 模板结构和主题，视觉和交互向现有站点对齐。
 - 保持判题机、判题协议和现有数据迁移路径的兼容性。
 
-## 推荐目录结构
+## 当前目录
 
 ```text
 syuct-oj/
 ├── cmd/
-│   └── api/                 # Go 服务入口
-├── internal/
-│   ├── auth/                # 用户、登录、权限
-│   ├── problem/             # 题目、测试数据
-│   ├── submission/          # 提交与记录
-│   ├── contest/             # 比赛与榜单
-│   ├── judge/               # hydrojudge 兼容层
-│   └── storage/             # 文件存储
-├── web/                     # React + Vite 前端
-├── migrations/              # 数据迁移脚本
-├── deploy/                  # 本地 Docker / 生产部署配置
+│   ├── api/                 # Go API 服务入口
+│   ├── migrate/             # 多域历史数据迁移
+│   ├── migrate-webauthn/    # 旧 Passkey 导入
+│   └── recompute-stats/     # 题目/用户统计重算
+├── internal/                # auth、problem、submission、contest、training、judge 等业务包
+├── web/                     # React + Vite + React Router 前端
+├── deploy/                  # 本地 Docker、生产镜像和 nginx 配置
+├── scripts/                 # 本地判题、迁移和发布冒烟脚本
 ├── docs/                    # 架构、迁移、验收和决策记录
 ├── go.mod
 └── README.md
 ```
 
-当前阶段只建立开发目录和约束，尚未初始化具体技术栈或启动容器。
+当前仓库已经是可运行的 Go + React 单站实现，不再只是目录骨架。开发与验收只使用本地 Docker、脱敏种子数据和测试副本。
 
 ## 参考资产
 
 - `../SYUCT-OJ/`：Hydro 官方代码基线，只读参考。
 - `../SYUCTACM/`：社团官网项目，与本 OJ 平台分开维护。
-- 生产全量备份：`/home/syuct/backup/oj-full-20261019T112022Z`（仅用于灾备，不用于日常开发）。
+- 生产全量备份：需要由运维单独挂载到本地测试环境；仓库不包含生产数据，当前开发环境也未挂载 `/home/syuct/backup`。
 
 ## 开发工作流
 
@@ -59,7 +56,7 @@ syuct-oj/
 6. 创建 Pull Request 并合并。
 7. 删除 Worktree 和临时分支。
 
-后续会为 OJ 单独补充 `AGENTS.md`，明确判题兼容、数据迁移和视觉回归要求。
+OJ 专属约束已经写入 [AGENTS-OJ.md](./AGENTS-OJ.md)。
 
 ## 开发文档
 
@@ -67,6 +64,7 @@ syuct-oj/
 - [docs/architecture.md](./docs/architecture.md)：目标架构
 - [docs/migrations.md](./docs/migrations.md)：多域数据迁移方案
 - [docs/parity-checklist.md](./docs/parity-checklist.md)：前端视觉与交互对照清单
+- [docs/current-status.md](./docs/current-status.md)：当前实现范围、验证基线和剩余缺口
 
 > 当前为开发阶段，不连接生产环境；判题机保持不动。
 
@@ -108,6 +106,8 @@ cd web && pnpm build
 ```
 
 当前仓库是 Go + React 单站重构版本，开发和测试均不连接生产环境。
+
+前端已验证直接复用 Hydro `ui-default` 模板、CSS、登录弹窗、Prism、相对时间、题面标记、富媒体链接、错误页和路由级懒加载。完整的差异记录见 [docs/parity-checklist.md](./docs/parity-checklist.md)。
 
 ## 生产部署（准备中，需确认后执行）
 

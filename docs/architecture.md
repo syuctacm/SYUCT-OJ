@@ -77,7 +77,7 @@ language / task / next / end / status / config / start / ping / pong
 - 第一阶段为 SPA。
 - 复用旧站 CSS、字体、图标和视觉结构。
 - 已迁移页面通过 `HydroTemplate` 直接渲染固定版本 `@hydrooj/ui-default` 的上游 Nunjucks 模板；React 负责数据、路由和交互挂载。
-- 禁止复制上游页面 DOM 到手写 TSX；剩余页面按功能域逐步迁移。
+- 禁止复制上游页面 DOM 到手写 TSX；页面统一通过 `HydroTemplate` 渲染上游模板，React 只保留路由、数据适配和交互岛。
 
 ## 7. 数据迁移
 
