@@ -24,6 +24,8 @@ type ScoreboardColumn = {
   style?: string
 }
 
+const SCOREBOARD_REFRESH_INTERVAL = 180000
+
 function pad(value: number) {
   return value < 10 ? `0${value}` : String(value)
 }
@@ -59,6 +61,26 @@ export function ContestScoreboardPage() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '榜单加载失败'))
     getContestProblems(tid).then((data) => setProblems(data.problems)).catch(() => setProblems([]))
   }, [tid, reloadKey])
+
+  useEffect(() => {
+    if (!contest) return
+    const beginAt = new Date(contest.beginAt).getTime()
+    const endAt = new Date(contest.endAt).getTime()
+    if (!Number.isFinite(beginAt) || !Number.isFinite(endAt)) return
+    const timer = window.setInterval(() => {
+      const now = Date.now()
+      if (now < beginAt || now > endAt) return
+      getContestScoreboard(tid)
+        .then((data) => {
+          setContest(data.contest)
+          setRows(data.rows)
+        })
+        .catch(() => {
+          // Keep the last successful scoreboard when a background refresh fails.
+        })
+    }, SCOREBOARD_REFRESH_INTERVAL)
+    return () => window.clearInterval(timer)
+  }, [contest?.beginAt, contest?.endAt, tid])
 
   useEffect(() => {
     if (!contest) return

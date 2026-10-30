@@ -542,6 +542,20 @@ Playwright 验证：
 - `pnpm --dir web lint`、`pnpm --dir web build`
 - Playwright 验证第二个用户发送消息后，消息页无刷新出现通知和会话内容
 
+## 6.25 比赛与作业榜单定时刷新（2026-10-30）
+
+- 比赛/作业进行中每 180 秒重新请求一次榜单，与原 Hydro `contest_scoreboard.page.ts` 一致
+- 未开始、已结束或日期非法时不请求
+- 刷新失败保留上次成功结果
+- 刷新后重新挂载原模板交互，收藏筛选、rank/all/指定用户筛选和 hash 继续生效
+- 离开页面时清理定时器
+
+验证：
+
+- Playwright 将 180000ms 定时器缩短到 500ms，动态插入第二名参赛者后榜单无需手动刷新即出现新行
+- 刷新后 `#filter=all` 保持
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text
