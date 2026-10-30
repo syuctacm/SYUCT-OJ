@@ -29,7 +29,16 @@ const (
 var (
 	ErrNotFound     = fmt.Errorf("discussion not found")
 	ErrNodeNotFound = fmt.Errorf("discussion node not found")
+	ErrNodeExists   = fmt.Errorf("discussion node already exists")
+	ErrNodeInUse    = fmt.Errorf("discussion node is still in use")
 )
+
+type NodeInput struct {
+	ID       string `json:"docId"`
+	Title    string `json:"title"`
+	Category string `json:"category"`
+	Pic      string `json:"pic"`
+}
 
 type Discussion struct {
 	ID          bson.ObjectID               `bson:"_id" json:"id"`
@@ -466,6 +475,61 @@ func (r *Repository) ListNodes(ctx context.Context) ([]Node, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+func (r *Repository) CreateNode(ctx context.Context, owner int64, input NodeInput) (*Node, error) {
+	_, err := r.coll.InsertOne(ctx, bson.M{
+		"_id": input.ID, "domainId": DomainSystem, "docType": DocumentTypeDiscussionNode,
+		"docId": input.ID, "title": input.Title, "content": input.Category,
+		"pic": input.Pic, "owner": owner,
+	})
+	if mongo.IsDuplicateKeyError(err) {
+		return nil, ErrNodeExists
+	}
+	if err != nil {
+		return nil, err
+	}
+	return r.GetNode(ctx, input.ID)
+}
+
+func (r *Repository) UpdateNode(ctx context.Context, nodeID string, input NodeInput) (*Node, error) {
+	result, err := r.coll.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeDiscussionNode,
+		"$or": []bson.M{{"docId": nodeID}, {"_id": nodeID}},
+	}, bson.M{"$set": bson.M{
+		"title": input.Title, "content": input.Category, "pic": input.Pic,
+	}})
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, ErrNodeNotFound
+	}
+	return r.GetNode(ctx, nodeID)
+}
+
+func (r *Repository) DeleteNode(ctx context.Context, nodeID string) error {
+	count, err := r.coll.CountDocuments(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeDiscussion,
+		"parentType": DocumentTypeDiscussionNode, "parentId": nodeID,
+	})
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return ErrNodeInUse
+	}
+	result, err := r.coll.DeleteOne(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeDiscussionNode,
+		"$or": []bson.M{{"docId": nodeID}, {"_id": nodeID}},
+	})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return ErrNodeNotFound
+	}
+	return nil
 }
 
 func (r *Repository) GetNode(ctx context.Context, nodeID string) (*Node, error) {

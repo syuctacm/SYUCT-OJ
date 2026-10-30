@@ -96,9 +96,12 @@
 
 该地址无需登录即可访问，便于讨论图片对匿名访客展示；上传、列表和删除接口仍然要求本人 Session。旧的 `GET /api/v1/user/files/:name` 保留为登录用户访问自己文件的兼容入口。
 
-## 尚未完成
+## 节点管理
 
-- 节点管理（创建、编辑和删除讨论节点）
+- `/admin/discussion-nodes` 仅管理员可访问，控制面板提供入口
+- 支持创建、编辑和删除全局讨论节点；节点 ID 创建后不可修改
+- 节点仍被主题引用时拒绝删除，返回 409
+- API：`GET/POST /api/v1/admin/discussion-nodes`、`PATCH/DELETE /api/v1/admin/discussion-nodes/:id`
 
 ## 历史版本
 

@@ -9,6 +9,7 @@ const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage.tsx').then((mod
 const AdminUserImportPage = lazy(() => import('./pages/AdminUserImportPage.tsx').then((module) => ({ default: module.AdminUserImportPage })))
 const AdminSettingsPage = lazy(() => import('./pages/AdminSettingsPage.tsx').then((module) => ({ default: module.AdminSettingsPage })))
 const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage.tsx').then((module) => ({ default: module.AdminAuditPage })))
+const AdminDiscussionNodesPage = lazy(() => import('./pages/AdminDiscussionNodesPage.tsx').then((module) => ({ default: module.AdminDiscussionNodesPage })))
 const ContestDetailPage = lazy(() => import('./pages/ContestDetailPage.tsx').then((module) => ({ default: module.ContestDetailPage })))
 const ContestClarificationPage = lazy(() => import('./pages/ContestClarificationPage.tsx').then((module) => ({ default: module.ContestClarificationPage })))
 const ContestBalloonPage = lazy(() => import('./pages/ContestBalloonPage.tsx').then((module) => ({ default: module.ContestBalloonPage })))
@@ -75,6 +76,7 @@ export default function App() {
         <Route path="/admin/users/import" element={<AdminUserImportPage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
         <Route path="/admin/audit" element={<AdminAuditPage />} />
+        <Route path="/admin/discussion-nodes" element={<AdminDiscussionNodesPage />} />
         <Route path="/p" element={<ProblemsPage />} />
         <Route path="/p/new" element={<ProblemEditPage mode="create" />} />
         <Route path="/problem/random" element={<RandomProblemPage />} />

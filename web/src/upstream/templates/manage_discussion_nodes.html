@@ -1,0 +1,88 @@
+{% extends "layout/basic.html" %}
+{% block content %}
+<div class="row">
+  <div class="medium-3 columns">
+    <div class="section side">
+      <ol class="menu">
+        <li class="menu__item"><a class="menu__link" href="/admin">控制面板</a></li>
+        <li class="menu__item"><a class="menu__link" href="/admin/users">用户管理</a></li>
+        <li class="menu__item"><a class="menu__link" href="/admin/users/import">批量导入用户</a></li>
+        <li class="menu__item"><a class="menu__link" href="/admin/settings">系统设置</a></li>
+        <li class="menu__item"><a class="menu__link" href="/admin/audit">操作审计</a></li>
+        <li class="menu__item"><a class="menu__link nav--active" href="/admin/discussion-nodes">讨论节点</a></li>
+      </ol>
+    </div>
+  </div>
+  <div class="medium-9 columns">
+    <div class="section">
+      <div class="section__header">
+        <h1 class="section__title">讨论节点</h1>
+      </div>
+      <div class="section__body">
+        <table class="data-table">
+          <colgroup>
+            <col class="col--id" />
+            <col class="col--title" />
+            <col class="col--category" />
+            <col class="col--pic" />
+            <col class="col--actions" />
+          </colgroup>
+          <thead><tr><th>节点 ID</th><th>标题</th><th>分类</th><th>图标</th><th>操作</th></tr></thead>
+          <tbody>
+          {% for node in nodes %}
+            <tr data-node-id="{{ node.docId }}" data-node-title="{{ node.title }}" data-node-category="{{ node.category }}" data-node-pic="{{ node.pic }}">
+              <td><b>{{ node.docId }}</b></td>
+              <td>{{ node.title }}</td>
+              <td>{{ node.category }}</td>
+              <td>{{ node.pic }}</td>
+              <td>
+                <a href="javascript:;" data-node-edit>编辑</a>
+                &nbsp;
+                <a href="javascript:;" data-node-delete>删除</a>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5">暂无讨论节点。</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section__header">
+        <h1 class="section__title" data-node-form-title>{% if editing %}编辑节点{% else %}新建节点{% endif %}</h1>
+      </div>
+      <div class="section__body">
+        <form data-node-form>
+          <div class="row">
+            <div class="medium-4 columns">
+              <label>节点 ID
+                <input class="textbox" name="docId" required pattern="[A-Za-z0-9_-]{1,32}" placeholder="例如 qa" value="{{ editing.docId if editing else '' }}"{% if editing %} readonly{% endif %} />
+              </label>
+            </div>
+            <div class="medium-4 columns">
+              <label>标题
+                <input class="textbox" name="title" required maxlength="64" placeholder="例如 问答" value="{{ editing.title if editing else '' }}" />
+              </label>
+            </div>
+            <div class="medium-4 columns">
+              <label>分类
+                <input class="textbox" name="category" required maxlength="64" placeholder="例如 探索" value="{{ editing.category if editing else '' }}" />
+              </label>
+            </div>
+          </div>
+          <div class="row"><div class="columns">
+            <label>图标名
+              <input class="textbox" name="pic" maxlength="64" placeholder="可选，例如 qa" value="{{ editing.pic if editing else '' }}" />
+            </label>
+          </div></div>
+          <div class="row"><div class="columns text-center">
+            <button class="primary rounded button" type="submit">保存</button>
+            {% if editing %}<button class="rounded button" type="button" data-node-reset>取消编辑</button>{% endif %}
+          </div></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
