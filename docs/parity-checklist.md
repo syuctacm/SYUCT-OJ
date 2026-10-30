@@ -680,6 +680,20 @@ Playwright 验证：
 - Playwright 验证 About/Help 内容、页脚链接和侧栏翻译
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.35 账号自助注销（2026-10-31）
+
+- `/user/delete` 支持密码确认、7 天宽限期和取消注销
+- 到期后台任务匿名化账号并清理 Session、Passkey、消息、token 和 domain.user 关系
+- 历史题目/比赛/提交内容保留，作者显示匿名
+- 账号设置页增加注销入口
+
+验证：
+
+- Go 集成测试覆盖密码校验、请求/取消、到期清理、登录拒绝和内容保留
+- Playwright 验证注销确认、待删除状态和取消流程
+- `TEST_MONGO_URI=... go test ./... -count=1`、`go vet ./...`、`go build ./...`
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

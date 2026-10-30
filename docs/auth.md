@@ -89,3 +89,11 @@ Go 实现位于 `internal/user/password.go`。
 
 - 尚未实现 OAuth。
 - 注册 token 仍直接由接口返回；邮箱修改已支持可选 SMTP 发送确认链接，相关配置见 `.env.example`。
+
+## 账号注销
+
+- `/user/delete` 提供注销确认表单和待删除状态
+- 输入当前密码后进入 7 天宽限期，期间可以取消
+- API：`GET/POST /api/v1/user/delete`、`POST /api/v1/user/delete/cancel`
+- 到期后后台任务将账号匿名化，撤销 Session，清理 Passkey、消息、token 和用户域关系
+- 题目、比赛、提交等公共业务内容保留，作者显示匿名

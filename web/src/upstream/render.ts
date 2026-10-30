@@ -15,6 +15,7 @@ import footerTemplate from './templates/partials/footer.html?raw'
 import { size } from './format.ts'
 import manageAuditTemplate from './templates/manage_audit.html?raw'
 import wikiHelpSingleSiteTemplate from './templates/wiki_help_single_site.html?raw'
+import userDeleteConfirmTemplate from './templates/user_delete_confirm.html?raw'
 import { renderMarkdown } from './markdown.ts'
 import { contentLanguages, selectLocalizedContent } from './problem-content.ts'
 import { datetimeSpan } from './datetime.ts'
@@ -57,6 +58,7 @@ sources.set('partials/header_mobile.html', headerMobileTemplate)
 sources.set('partials/footer.html', footerTemplate)
 sources.set('manage_audit.html', manageAuditTemplate)
 sources.set('wiki_help.html', wikiHelpSingleSiteTemplate)
+sources.set('user_delete_confirm.html', userDeleteConfirmTemplate)
 
 // The app already owns the shared <nav>/<footer> shell. Page templates continue
 // to extend the upstream layout so their block structure stays untouched, but

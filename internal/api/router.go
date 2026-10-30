@@ -94,6 +94,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 			Password: cfg.MailPassword, From: cfg.MailFrom,
 		})
 		handler.NewUserHandler(userRepo, sessions, problemRepo).RegisterRoutes(router.Group("/"))
+		handler.NewUserDeleteHandler(userRepo, sessions).RegisterRoutes(router.Group("/"))
 		handler.NewLostPassHandler(userRepo, sessions, mailer).RegisterRoutes(router.Group("/"))
 		handler.NewMessageHandler(messageRepo, sessions, userRepo, messageHub).RegisterRoutes(router.Group("/"))
 		handler.NewUserFileHandler(userRepo, activityStore, sessions).RegisterRoutes(router.Group("/"))
