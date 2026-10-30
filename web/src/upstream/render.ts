@@ -14,6 +14,7 @@ import headerMobileTemplate from './templates/partials/header_mobile.html?raw'
 import footerTemplate from './templates/partials/footer.html?raw'
 import { size } from './format.ts'
 import { renderMarkdown } from './markdown.ts'
+import { contentLanguages, selectLocalizedContent } from './problem-content.ts'
 import { datetimeSpan } from './datetime.ts'
 import { difficulty } from './difficulty.ts'
 import {
@@ -144,8 +145,11 @@ env.addFilter('nl2br', (value: string) => String(value).replace(/\n/g, '<br>'))
 env.addFilter('json', (value: unknown) => JSON.stringify(value))
 env.addFilter('parseYaml', (value: string) => yaml.load(String(value)))
 env.addFilter('toString', (value: unknown) => String(value ?? ''))
-env.addFilter('contentLang', () => ['zh'])
-env.addFilter('content', (value: unknown) => value)
+env.addFilter('contentLang', (value: unknown) => contentLanguages(value))
+env.addFilter('content', (value: unknown, language = '', html = false) => {
+  const selected = selectLocalizedContent(value, String(language))
+  return html ? selected : renderMarkdown(selected)
+})
 env.addFilter('bitand', (left: unknown, right: unknown) => Number(left) & Number(right))
 env.addFilter('base64_encode', (value: unknown) => {
   const bytes = new TextEncoder().encode(String(value ?? ''))

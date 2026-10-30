@@ -436,6 +436,23 @@ Playwright 验证：
 - `go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.19 多语言题面（2026-10-30）
+
+- `contentLang` / `content` 模板过滤器按 Hydro 的 JSON 语言对象规则解析
+- 多语言题目显示上游语言 Tab；单语言 Markdown 和 FPS HTML 不显示空 Tab
+- `?lang=` 决定当前题面，刷新和浏览器历史均保留
+- 语言切换通过 React Router 更新查询参数，保留比赛/作业 `tid` 和其他参数
+- 语言名称使用 Hydro 常见 locale 名称，未知语言代码回退显示原代码匹配
+
+Playwright 验证：
+
+- 中文/英文/日文三语言题目显示三个上游 Tab
+- 默认显示中文，点击 English 后 URL 为 `?tid=...&lang=en`，题面切换为英文
+- 刷新后英文 Tab 和英文内容保持
+- 单语言 Markdown 题目无语言 Tab，正文正常
+- 控制台 0 error
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text
