@@ -771,6 +771,18 @@ Playwright 验证：
 - Playwright：同一题目只保留一个富媒体结果，没有标签列表递归膨胀
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.41 用户主页题目标签（2026-10-31）
+
+- `GET /api/v1/users/:uid` 聚合已通过、未隐藏题目的标签数量
+- 同一道题重复 AC 只统计一次；最多返回 20 个标签
+- 用户主页恢复原模板「Problem Tags」侧栏
+
+验证：
+
+- Go 集成测试覆盖标签计数、重复 AC 去重、隐藏题和未 AC 题过滤、空结果
+- Playwright 验证 `/user/2` 显示「基础」「枚举」标签侧栏
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

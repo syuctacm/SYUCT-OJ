@@ -72,7 +72,7 @@ export function UserProfilePage() {
       sdoc: profile.lastSeenAt ? { updateAt: new Date(profile.lastSeenAt) } : null,
       pdocs,
       tdocs,
-      tags: [],
+      tags: (profile.tags ?? []).map((item) => [item.tag, item.count]),
       isSelfProfile: Boolean(viewer && viewer.id === profile.id),
       handler: {
         user: {
