@@ -14,6 +14,7 @@ import headerMobileTemplate from './templates/partials/header_mobile.html?raw'
 import footerTemplate from './templates/partials/footer.html?raw'
 import { size } from './format.ts'
 import manageAuditTemplate from './templates/manage_audit.html?raw'
+import wikiHelpSingleSiteTemplate from './templates/wiki_help_single_site.html?raw'
 import { renderMarkdown } from './markdown.ts'
 import { contentLanguages, selectLocalizedContent } from './problem-content.ts'
 import { datetimeSpan } from './datetime.ts'
@@ -55,6 +56,7 @@ sources.set('partials/nav.html', navTemplate)
 sources.set('partials/header_mobile.html', headerMobileTemplate)
 sources.set('partials/footer.html', footerTemplate)
 sources.set('manage_audit.html', manageAuditTemplate)
+sources.set('wiki_help.html', wikiHelpSingleSiteTemplate)
 
 // The app already owns the shared <nav>/<footer> shell. Page templates continue
 // to extend the upstream layout so their block structure stays untouched, but
@@ -118,6 +120,7 @@ sources.set('problem_import_fps.html', `{% extends "layout/basic.html" %}
 const LOCAL_TRANSLATIONS: TranslationMap = {
   setting_basic: '基本设置',
   manage_audit: '操作审计',
+  wiki_about: '关于',
   'No audit records': '暂无审计记录',
   Bulletin: '站点公告',
   // fps-importer addon locale strings.
@@ -217,6 +220,8 @@ function defaultUrl(name: string, args: Record<string, unknown> = {}) {
   const routes: Record<string, string> = {
     contest_create: '/contest/new',
     status: '/status',
+    wiki_about: '/about',
+    wiki_help: '/wiki/help',
     homework_create: '/homework/new',
     training_create: '/training/new',
     contest_edit: `/contest/${encodeURIComponent(id)}/edit`,
@@ -230,7 +235,6 @@ function defaultUrl(name: string, args: Record<string, unknown> = {}) {
     problem_detail: `/p/${encodeURIComponent(String(args.pid ?? ''))}`,
     record_detail: `/record/${encodeURIComponent(String(args.rid ?? ''))}`,
     user_detail: `/user/${encodeURIComponent(String(args.uid ?? ''))}`,
-    wiki_help: '/discuss',
   }
   return routes[name] ?? '/'
 }

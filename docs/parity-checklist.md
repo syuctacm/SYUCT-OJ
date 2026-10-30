@@ -668,6 +668,18 @@ Playwright 验证：
 - Playwright 验证 `/status` 页面、服务状态行和页脚入口
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.34 关于与帮助页面（2026-10-31）
+
+- 恢复 `/about` 和 `/wiki/help`，复用 Hydro wiki 布局和样式
+- 页脚关于、帮助、联系我们链接改为正确路由
+- 帮助内容改为单站点版本，移除多域说明
+- About 页面包含站点介绍、联系方式和后台说明
+
+验证：
+
+- Playwright 验证 About/Help 内容、页脚链接和侧栏翻译
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text
