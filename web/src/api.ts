@@ -18,6 +18,12 @@ export type User = {
   gender?: number
   school?: string
   backgroundImage?: string
+  viewLang?: string
+  fontFamily?: string
+  codeFontFamily?: string
+  codeLang?: string
+  codeTemplate?: string
+  skipAnimate?: boolean
   tfa?: boolean
 }
 
@@ -74,6 +80,12 @@ export type UserSettingsInput = {
   school?: string
   studentId?: string
   backgroundImage?: string
+  viewLang?: string
+  fontFamily?: string
+  codeFontFamily?: string
+  codeLang?: string
+  codeTemplate?: string
+  skipAnimate?: boolean
 }
 
 export async function updateUserSettings(input: UserSettingsInput): Promise<void> {

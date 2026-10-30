@@ -136,6 +136,12 @@ func PublicUser(u *user.User) gin.H {
 		"gender":          u.Gender,
 		"school":          u.School,
 		"backgroundImage": u.BackgroundImage,
+		"viewLang":        u.ViewLang,
+		"fontFamily":      u.FontFamily,
+		"codeFontFamily":  u.CodeFontFamily,
+		"codeLang":        u.CodeLang,
+		"codeTemplate":    u.CodeTemplate,
+		"skipAnimate":     u.SkipAnimate,
 		"tfa":             u.TFA != "",
 	}
 }

@@ -46,6 +46,10 @@ export function SubmitPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
+  const preferredLanguage = user?.codeLang && languages.some((language) => language._id === user.codeLang)
+    ? user.codeLang
+    : languages[0]?._id ?? 'cpp'
+  const preferredTemplate = user?.codeTemplate ?? ''
 
   useEffect(() => {
     getProblem(pid).then(setProblem).catch(() => setProblem(null))
@@ -89,7 +93,7 @@ export function SubmitPage() {
         option.textContent = language.name
         select.appendChild(option)
       }
-      select.value = languages[0]?._id ?? 'cpp'
+      select.value = preferredLanguage
       languageSelect = select
       container.appendChild(select)
       label.appendChild(container)
@@ -101,9 +105,13 @@ export function SubmitPage() {
     const fileInput = root.querySelector<HTMLInputElement>('input[name="file"]')
     let disposed = false
     let editorController: { dispose: () => void; setValue: (value: string) => void; setLanguage: (language: string) => void; focus: () => void } | null = null
-    let currentLanguage = monacoLanguage(languageSelect?.value ?? languages[0]?._id ?? 'cpp')
+    let currentLanguage = monacoLanguage(languageSelect?.value ?? preferredLanguage)
 
     if (codeTextarea) {
+      if (!codeTextarea.value && preferredTemplate) {
+        codeTextarea.value = preferredTemplate
+        codeTextarea.dispatchEvent(new Event('change', { bubbles: true }))
+      }
       void import('../upstream/monaco/textarea.ts')
         .then(({ mountMonacoTextarea }) => {
           if (disposed) return
@@ -155,7 +163,7 @@ export function SubmitPage() {
       fileInput?.removeEventListener('change', onFileChange)
       selector?.replaceChildren()
     }
-  }, [languages])
+  }, [languages, preferredLanguage, preferredTemplate])
 
   const context = useMemo(() => {
     if (!problem) return null
@@ -169,7 +177,7 @@ export function SubmitPage() {
         user: {
           _id: user?.id ?? 0,
           viewLang: 'zh',
-          codeLang: 'cpp',
+          codeLang: preferredLanguage,
           _dudoc: { join: true },
           hasPerm: (permission: number) => permission === 8 || (Boolean(user) && [1, 2, 3, 4].includes(permission)),
           hasPriv: () => Boolean(user),
@@ -197,7 +205,7 @@ export function SubmitPage() {
       htdocs: [],
       discussionCount: 0,
       solutionCount: 0,
-      UiContext: { cdn_prefix: '/' },
+      UiContext: { cdn_prefix: '/', codeLang: preferredLanguage, codeTemplate: preferredTemplate },
       avatarUrl,
       model: {
         builtin: { LEVELS: {} },
@@ -208,7 +216,7 @@ export function SubmitPage() {
       utils: { getAlphabeticId: () => '' },
       UserContext: user,
     }
-  }, [languages, problem, user])
+  }, [languages, preferredLanguage, problem, user])
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()

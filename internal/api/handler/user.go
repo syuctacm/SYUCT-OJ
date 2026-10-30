@@ -195,7 +195,24 @@ var (
 	avatarQQPattern     = regexp.MustCompile(`^[1-9][0-9]{4,}$`)
 	avatarEmailPattern  = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
 	backgroundPattern   = regexp.MustCompile(`^[^\s"'();]+$`)
+	languageKeyPattern  = regexp.MustCompile(`^[a-zA-Z0-9_+.#-]+$`)
 )
+
+var allowedViewLanguages = map[string]bool{
+	"zh": true, "zh_CN": true, "zh_TW": true, "en": true,
+}
+
+var allowedFontFamilies = map[string]bool{
+	"Open Sans": true, "Seravek": true, "Segoe UI": true, "Verdana": true,
+	"PingFang SC": true, "Hiragino Sans GB": true, "Microsoft Yahei": true,
+	"WenQuanYi Micro Hei": true, "sans": true, "XiaoLai SC": true,
+}
+
+var allowedCodeFontFamilies = map[string]bool{
+	"monaco": true, "Source Code Pro": true, "Consolas": true, "Lucida Console": true,
+	"Fira Code": true, "Roboto Mono": true, "Inconsolata": true, "Hack": true,
+	"Jetbrains Mono": true, "DM Mono": true, "Ubuntu Mono": true, "PT Mono": true, "SF Mono": true,
+}
 
 // validAvatar mirrors the upstream avatar.validate() provider checks.
 func validAvatar(value string) bool {
@@ -240,6 +257,12 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		School          *string `json:"school"`
 		StudentID       *string `json:"studentId"`
 		BackgroundImage *string `json:"backgroundImage"`
+		ViewLang        *string `json:"viewLang"`
+		FontFamily      *string `json:"fontFamily"`
+		CodeFontFamily  *string `json:"codeFontFamily"`
+		CodeLang        *string `json:"codeLang"`
+		CodeTemplate    *string `json:"codeTemplate"`
+		SkipAnimate     *bool   `json:"skipAnimate"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
@@ -300,6 +323,48 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		}
 		set["backgroundImage"] = value
 	}
+	if input.ViewLang != nil {
+		value := strings.TrimSpace(*input.ViewLang)
+		if value != "" && !allowedViewLanguages[value] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid view language"})
+			return
+		}
+		set["viewLang"] = value
+	}
+	if input.FontFamily != nil {
+		value := strings.TrimSpace(*input.FontFamily)
+		if value != "" && !allowedFontFamilies[value] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid font family"})
+			return
+		}
+		set["fontFamily"] = value
+	}
+	if input.CodeFontFamily != nil {
+		value := strings.TrimSpace(*input.CodeFontFamily)
+		if value != "" && !allowedCodeFontFamilies[value] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid code font family"})
+			return
+		}
+		set["codeFontFamily"] = value
+	}
+	if input.CodeLang != nil {
+		value := strings.TrimSpace(*input.CodeLang)
+		if len(value) > 64 || (value != "" && !languageKeyPattern.MatchString(value)) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid default code language"})
+			return
+		}
+		set["codeLang"] = value
+	}
+	if input.CodeTemplate != nil {
+		if len(*input.CodeTemplate) > 64*1024 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "code template is too long"})
+			return
+		}
+		set["codeTemplate"] = *input.CodeTemplate
+	}
+	if input.SkipAnimate != nil {
+		set["skipAnimate"] = *input.SkipAnimate
+	}
 	if err := h.users.UpdateSettings(c.Request.Context(), uid, set); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update settings"})
 		return
@@ -314,6 +379,9 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		"avatar": updated.Avatar, "bio": updated.Bio, "qq": updated.QQ,
 		"gender": updated.Gender, "school": updated.School,
 		"studentId": updated.StudentID, "backgroundImage": updated.BackgroundImage,
+		"viewLang": updated.ViewLang, "fontFamily": updated.FontFamily,
+		"codeFontFamily": updated.CodeFontFamily, "codeLang": updated.CodeLang,
+		"codeTemplate": updated.CodeTemplate, "skipAnimate": updated.SkipAnimate,
 	}})
 }
 

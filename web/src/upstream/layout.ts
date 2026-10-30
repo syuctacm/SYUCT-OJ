@@ -26,7 +26,7 @@ function userHandler(user: User | null) {
     _id: user?.id ?? 0,
     uname,
     displayName: user?.displayName ?? '',
-    viewLang: 'zh',
+    viewLang: user?.viewLang || 'zh',
     hasPriv: (privilege: number) => {
       if (privilege === LAYOUT_PRIV.PRIV_USER_PROFILE) return Boolean(user)
       if (privilege === LAYOUT_PRIV.PRIV_REGISTER_USER) return !user
@@ -49,7 +49,7 @@ export function layoutChromeContext(user: User | null, pageName: string) {
       domain: { name: 'SYUCT ACM', avatar: '', ui: {} },
       args: { domainId: 'system' },
       request: { query: {}, headers: { 'user-agent': navigator.userAgent } },
-      session: { legacy: false, viewLang: 'zh' },
+      session: { legacy: false, viewLang: user?.viewLang || 'zh' },
     },
     model: {
       system: { get: (key: string) => key === 'server.login' },

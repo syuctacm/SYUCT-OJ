@@ -40,6 +40,12 @@ type User struct {
 	Gender          *int64          `bson:"gender,omitempty" json:"gender,omitempty"`
 	School          string          `bson:"school,omitempty" json:"school,omitempty"`
 	BackgroundImage string          `bson:"backgroundImage,omitempty" json:"backgroundImage,omitempty"`
+	ViewLang        string          `bson:"viewLang,omitempty" json:"viewLang,omitempty"`
+	FontFamily      string          `bson:"fontFamily,omitempty" json:"fontFamily,omitempty"`
+	CodeFontFamily  string          `bson:"codeFontFamily,omitempty" json:"codeFontFamily,omitempty"`
+	CodeLang        string          `bson:"codeLang,omitempty" json:"codeLang,omitempty"`
+	CodeTemplate    string          `bson:"codeTemplate,omitempty" json:"codeTemplate,omitempty"`
+	SkipAnimate     bool            `bson:"skipAnimate,omitempty" json:"skipAnimate,omitempty"`
 	TFA             string          `bson:"tfa,omitempty" json:"-"`
 	CheckinTime     string          `bson:"checkin_time,omitempty" json:"-"`
 	CheckinLuck     int64           `bson:"checkin_luck,omitempty" json:"-"`
