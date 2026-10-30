@@ -89,9 +89,10 @@ export function buildLayoutUrl(name: string, args: Record<string, unknown> = {})
     case 'manage_user_priv': return '/admin/users'
     case 'manage_user_import': return '/admin/users/import'
     case 'manage_setting': return '/admin/settings'
-    case 'wiki_help':
     case 'wiki_about':
-      return '/discuss'
+      return `/about${args.anchor ? `#${encodeURIComponent(String(args.anchor))}` : ''}`
+    case 'wiki_help':
+      return '/wiki/help'
     default:
       return '/'
   }

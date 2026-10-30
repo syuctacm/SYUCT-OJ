@@ -1,0 +1,38 @@
+{% extends "layout/wiki_base.html" %}
+{% block wiki_content %}
+{% set name = handler.domain.ui.name|default(model.system.get('server.name')) %}
+<div class="section" data-heading-extract-to="#menu-item-wiki_help">
+  <div class="section__header"><h1 class="section__title" id="submit" data-heading>提交与评测</h1></div>
+  <div class="section__body typo">
+    <p>在题库或比赛题目页选择语言并提交代码。系统会通过 HydroJudge 使用标准输入输出进行评测。</p>
+    <p>比赛和作业可能限制可用语言、提交时间和访问权限，请以页面提示为准。</p>
+  </div>
+</div>
+<div class="section" data-heading-extract-to="#menu-item-wiki_help">
+  <div class="section__header"><h1 class="section__title" id="status" data-heading>评测状态</h1></div>
+  <div class="section__body typo">
+    <ul>
+      <li><strong>Accepted</strong>：通过</li>
+      <li><strong>Wrong Answer</strong>：输出与标准答案不一致</li>
+      <li><strong>Time Limit Exceeded</strong>：运行时间超限</li>
+      <li><strong>Memory Limit Exceeded</strong>：内存超限</li>
+      <li><strong>Runtime Error</strong>：运行错误</li>
+      <li><strong>Compile Error</strong>：编译失败</li>
+      <li><strong>System Error</strong>：评测系统错误，请在讨论区反馈</li>
+    </ul>
+  </div>
+</div>
+<div class="section" data-heading-extract-to="#menu-item-wiki_help">
+  <div class="section__header"><h1 class="section__title" id="usage" data-heading>账号与使用</h1></div>
+  <div class="section__body typo">
+    <p>可以在账户设置中修改资料和密码，在安全设置中管理 TOTP、Passkey 和登录会话。</p>
+    <p>忘记密码可以通过登录页的找回密码入口重置。若仍有问题，请到讨论区反馈。</p>
+  </div>
+</div>
+<div class="section" data-heading-extract-to="#menu-item-wiki_help">
+  <div class="section__header"><h1 class="section__title" id="contact" data-heading>联系我们</h1></div>
+  <div class="section__body typo">
+    <p>请通过 <a href="/discuss">讨论区</a> 联系 {{ name }} 管理员。</p>
+  </div>
+</div>
+{% endblock %}
