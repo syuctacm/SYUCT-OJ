@@ -66,6 +66,7 @@ func (h *ProblemHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/api/v1/problems/:pid/assets", h.uploadAssets)
 	router.DELETE("/api/v1/problems/:pid/assets", h.deleteAssets)
 	router.POST("/api/v1/problems/:pid/assets/rename", h.renameAssets)
+	router.POST("/api/v1/problems/:pid/assets/archive", h.archiveAssets)
 	router.GET("/api/v1/problems/:pid/assets/download", h.downloadAsset)
 	router.GET("/api/v1/problems/:pid/assets/download-all", h.downloadAllAssets)
 	router.GET("/api/v1/problems/:pid", h.get)
@@ -635,6 +636,84 @@ func (h *ProblemHandler) deleteAssets(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": assetList(c.Param("pid"), updated)})
+}
+
+func (h *ProblemHandler) archiveAssets(c *gin.Context) {
+	pdoc, ok := h.requireEditor(c)
+	if !ok {
+		return
+	}
+	if h.store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "problem file storage is unavailable"})
+		return
+	}
+	var request struct {
+		Type  string   `json:"type"`
+		Names []string `json:"names"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || !validProblemFileKind(request.Type) || len(request.Names) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type and names are required"})
+		return
+	}
+	if len(request.Names) > maxProblemFiles {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", maxProblemFiles)})
+		return
+	}
+	existing := assetsForKind(pdoc, request.Type)
+	byName := make(map[string]problem.ProblemFile, len(existing))
+	for _, file := range existing {
+		byName[file.Name] = file
+	}
+	names := make([]string, 0, len(request.Names))
+	seen := map[string]bool{}
+	for _, raw := range request.Names {
+		name, err := sanitizeAssetName(raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if seen[name] {
+			continue
+		}
+		file, found := byName[name]
+		if !found {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("file not found: %s", name)})
+			return
+		}
+		reader, err := h.openAsset(request.Type, pdoc.DocID, file.Name)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("file not found: %s", name)})
+			return
+		}
+		_ = reader.Close()
+		seen[name] = true
+		names = append(names, name)
+	}
+	filename := fmt.Sprintf("%d %s %s.zip", pdoc.DocID, pdoc.Title, request.Type)
+	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	c.Header("Content-Type", "application/zip")
+	writer := zip.NewWriter(c.Writer)
+	defer writer.Close()
+	for _, name := range names {
+		reader, err := h.openAsset(request.Type, pdoc.DocID, name)
+		if err != nil {
+			return
+		}
+		header := &zip.FileHeader{Name: name, Method: zip.Deflate}
+		if file, ok := byName[name]; ok && !file.LastModified.IsZero() {
+			header.SetModTime(file.LastModified)
+		}
+		entry, err := writer.CreateHeader(header)
+		if err != nil {
+			_ = reader.Close()
+			return
+		}
+		_, copyErr := io.Copy(entry, reader)
+		_ = reader.Close()
+		if copyErr != nil {
+			return
+		}
+	}
 }
 
 func (h *ProblemHandler) renameAssets(c *gin.Context) {
