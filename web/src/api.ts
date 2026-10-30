@@ -1391,6 +1391,7 @@ export type PublicUser = {
   level?: number
   rank?: number
   acceptedProblems?: Array<{ docId: number; pid: string; title: string }>
+  tdocs?: Array<{ docId: string; title: string; rule: string }>
   qq?: string
   wechat?: string
   gender?: number
