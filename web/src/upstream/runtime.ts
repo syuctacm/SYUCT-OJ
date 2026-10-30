@@ -4,16 +4,20 @@ import { installHydroMultiSelectCheckboxes } from './checkboxes.ts'
 import { initHydroCollapsibleContent } from './collapsible.ts'
 import { animateSections, notifyHydroPageReady } from './motion.ts'
 import { installHydroForms } from './forms.ts'
+import { initHydroHighlighter } from './highlighter.ts'
 import { installHydroHotkeys } from './hotkeys.ts'
+import { initHydroMarkers } from './marker.ts'
 import { initHydroMenus } from './menu.ts'
 import { installHydroFilePreview } from './preview.tsx'
 import { cleanupHydroOverlays, installHydroOverlays } from './overlays.ts'
+import { initHydroProblemList } from './problem-list.ts'
 import { installHydroOmnisearch } from './omnisearch.tsx'
 import { installHydroSmoothScroll } from './smoothscroll.ts'
 import { cleanupHydroSticky, initHydroSticky, installHydroSticky, relayoutHydroSticky } from './sticky.ts'
 import { initHydroTabs, installHydroTabListener } from './tabs.ts'
 import { cleanupHydroTables, initHydroTables } from './table.ts'
 import { installHydroTextboxFocus } from './textbox.ts'
+import { initHydroRelativeTime, installHydroRelativeTimeRefresh } from './time.ts'
 
 function isHydroPageLoading(main: HTMLElement) {
   const placeholder = main.querySelector('.nothing-placeholder')
@@ -36,6 +40,7 @@ export function installHydroRuntime(main: HTMLElement) {
     void installHydroSticky()
     installHydroTabListener()
     installHydroTextboxFocus()
+    installHydroRelativeTimeRefresh()
   }
 
   let frame = 0
@@ -50,6 +55,10 @@ export function installHydroRuntime(main: HTMLElement) {
     running = true
     try {
       if (isHydroPageLoading(main)) return
+      initHydroProblemList(main)
+      await initHydroHighlighter(main)
+      initHydroRelativeTime(main)
+      initHydroMarkers(main)
       initHydroCollapsibleContent(main)
       initHydroTabs(main)
       initHydroMenus(main)
