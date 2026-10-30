@@ -316,6 +316,19 @@ export async function deleteProblemAssets(pid: string, type: 'testdata' | 'addit
   return result.data
 }
 
+export async function renameProblemAssets(
+  pid: string,
+  type: 'testdata' | 'additional',
+  names: string[],
+  newNames: string[],
+): Promise<ProblemAssetList> {
+  const result = await request<Envelope<ProblemAssetList>>(`/api/v1/problems/${encodeURIComponent(pid)}/assets/rename`, {
+    method: 'POST',
+    body: JSON.stringify({ type, names, newNames }),
+  })
+  return result.data
+}
+
 export type ProblemDetail = ProblemSummary & {
   content: string
   html?: boolean

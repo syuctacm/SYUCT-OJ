@@ -63,6 +63,51 @@ export function promptDialog(message: string, initialValue = ''): Promise<string
   ))
 }
 
+type CreateFileResult = { name: string; content: string }
+
+function CreateFileContent({ onResolve }: { onResolve: (value: CreateFileResult | null) => void }) {
+  const [name, setName] = useState('file.txt')
+  const [content, setContent] = useState('')
+  return (
+    <Dialog
+      okLabel="创建"
+      cancelLabel="取消"
+      width="min(900px, calc(100vw - 80px))"
+      onOk={() => {
+        onResolve({ name: name.trim() || 'file.txt', content })
+      }}
+      onCancel={() => onResolve(null)}
+    >
+      <h1>创建文件</h1>
+      <label>
+        文件名
+        <input
+          className="textbox"
+          value={name}
+          onChange={(event) => setName(event.currentTarget.value)}
+          data-autofocus
+        />
+      </label>
+      <label>
+        内容
+        <textarea
+          className="textbox"
+          value={content}
+          onChange={(event) => setContent(event.currentTarget.value)}
+          spellCheck={false}
+          style={{ width: '100%', minHeight: '45vh', fontFamily: 'var(--code-font-family)', whiteSpace: 'pre' }}
+        />
+      </label>
+    </Dialog>
+  )
+}
+
+export function createFileDialog(): Promise<CreateFileResult | null> {
+  return openDialog<CreateFileResult | null>((resolve) => (
+    <CreateFileContent onResolve={resolve} />
+  ))
+}
+
 export function alertDialog(message: string): Promise<void> {
   return openDialog<void>((resolve) => (
     <Dialog onOk={() => resolve()} onCancel={() => resolve()} okLabel="确定" cancelLabel="">

@@ -5,12 +5,13 @@ import { useParams } from 'react-router-dom'
 import {
   deleteProblemAssets,
   getProblemAssets,
+  renameProblemAssets,
   uploadProblemAssets,
   type ProblemAssetList,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
-import { confirmDialog } from '../components/dialogs.tsx'
+import { confirmDialog, createFileDialog, promptDialog } from '../components/dialogs.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 
 type AssetKind = 'testdata' | 'additional_file'
@@ -50,12 +51,68 @@ export function ProblemFilesPage() {
       cleanups.push(() => element.removeEventListener(type, listener as EventListener))
     }
 
-    // Unsupported by the Go API: create, rename, batch download and testdata generation.
+    // Testdata generation and selected-file batch tools still need dedicated APIs.
     root.querySelector('.generate')?.closest('.section')?.remove()
-    root.querySelectorAll('[name="create_testdata"], [name="create_file"], [name="rename_selected"], [name="download_selected"]')
+    root.querySelectorAll('[name="rename_selected"], [name="download_selected"]')
       .forEach((element) => element.remove())
-    root.querySelectorAll('th.col--operation, td.col--operation').forEach((element) => element.remove())
-    root.querySelectorAll('[name="file_rename"], [name="file_remove"]').forEach((element) => element.remove())
+
+    const assetType = (kind: AssetKind) => kind === 'testdata' ? 'testdata' : 'additional'
+
+    root.querySelectorAll<HTMLButtonElement>('[name="create_testdata"], [name="create_file"]').forEach((button) => {
+      listen(button, 'click', async () => {
+        const kind = (button.closest('[data-type]')?.getAttribute('data-type') as AssetKind | null) ?? 'testdata'
+        const value = await createFileDialog()
+        if (!value) return
+        setBusy(`create-${kind}`)
+        setError('')
+        try {
+          const file = new File([value.content], value.name, { type: 'text/plain' })
+          setData(await uploadProblemAssets(pid, assetType(kind), [file]))
+        } catch (err) {
+          setError(err instanceof Error ? err.message : '文件创建失败')
+        } finally {
+          setBusy('')
+        }
+      })
+    })
+
+    root.querySelectorAll<HTMLElement>('[name="file_rename"]').forEach((button) => {
+      listen(button, 'click', async () => {
+        const row = button.closest<HTMLElement>('tr[data-filename]')
+        const kind = (row?.closest('[data-type]')?.getAttribute('data-type') as AssetKind | null) ?? 'testdata'
+        const oldName = row?.getAttribute('data-filename') ?? ''
+        if (!oldName) return
+        const newName = await promptDialog('输入新文件名', oldName)
+        if (!newName || newName === oldName) return
+        setBusy(`rename-${kind}`)
+        setError('')
+        try {
+          setData(await renameProblemAssets(pid, assetType(kind), [oldName], [newName]))
+        } catch (err) {
+          setError(err instanceof Error ? err.message : '文件重命名失败')
+        } finally {
+          setBusy('')
+        }
+      })
+    })
+
+    root.querySelectorAll<HTMLElement>('[name="file_remove"]').forEach((button) => {
+      listen(button, 'click', async () => {
+        const row = button.closest<HTMLElement>('tr[data-filename]')
+        const kind = (row?.closest('[data-type]')?.getAttribute('data-type') as AssetKind | null) ?? 'testdata'
+        const name = row?.getAttribute('data-filename') ?? ''
+        if (!name || !(await confirmDialog(`确认删除文件 ${name}？`))) return
+        setBusy(`delete-${kind}`)
+        setError('')
+        try {
+          setData(await deleteProblemAssets(pid, assetType(kind), [name]))
+        } catch (err) {
+          setError(err instanceof Error ? err.message : '文件删除失败')
+        } finally {
+          setBusy('')
+        }
+      })
+    })
 
     root.querySelectorAll<HTMLButtonElement>('[name="upload_file"]').forEach((button) => {
       listen(button, 'click', () => {
@@ -68,7 +125,7 @@ export function ProblemFilesPage() {
           setBusy(`upload-${kind}`)
           setError('')
           try {
-            const result = await uploadProblemAssets(pid, kind === 'testdata' ? 'testdata' : 'additional', Array.from(picker.files))
+            const result = await uploadProblemAssets(pid, assetType(kind), Array.from(picker.files))
             setData(result)
           } catch (err) {
             setError(err instanceof Error ? err.message : '文件上传失败')
@@ -90,7 +147,7 @@ export function ProblemFilesPage() {
         setBusy(`delete-${kind}`)
         setError('')
         try {
-          const result = await deleteProblemAssets(pid, kind === 'testdata' ? 'testdata' : 'additional', names)
+          const result = await deleteProblemAssets(pid, assetType(kind), names)
           setData(result)
         } catch (err) {
           setError(err instanceof Error ? err.message : '文件删除失败')
