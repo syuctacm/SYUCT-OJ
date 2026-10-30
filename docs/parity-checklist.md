@@ -694,6 +694,21 @@ Playwright 验证：
 - `TEST_MONGO_URI=... go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.36 登录弹窗与返回路径（2026-10-31）
+
+- 桌面端恢复 Hydro 原版 `partials/login_dialog.html` 登录弹窗和 `signInDialog.page.js` 行为
+- 匿名页面里的 `javascript:showSignInDialog()` 入口和导航栏「登录」均可打开弹窗，不再出现 `ReferenceError`
+- 移动端保持跳转 `/login?redirect=<当前页面>`
+- 弹窗支持错误提示和 TOTP 二次验证码；登录成功后当前页面直接刷新为登录态
+- `/login?redirect=` 和普通登录页登录后都会回到安全的站内目标地址，拒绝 `//host` 等外跳
+
+验证：
+
+- Playwright：题目页「登录后递交」打开弹窗、错误密码提示、正确登录后页面保持 `/p/P201` 并切换为登录态
+- Playwright：导航栏登录打开弹窗；移动端跳转 `/login?redirect=%2Fp%2FP201`，登录后返回题目页
+- Playwright：TOTP 用户首次提交后出现验证码输入框，输入正确验证码后登录成功
+- `pnpm --dir web lint`、`pnpm --dir web build`
+
 ## 7. 当前已知差异
 
 ```text

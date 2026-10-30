@@ -90,6 +90,13 @@ Go 实现位于 `internal/user/password.go`。
 - 尚未实现 OAuth。
 - 注册 token 仍直接由接口返回；邮箱修改已支持可选 SMTP 发送确认链接，相关配置见 `.env.example`。
 
+## 登录交互
+
+- 桌面端点击导航栏「登录」或模板中的 `showSignInDialog()` 会打开 Hydro 原版登录弹窗
+- 移动端跳转 `/login`，并携带 `redirect` 返回当前页面
+- 登录成功后只接受站内绝对路径作为返回地址；`//host` 和 `/login` 本身会被拒绝
+- 弹窗和登录页都支持 TOTP 二次验证码
+
 ## 账号注销
 
 - `/user/delete` 提供注销确认表单和待删除状态

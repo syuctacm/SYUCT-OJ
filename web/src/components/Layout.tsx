@@ -11,6 +11,7 @@ import { installHydroRuntime } from '../upstream/runtime.ts'
 import { HydroTemplate } from './HydroTemplate.tsx'
 import { NotificationsHost } from './Notification.tsx'
 import { PageLoader } from './PageLoader.tsx'
+import { SignInDialog } from './SignInDialog.tsx'
 
 export function Layout() {
   const { user, logout } = useAuth()
@@ -154,6 +155,7 @@ export function Layout() {
         />
       </div>
       <NotificationsHost />
+      {!user ? <SignInDialog /> : null}
     </>
   )
 }
