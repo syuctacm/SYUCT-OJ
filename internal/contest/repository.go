@@ -554,6 +554,16 @@ func (r *Repository) List(ctx context.Context) ([]Contest, error) {
 }
 
 func (r *Repository) ListFiltered(ctx context.Context, query, rule string, page, pageSize int) ([]Contest, int64, error) {
+	return r.listFiltered(ctx, query, rule, "", nil, page, pageSize)
+}
+
+// ListVisibleFiltered applies the single-site group-assignment visibility
+// filter before pagination so totals match the visible rows.
+func (r *Repository) ListVisibleFiltered(ctx context.Context, query, rule, group string, access bson.M, page, pageSize int) ([]Contest, int64, error) {
+	return r.listFiltered(ctx, query, rule, group, access, page, pageSize)
+}
+
+func (r *Repository) listFiltered(ctx context.Context, query, rule, group string, access bson.M, page, pageSize int) ([]Contest, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -577,6 +587,12 @@ func (r *Repository) ListFiltered(ctx context.Context, query, rule string, page,
 	}
 	if rule = strings.TrimSpace(rule); rule != "" {
 		filter["rule"] = rule
+	}
+	if access != nil {
+		filter["$and"] = []bson.M{access}
+	}
+	if group = strings.TrimSpace(group); group != "" {
+		filter["assign"] = bson.M{"$in": []string{group}}
 	}
 	total, err := r.coll.CountDocuments(ctx, filter)
 	if err != nil {
@@ -604,6 +620,14 @@ func (r *Repository) ListHomework(ctx context.Context) ([]Contest, error) {
 }
 
 func (r *Repository) ListHomeworkFiltered(ctx context.Context, query string, page, pageSize int) ([]Contest, int64, error) {
+	return r.listHomeworkFiltered(ctx, query, "", nil, page, pageSize)
+}
+
+func (r *Repository) ListHomeworkVisibleFiltered(ctx context.Context, query, group string, access bson.M, page, pageSize int) ([]Contest, int64, error) {
+	return r.listHomeworkFiltered(ctx, query, group, access, page, pageSize)
+}
+
+func (r *Repository) listHomeworkFiltered(ctx context.Context, query, group string, access bson.M, page, pageSize int) ([]Contest, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -624,6 +648,12 @@ func (r *Repository) ListHomeworkFiltered(ctx context.Context, query string, pag
 	}
 	if query = strings.TrimSpace(query); query != "" {
 		filter["title"] = bson.M{"$regex": regexp.QuoteMeta(query), "$options": "i"}
+	}
+	if access != nil {
+		filter["$and"] = []bson.M{access}
+	}
+	if group = strings.TrimSpace(group); group != "" {
+		filter["assign"] = bson.M{"$in": []string{group}}
 	}
 	total, err := r.coll.CountDocuments(ctx, filter)
 	if err != nil {

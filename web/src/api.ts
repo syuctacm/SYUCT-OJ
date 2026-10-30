@@ -422,6 +422,16 @@ type Envelope<T> = {
 
 type LoginResponse = { user: User }
 
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   if (!(init?.body instanceof FormData) && !headers.has('Content-Type')) {
@@ -437,7 +447,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const message = payload && typeof payload === 'object' && 'error' in payload
       ? payload.error
       : `HTTP ${response.status}`
-    throw new Error(message || `HTTP ${response.status}`)
+    throw new ApiError(message || `HTTP ${response.status}`, response.status)
   }
   return payload as T
 }
@@ -725,12 +735,14 @@ export type Contest = {
 export type ListPage<T> = {
   items: T[]
   total: number
+  groups?: string[]
 }
 
-export async function getContests(query = '', rule = '', page = 1, limit = 20): Promise<ListPage<Contest>> {
+export async function getContests(query = '', rule = '', group = '', page = 1, limit = 20): Promise<ListPage<Contest>> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })
   if (query.trim()) params.set('q', query.trim())
   if (rule) params.set('rule', rule)
+  if (group) params.set('group', group)
   const result = await request<Envelope<ListPage<Contest>>>(`/api/v1/contests?${params.toString()}`)
   return result.data
 }
@@ -1095,9 +1107,10 @@ export async function updateTraining(tid: string, input: TrainingEditInput): Pro
   return result.data
 }
 
-export async function getHomeworks(query = '', page = 1, limit = 20): Promise<ListPage<Contest>> {
+export async function getHomeworks(query = '', group = '', page = 1, limit = 20): Promise<ListPage<Contest>> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })
   if (query.trim()) params.set('q', query.trim())
+  if (group) params.set('group', group)
   const result = await request<Envelope<ListPage<Contest>>>(`/api/v1/homeworks?${params.toString()}`)
   return result.data
 }

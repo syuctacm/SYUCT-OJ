@@ -36,7 +36,13 @@ Hydro 中作业是 `document` 集合里 `docType=30`、`rule=homework` 的文档
 
 创建/编辑页由 `HydroTemplate` 直接渲染上游 `homework_edit.html`，React 只负责取数、表单提交和交互挂载，不再维护一份手写的等价 DOM。作业列表的搜索由 React 适配层保持；列表支持上游的 Calendar View，使用移植后的 `components/calendar` 月历布局，选择会写入 `localStorage`；列表按上游默认每页 20 条分页。
 
+## 作业分组访问控制
+
+- `assign` 分组在比赛/作业列表查询前过滤，匿名用户只能看到公开作业
+- 已登录用户可看到自己所在分组的作业；所有者、维护者和管理员始终可见
+- `/api/v1/homeworks/:tid` 及其子路由统一返回 403 `not assigned to this contest`
+- 列表接口返回当前用户的分组名，前端分组筛选下拉可直接使用
+
 ## 尚未完成
 
-- 作业分组和 assign 访问控制
 - 作业题目依赖和进度
