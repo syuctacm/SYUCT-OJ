@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   getCheckin, getContests, getCountdown, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getPublicSettings, getRanking, getStarredProblems, getTrainings, getUsersByIDs, submitCheckin,
-  type CheckinState, type Contest, type Countdown, type Discussion, type DiscussionNode, type ProblemSummary, type RankingUser, type Training, type UserChoice,
+  type CheckinState, type Contest, type Countdown, type Discussion, type DiscussionNode, type ProblemSummary, type RankingUser, type Training, type TrainingProgress, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -23,6 +23,7 @@ type HomeData = {
   contests: Contest[]
   homeworks: Contest[]
   trainings: Training[]
+  trainingProgress: Record<string, TrainingProgress>
   discussions: Discussion[]
   problems: ProblemSummary[]
   nodes: DiscussionNode[]
@@ -88,6 +89,7 @@ export function HomePage() {
           contests: contestPage.items,
           homeworks: homeworkPage.items,
           trainings: trainingPage.items,
+          trainingProgress: trainingPage.progress ?? {},
           discussions: discussionPage.items,
           problems: problems.items,
           nodes,
@@ -138,6 +140,20 @@ export function HomePage() {
     const contests = data.contests.slice(0, 5).map((item) => withDates(item))
     const homeworks = data.homeworks.slice(0, 10).map((item) => withDates(item))
     const trainings = data.trainings.slice(0, 10).map((item) => ({ ...item, dag: trainingDag(item) }))
+    const contestStatuses = Object.fromEntries(data.contests.map((item) => [
+      item.docId, { attend: item.attended ? 1 : 0 },
+    ]))
+    const homeworkStatuses = Object.fromEntries(data.homeworks.map((item) => [
+      item.docId, { attend: item.attended ? 1 : 0 },
+    ]))
+    const trainingStatuses = Object.fromEntries(data.trainings.map((item) => {
+      const progress = data.trainingProgress[item.docId]
+      return [item.docId, {
+        enroll: progress?.enrolled ? 1 : 0,
+        done: progress?.completed ? 1 : 0,
+        donePids: Array.from({ length: progress?.doneProblems ?? 0 }, (_, index) => index),
+      }]
+    }))
     const discussions = data.discussions.slice(0, 20).map((item) => ({
       ...item,
       _id: item.docId,
@@ -201,9 +217,9 @@ export function HomePage() {
           width: 9,
           sections: [
             ['bulletin', {}],
-            ['contest', [contests, {}]],
-            ['homework', [homeworks, {}]],
-            ['training', [trainings, {}]],
+            ['contest', [contests, contestStatuses]],
+            ['homework', [homeworks, homeworkStatuses]],
+            ['training', [trainings, trainingStatuses]],
             ['ranking', data.ranking.map((item) => item.id)],
             ['discussion', [discussions, vndict]],
           ],

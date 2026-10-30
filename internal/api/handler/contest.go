@@ -64,6 +64,20 @@ func (h *ContestHandler) list(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list contests"})
 		return
 	}
+	if u, ok := h.currentUser(c); ok {
+		docIDs := make([]bson.ObjectID, 0, len(items))
+		for _, item := range items {
+			docIDs = append(docIDs, item.DocID)
+		}
+		statuses, statusErr := h.repo.UserStatuses(c.Request.Context(), u.ID, docIDs)
+		if statusErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest attendance"})
+			return
+		}
+		for i := range items {
+			items[i].Attended = statuses[items[i].DocID.Hex()].Attend == 1
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
 		"data": gin.H{"items": items, "total": total, "page": page, "limit": limit},

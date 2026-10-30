@@ -86,9 +86,19 @@ func (h *TrainingHandler) list(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list trainings"})
 		return
 	}
+	progress := map[string]training.ListProgress{}
+	if h.sessions != nil {
+		if session, ok := h.sessions.GetContext(c.Request.Context(), auth.Token(c)); ok && session.Kind == "user" && session.UserID > 0 {
+			progress, err = h.repo.ListProgress(c.Request.Context(), session.UserID, items)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load training progress"})
+				return
+			}
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
-		"data": gin.H{"items": items, "total": total, "page": page, "limit": limit},
+		"data": gin.H{"items": items, "total": total, "page": page, "limit": limit, "progress": progress},
 	})
 }
 

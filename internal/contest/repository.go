@@ -90,6 +90,7 @@ type Contest struct {
 	// InvitationCode is hidden from normal contest responses. The edit API
 	// serializes it separately for contest owners and administrators.
 	InvitationCode string `bson:"_code,omitempty" json:"-"`
+	Attended       bool   `bson:"-" json:"attended,omitempty"`
 }
 
 // AttendeeStatus is the per-user contest status document.
@@ -669,8 +670,9 @@ func (r *Repository) UserProblemStatus(ctx context.Context, uid int64, pids []in
 		return result, nil
 	}
 	cursor, err := r.records.Find(ctx, bson.M{
-		"uid": uid,
-		"pid": bson.M{"$in": pids},
+		"uid":  uid,
+		"pid":  bson.M{"$in": pids},
+		"type": bson.M{"$nin": []string{"pretest", "generate"}},
 	}, options.Find().
 		SetProjection(bson.M{"pid": 1, "status": 1, "score": 1}).
 		SetSort(bson.D{{Key: "_id", Value: -1}}))
@@ -1077,6 +1079,34 @@ func (r *Repository) SetScore(ctx context.Context, tid string, pid int64, score 
 }
 
 // Statuses lists the attendees of a contest ordered by uid.
+// UserStatuses loads contest/homework status for one user and a page of docs.
+func (r *Repository) UserStatuses(ctx context.Context, uid int64, docIDs []bson.ObjectID) (map[string]AttendeeStatus, error) {
+	if uid <= 0 || len(docIDs) == 0 {
+		return map[string]AttendeeStatus{}, nil
+	}
+	cursor, err := r.statuses.Find(ctx, bson.M{
+		"domainId": DomainSystem, "docType": DocumentTypeContest,
+		"uid": uid, "docId": bson.M{"$in": docIDs}, "attend": 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var rows []struct {
+		DocID  bson.ObjectID `bson:"docId"`
+		Attend int           `bson:"attend"`
+	}
+	if err := cursor.All(ctx, &rows); err != nil {
+		_ = cursor.Close(ctx)
+		return nil, err
+	}
+	_ = cursor.Close(ctx)
+	result := make(map[string]AttendeeStatus, len(rows))
+	for _, row := range rows {
+		result[row.DocID.Hex()] = AttendeeStatus{UID: uid, Attend: row.Attend}
+	}
+	return result, nil
+}
+
 func (r *Repository) Statuses(ctx context.Context, tid string) ([]AttendeeStatus, error) {
 	oid, err := bson.ObjectIDFromHex(tid)
 	if err != nil {

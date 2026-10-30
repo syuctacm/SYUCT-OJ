@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/contest"
@@ -38,6 +39,20 @@ func (h *HomeworkHandler) list(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list homeworks"})
 		return
+	}
+	if u, ok := h.currentUser(c); ok {
+		docIDs := make([]bson.ObjectID, 0, len(items))
+		for _, item := range items {
+			docIDs = append(docIDs, item.DocID)
+		}
+		statuses, statusErr := h.repo.UserStatuses(c.Request.Context(), u.ID, docIDs)
+		if statusErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load homework claims"})
+			return
+		}
+		for i := range items {
+			items[i].Attended = statuses[items[i].DocID.Hex()].Attend == 1
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",

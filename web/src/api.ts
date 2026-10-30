@@ -1038,10 +1038,21 @@ export type TrainingDetail = Training & {
   sections: TrainingSection[]
 }
 
-export async function getTrainings(query = '', page = 1, limit = 20): Promise<ListPage<Training>> {
+export type TrainingProgress = {
+  enrolled: boolean
+  completed: boolean
+  doneProblems: number
+  totalProblems: number
+}
+
+export type TrainingListPage = ListPage<Training> & {
+  progress?: Record<string, TrainingProgress>
+}
+
+export async function getTrainings(query = '', page = 1, limit = 20): Promise<TrainingListPage> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })
   if (query.trim()) params.set('q', query.trim())
-  const result = await request<Envelope<ListPage<Training>>>(`/api/v1/trainings?${params.toString()}`)
+  const result = await request<Envelope<TrainingListPage>>(`/api/v1/trainings?${params.toString()}`)
   return result.data
 }
 
