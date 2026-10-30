@@ -6,6 +6,7 @@ import { animateSections, notifyHydroPageReady } from './motion.ts'
 import { installHydroForms } from './forms.ts'
 import { installHydroHotkeys } from './hotkeys.ts'
 import { initHydroMenus } from './menu.ts'
+import { installHydroFilePreview } from './preview.tsx'
 import { cleanupHydroOverlays, installHydroOverlays } from './overlays.ts'
 import { installHydroOmnisearch } from './omnisearch.tsx'
 import { installHydroSmoothScroll } from './smoothscroll.ts'
@@ -29,6 +30,7 @@ export function installHydroRuntime(main: HTMLElement) {
     installHydroMultiSelectCheckboxes()
     installHydroOverlays()
     installHydroOmnisearch()
+    installHydroFilePreview()
     installHydroForms()
     installHydroSmoothScroll()
     void installHydroSticky()

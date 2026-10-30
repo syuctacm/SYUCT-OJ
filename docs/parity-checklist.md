@@ -300,6 +300,26 @@ Playwright 验证：
 - 账户设置页原有头像、资料、隐私字段仍正常渲染
 - Go 集成测试覆盖非法值 400 和合法值持久化
 
+## 6.12 文件预览（2026-10-30，部分完成 #277）
+
+已移植上游 `[data-preview]` 点击入口和文件类型判断，文件字节通过 Go API 获取后使用共享 Hydro Dialog 展示。
+
+- 文本文件：1 MiB 内直接预览
+- 图片：PNG/JPEG/GIF/WebP/BMP/SVG
+- 视频：MP4/WebM/OGG
+- PDF：iframe 预览
+- ZIP/RAR/7z、Office 文件和超过 8 MiB 的文件直接下载
+- 支持用户文件、题目文件、活动文件等所有带 `data-preview` 的上游模板
+- 关闭 Dialog 后释放 object URL，不残留在 DOM
+
+Playwright 验证用户文件页：
+
+- `preview-text.txt` 打开 Hydro Dialog 并显示原始文本
+- `preview-image.png` 打开图片预览，使用 blob URL
+- 控制台 0 error
+
+题目文件创建、单文件重命名和批量打包下载仍由 #277 跟踪。
+
 ## 7. 当前已知差异
 
 ```text
