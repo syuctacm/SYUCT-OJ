@@ -1,0 +1,61 @@
+{% extends "manage_base.html" %}
+{% block manage_content %}
+<div class="section">
+  <div class="section__header">
+    <h1 class="section__title">{{ _('manage_ip_login') }}</h1>
+  </div>
+  <div class="section__body typo">
+    <p>IP 自动登录用于线下赛：来自指定 IP 的访客会自动获得对应用户的会话。</p>
+    <blockquote class="warn"><p>映射保存后，服务端还必须设置 <code>ONSITE_IP_LOGIN=1</code> 才会生效。</p></blockquote>
+    <form data-ip-login-form>
+      <div class="row">
+        <div class="medium-6 columns">
+          <label>IP 地址
+            <input class="textbox" name="ip" required placeholder="例如 10.1.2.3" autocomplete="off" />
+          </label>
+        </div>
+        <div class="medium-4 columns">
+          <label>用户 UID
+            <input class="textbox" name="uid" type="number" min="1" required placeholder="例如 7" autocomplete="off" />
+          </label>
+        </div>
+        <div class="medium-2 columns text-right">
+          <label>&nbsp;<button class="primary rounded button" type="submit">保存映射</button></label>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="section">
+  <div class="section__header">
+    <h1 class="section__title">当前映射</h1>
+  </div>
+  <div class="section__body no-padding">
+    <table class="data-table">
+      <colgroup>
+        <col class="col--id" />
+        <col class="col--user" />
+        <col class="col--user" />
+        <col class="col--actions" />
+      </colgroup>
+      <thead><tr><th>IP 地址</th><th>UID</th><th>用户名</th><th>操作</th></tr></thead>
+      <tbody>
+      {% for item in items %}
+        <tr data-ip="{{ item.ip }}" data-uid="{{ item.uid }}">
+          <td><code>{{ item.ip }}</code></td>
+          <td>{{ item.uid }}</td>
+          <td>{{ item.username or '-' }}</td>
+          <td>
+            <a href="javascript:;" data-ip-edit>编辑</a>
+            &nbsp;
+            <a href="javascript:;" data-ip-delete>删除</a>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="text-center">暂无 IP 自动登录映射。</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

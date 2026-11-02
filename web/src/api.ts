@@ -78,6 +78,28 @@ export async function updateAdminSettings(input: PublicSettings): Promise<void> 
   })
 }
 
+export type AdminIPLogin = {
+  ip: string
+  uid: number
+  username?: string
+}
+
+export async function getAdminIPLogins(): Promise<AdminIPLogin[]> {
+  const result = await request<Envelope<{ items: AdminIPLogin[] }>>('/api/v1/admin/ip-login')
+  return result.data.items
+}
+
+export async function setAdminIPLogin(ip: string, uid: number): Promise<void> {
+  await request(`/api/v1/admin/ip-login/${encodeURIComponent(ip)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ uid }),
+  })
+}
+
+export async function deleteAdminIPLogin(ip: string): Promise<void> {
+  await request(`/api/v1/admin/ip-login/${encodeURIComponent(ip)}`, { method: 'DELETE' })
+}
+
 export type UserSettingsInput = {
   avatar?: string
   qq?: string

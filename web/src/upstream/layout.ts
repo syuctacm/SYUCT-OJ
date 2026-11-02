@@ -105,6 +105,9 @@ export function buildLayoutUrl(name: string, args: Record<string, unknown> = {})
     case 'manage_user_priv': return '/admin/users'
     case 'manage_user_import': return '/admin/users/import'
     case 'manage_setting': return '/admin/settings'
+    case 'manage_audit': return '/admin/audit'
+    case 'manage_discussion_nodes': return '/admin/discussion-nodes'
+    case 'manage_ip_login': return '/admin/ip-login'
     case 'wiki_about':
       return `/about${args.anchor ? `#${encodeURIComponent(String(args.anchor))}` : ''}`
     case 'wiki_help':
