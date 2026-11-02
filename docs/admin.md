@@ -39,6 +39,7 @@
 - `/admin` 渲染上游 `manage_dashboard.html`：Messages、Information（域头像/名称）和 `manage_base.html` 控制面板侧栏
 - `/admin/settings` 渲染上游 `manage_setting.html` + `partials/setting.html`，目前只暴露站点公告 `bulletin`（Markdown），保存后立即写入 `system` 集合并被首页读取
 - `/admin/users` 渲染上游 `manage_user_priv.html`：默认权限行 + 按 `priv` 分组的用户表，`show_priv` 宏显示相对默认权限的 `+/-` 位
+- 默认权限行可编辑；保存后新注册用户继承新值，仍使用旧默认值的用户同步迁移，自定义权限用户不受影响
 - `/admin/ip-login` 提供 IP 自动登录映射的列表、新增/更新、编辑和删除；页面复用 `manage_base.html` 控制面板侧栏
 - 后台页面共用 `manage_base.html` 侧栏，`ui.getNodes('ControlPanel')` 只声明重写版已实现的控制面板节点
 - 权限编辑复用模板自带的 `.dialog__body--set-priv` 表单：点击「Edit」把这段上游 DOM 克隆进对话框，勾选后 `PATCH /api/v1/admin/users/:uid/priv`
@@ -88,7 +89,6 @@ ONSITE_IP_LOGIN=1
 
 - 控制面板脚本管理和系统配置管理
 - `manage_dashboard` 的 WebSocket 连接检查和「Restart」按钮（出于安全考虑未实现，并从 DOM 移除）
-- 修改系统默认权限（默认权限行的 Edit 链接已移除）
 - 题目/比赛/训练编辑仍从各自详情页进入，没有复制到后台单独页面
 
-已完成：用户封禁/解封、用户自助注销、权限变更、公告设置、批量用户导入、审计日志、讨论节点管理和 IP 自动登录管理及对应页面。
+已完成：用户封禁/解封、用户自助注销、权限变更、默认权限、公告设置、批量用户导入、审计日志、讨论节点管理和 IP 自动登录管理及对应页面。

@@ -2,7 +2,10 @@
 // (manage_user_priv.html). Keep this file limited to data mapping and the
 // privilege dialog that the template expects.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getAdminUsers, setAdminUserBan, updateAdminUserPriv, type AdminUserPage } from '../api.ts'
+import {
+  getAdminDefaultPrivilege, getAdminUsers, setAdminUserBan, updateAdminDefaultPrivilege,
+  updateAdminUserPriv, type AdminUserPage,
+} from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { ErrorPage } from './ErrorPage.tsx'
 import { Dialog } from '../components/Dialog.tsx'
@@ -15,9 +18,10 @@ import { avatarUrl } from '../upstream/avatar.ts'
 export function AdminUsersPage() {
   const { user } = useAuth()
   const [data, setData] = useState<AdminUserPage | null>(null)
+  const [defaultPriv, setDefaultPriv] = useState(PRIV_DEFAULT)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
-  const [editing, setEditing] = useState<{ uid: number; priv: number } | null>(null)
+  const [editing, setEditing] = useState<{ uid: number | 'default'; priv: number } | null>(null)
   const [dialogBody, setDialogBody] = useState('')
   const [selecting, setSelecting] = useState(false)
   const [pickedUID, setPickedUID] = useState(0)
@@ -25,7 +29,9 @@ export function AdminUsersPage() {
   const clickRef = useRef<(event: Event) => void>(() => {})
 
   const load = useCallback(async () => {
-    setData(await getAdminUsers('', 1000))
+    const [users, priv] = await Promise.all([getAdminUsers('', 1000), getAdminDefaultPrivilege()])
+    setData(users)
+    setDefaultPriv(priv)
   }, [])
 
   useEffect(() => {
@@ -34,9 +40,6 @@ export function AdminUsersPage() {
   }, [load])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
-    // Changing the system default privilege needs a settings page that this
-    // rewrite does not have yet; keep the informational row but drop its link.
-    root.querySelector('tr[data-uid="default"] [name="set_priv"]')?.remove()
     for (const item of data?.items ?? []) {
       if (item.id === 1 || item.priv & 1) continue
       const row = root.querySelector<HTMLElement>(`tr[data-uid="${item.id}"]`)
@@ -55,7 +58,7 @@ export function AdminUsersPage() {
     return () => root.removeEventListener('click', onClick)
   }, [data])
 
-  function openPrivDialog(uid: number, priv: number) {
+  function openPrivDialog(uid: number | 'default', priv: number) {
     const body = document.querySelector('.dialog__body--set-priv > div')
     if (!body) return
     setDialogBody(body.outerHTML)
@@ -85,7 +88,8 @@ export function AdminUsersPage() {
       })
       return
     }
-    openPrivDialog(Number(target.dataset.uid ?? 0), Number(target.dataset.priv ?? 0))
+    const rawUID = target.dataset.uid ?? ''
+    openPrivDialog(rawUID === 'default' ? 'default' : Number(rawUID), Number(target.dataset.priv ?? 0))
   }
   clickRef.current = handleClick
 
@@ -104,7 +108,8 @@ export function AdminUsersPage() {
     })
     setActionError('')
     try {
-      await updateAdminUserPriv(editing.uid, priv)
+      if (editing.uid === 'default') await updateAdminDefaultPrivilege(priv)
+      else await updateAdminUserPriv(editing.uid, priv)
       setEditing(null)
       await load()
     } catch (err) {
@@ -131,7 +136,7 @@ export function AdminUsersPage() {
       avatar: item.avatar ?? '',
       priv: item.priv,
     })),
-    defaultPriv: PRIV_DEFAULT,
+    defaultPriv,
     Priv: PRIV_OPTIONS,
     handler: {
       user: {
@@ -149,7 +154,7 @@ export function AdminUsersPage() {
     avatarUrl,
     UiContext: {},
     UserContext: user,
-  }), [data, user])
+  }), [data, defaultPriv, user])
 
   const buildUrl = useCallback((name: string) => {
     if (name === 'manage_dashboard') return '/admin'

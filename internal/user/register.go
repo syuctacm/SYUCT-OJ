@@ -105,13 +105,17 @@ func (r *Repository) Create(ctx context.Context, input RegisterInput) (*User, er
 		return nil, err
 	}
 	now := time.Now().UTC()
+	defaultPriv, err := r.DefaultPrivilege(ctx)
+	if err != nil {
+		return nil, err
+	}
 	document := bson.M{
 		"_id": uid, "mail": mail, "mailLower": strings.ToLower(mail),
 		"uname": username, "unameLower": strings.ToLower(username),
 		"salt": salt, "hash": HashPassword(input.Password, salt), "hashType": "hydro",
 		"regat": now, "loginat": now,
 		"ip": []string{input.IP}, "loginip": input.IP,
-		"priv": DefaultPriv, "avatar": "gravatar:" + mail,
+		"priv": defaultPriv, "avatar": "gravatar:" + mail,
 	}
 	if _, err := r.collection.InsertOne(ctx, document); err != nil {
 		return nil, err
@@ -123,6 +127,47 @@ func (r *Repository) Create(ctx context.Context, input RegisterInput) (*User, er
 		slog.Warn("unable to create domain.user row for new account", "uid", uid, "error", err)
 	}
 	return r.FindByID(ctx, uid)
+}
+
+// DefaultPrivilege returns the system-wide privilege applied to new accounts.
+func (r *Repository) DefaultPrivilege(ctx context.Context) (int64, error) {
+	var setting struct {
+		Value any `bson:"value"`
+	}
+	err := r.system.FindOne(ctx, bson.M{"_id": "default.priv"}).Decode(&setting)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return DefaultPriv, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	priv, ok := toInt64(setting.Value)
+	if !ok || priv < 0 {
+		return DefaultPriv, nil
+	}
+	return priv, nil
+}
+
+// SetDefaultPrivilege stores the new default and migrates users that still use
+// the previous default. Accounts with customized privileges are untouched.
+func (r *Repository) SetDefaultPrivilege(ctx context.Context, priv int64) (int64, int64, error) {
+	if priv < 0 {
+		return 0, 0, fmt.Errorf("invalid privilege value")
+	}
+	previous, err := r.DefaultPrivilege(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	result, err := r.collection.UpdateMany(ctx, bson.M{"priv": previous, "banned": bson.M{"$ne": true}},
+		bson.M{"$set": bson.M{"priv": priv}})
+	if err != nil {
+		return 0, 0, err
+	}
+	if _, err := r.system.UpdateOne(ctx, bson.M{"_id": "default.priv"},
+		bson.M{"$set": bson.M{"value": priv}}, options.UpdateOne().SetUpsert(true)); err != nil {
+		return 0, 0, err
+	}
+	return previous, result.ModifiedCount, nil
 }
 
 // CreateRegistrationToken stores the emailed registration token.

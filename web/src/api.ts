@@ -101,6 +101,18 @@ export async function deleteAdminIPLogin(ip: string): Promise<void> {
   await request(`/api/v1/admin/ip-login/${encodeURIComponent(ip)}`, { method: 'DELETE' })
 }
 
+export async function getAdminDefaultPrivilege(): Promise<number> {
+  const result = await request<Envelope<{ priv: number }>>('/api/v1/admin/default-priv')
+  return result.data.priv
+}
+
+export async function updateAdminDefaultPrivilege(priv: number): Promise<void> {
+  await request('/api/v1/admin/default-priv', {
+    method: 'PUT',
+    body: JSON.stringify({ priv }),
+  })
+}
+
 export type UserSettingsInput = {
   avatar?: string
   qq?: string
