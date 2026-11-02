@@ -2,8 +2,9 @@
 // list mirrors the upstream `hydrooj.homepage` config for the parts backed by
 // this backend.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import yaml from 'js-yaml'
 import {
-  getCheckin, getContests, getCountdown, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getPublicSettings, getRanking, getStarredProblems, getTrainings, getUsersByIDs, submitCheckin,
+  getCheckin, getContests, getCountdown, getDiscussionNodes, getDiscussions, getHomeworks, getProblems, getRanking, getStarredProblems, getTrainings, getUsersByIDs, submitCheckin,
   type CheckinState, type Contest, type Countdown, type Discussion, type DiscussionNode, type ProblemSummary, type RankingUser, type Training, type TrainingProgress, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
@@ -11,6 +12,7 @@ import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { mountHitokoto } from '../components/Hitokoto.tsx'
 import { createContestModel } from '../upstream/contest.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
+import { DEFAULT_SITE_SETTINGS, useSiteSettings } from '../site-settings.tsx'
 
 const HOME_PERMS = {
   PERM_VIEW_DISCUSSION: 1,
@@ -28,10 +30,21 @@ type HomeData = {
   problems: ProblemSummary[]
   nodes: DiscussionNode[]
   ranking: RankingUser[]
-  bulletin: string
   starred: ProblemSummary[]
   checkin: CheckinState | null
   countdown: Countdown
+}
+
+type HomepageColumn = { width?: unknown; [key: string]: unknown }
+
+function parseHomepageColumns(value: string): HomepageColumn[] {
+  try {
+    const parsed = yaml.load(value)
+    if (Array.isArray(parsed) && parsed.length) return parsed as HomepageColumn[]
+  } catch {
+    // Invalid saved config falls back to the last known-good default.
+  }
+  return yaml.load(DEFAULT_SITE_SETTINGS.homepageYaml) as HomepageColumn[]
 }
 
 const LUCK_TYPES = [
@@ -64,6 +77,7 @@ function trainingDag(training: Training) {
 
 export function HomePage() {
   const { user } = useAuth()
+  const { settings } = useSiteSettings()
   const [data, setData] = useState<HomeData | null>(null)
   const [users, setUsers] = useState<UserChoice[]>([])
   const [error, setError] = useState('')
@@ -78,13 +92,12 @@ export function HomePage() {
       getDiscussions(),
       getProblems('', 1, 'recent'),
       getDiscussionNodes(),
-      getRanking(1, 10),
-      getPublicSettings(),
+      getRanking(1, 100),
       user ? getStarredProblems(50).catch(() => []) : Promise.resolve([]),
       getCountdown(),
       user ? getCheckin() : Promise.resolve(null),
     ])
-      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes, ranking, settings, starred, countdown, checkin]) => {
+      .then(([contestPage, homeworkPage, trainingPage, discussionPage, problems, nodes, ranking, starred, countdown, checkin]) => {
         setData({
           contests: contestPage.items,
           homeworks: homeworkPage.items,
@@ -94,7 +107,6 @@ export function HomePage() {
           problems: problems.items,
           nodes,
           ranking: ranking.items,
-          bulletin: settings.bulletin,
           starred,
           countdown,
           checkin,
@@ -137,9 +149,9 @@ export function HomePage() {
       ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
     }
     const contestModel = createContestModel(handler)
-    const contests = data.contests.slice(0, 5).map((item) => withDates(item))
-    const homeworks = data.homeworks.slice(0, 10).map((item) => withDates(item))
-    const trainings = data.trainings.slice(0, 10).map((item) => ({ ...item, dag: trainingDag(item) }))
+    const contests = data.contests.map((item) => withDates(item))
+    const homeworks = data.homeworks.map((item) => withDates(item))
+    const trainings = data.trainings.map((item) => ({ ...item, dag: trainingDag(item) }))
     const contestStatuses = Object.fromEntries(data.contests.map((item) => [
       item.docId, { attend: item.attended ? 1 : 0 },
     ]))
@@ -154,7 +166,7 @@ export function HomePage() {
         donePids: Array.from({ length: progress?.doneProblems ?? 0 }, (_, index) => index),
       }]
     }))
-    const discussions = data.discussions.slice(0, 20).map((item) => ({
+    const discussions = data.discussions.map((item) => ({
       ...item,
       _id: item.docId,
       updateAt: new Date(item.updateAt),
@@ -183,7 +195,7 @@ export function HomePage() {
       countNow: data.checkin?.countNow ?? 0,
       countAll: data.checkin?.countAll ?? 0,
     }
-    const recentProblems = data.problems.slice(0, 10).map((problem) => ({
+    const recentProblems = data.problems.map((problem) => ({
       _id: problem.id,
       docId: problem.docId,
       pid: problem.pid,
@@ -210,36 +222,42 @@ export function HomePage() {
         hasPerm: () => false,
       }
     }
+    const sectionPayload = (name: string, value: unknown): [string, unknown] | null => {
+      if (value === false || value === 0 || value === null) return null
+      const limit = Number(value)
+      const take = (items: unknown[]) => items.slice(0, Number.isFinite(limit) && limit > 0 ? limit : items.length)
+      switch (name) {
+        case 'bulletin': return ['bulletin', {}]
+        case 'contest': return ['contest', [take(contests), contestStatuses]]
+        case 'homework': return ['homework', [take(homeworks), homeworkStatuses]]
+        case 'training': return ['training', [take(trainings), trainingStatuses]]
+        case 'ranking': return ['ranking', take(data.ranking).map((item) => (item as RankingUser).id)]
+        case 'discussion': return ['discussion', [take(discussions), vndict]]
+        case 'checkin': return ['checkin', checkinPayload]
+        case 'countdown': return ['countdown', data.countdown]
+        case 'hitokoto': return ['hitokoto', true]
+        case 'starred_problems': return ['starred_problems', [take(starredProblems)]]
+        case 'recent_problems': return ['recent_problems', [take(recentProblems), {}]]
+        case 'discussion_nodes': return ['discussion_nodes', vnodes]
+        case 'problem_search': return ['problem_search', true]
+        case 'suggestion': return ['suggestion', true]
+        default: return null
+      }
+    }
+    const contents = parseHomepageColumns(settings.homepageYaml).flatMap((column) => {
+      const width = Number(column.width)
+      if (!Number.isFinite(width) || width < 1 || width > 12) return []
+      const sections = Object.entries(column)
+        .filter(([name]) => name !== 'width')
+        .map(([name, value]) => sectionPayload(name, value))
+        .filter((section): section is [string, unknown] => Boolean(section))
+      return sections.length ? [{ width, sections }] : []
+    })
     return {
       page_name: 'homepage',
-      contents: [
-        {
-          width: 9,
-          sections: [
-            ['bulletin', {}],
-            ['contest', [contests, contestStatuses]],
-            ['homework', [homeworks, homeworkStatuses]],
-            ['training', [trainings, trainingStatuses]],
-            ['ranking', data.ranking.map((item) => item.id)],
-            ['discussion', [discussions, vndict]],
-          ],
-        },
-        {
-          width: 3,
-          sections: [
-            ['checkin', checkinPayload],
-            ['countdown', data.countdown],
-            ['hitokoto', true],
-            ['starred_problems', [starredProblems]],
-            ['recent_problems', [recentProblems, {}]],
-            ['discussion_nodes', vnodes],
-            ['problem_search', true],
-            ['suggestion', true],
-          ],
-        },
-      ],
+      contents,
       udict,
-      domain: { bulletin: data.bulletin },
+      domain: { bulletin: settings.bulletin },
       handler,
       perm: HOME_PERMS,
       PRIV: { PRIV_USER_PROFILE: 1, PRIV_CREATE_FILE: 2 },
@@ -255,7 +273,7 @@ export function HomePage() {
       UiContext: {},
       UserContext: user,
     }
-  }, [data, user, users])
+  }, [data, settings, user, users])
 
   async function doCheckin() {
     try {

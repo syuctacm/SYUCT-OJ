@@ -15,6 +15,7 @@ import {
   type ProblemEditInput,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
+import { useSiteSettings } from '../site-settings.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { alertDialog, confirmDialog } from '../components/dialogs.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
@@ -56,6 +57,7 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
   const { pid = '' } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { settings: siteSettings } = useSiteSettings()
   const [problem, setProblem] = useState<ProblemDetail | null>(null)
   const [config, setConfig] = useState(defaultConfig)
   const [loading, setLoading] = useState(mode === 'edit')
@@ -168,7 +170,7 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
         },
         ctx: {
           setting: {
-            get: (key: string) => key === 'problem.categories' ? '{}' : key === 'ui-default.enableScratchpad' ? '' : '',
+            get: (key: string) => key === 'problem.categories' ? '{}' : key === 'ui-default.enableScratchpad' ? siteSettings.enableScratchpad : '',
           },
         },
       },
@@ -201,7 +203,7 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
       utils: { getAlphabeticId: () => '' },
       UserContext: user,
     }
-  }, [config, files.current, mode, problem, user])
+  }, [config, files.current, mode, problem, siteSettings.enableScratchpad, user])
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()

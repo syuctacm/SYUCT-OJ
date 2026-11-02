@@ -252,5 +252,20 @@ export function hydrateHydroEditForm(root: HTMLElement, options: HydrateOptions 
   for (const textarea of root.querySelectorAll<HTMLTextAreaElement>('textarea[data-markdown], textarea[data-markdown-upload]')) {
     cleanups.push(mountMarkdownEditor(textarea, options))
   }
+  for (const textarea of root.querySelectorAll<HTMLTextAreaElement>('textarea[data-yaml], textarea[data-json]')) {
+    let disposed = false
+    let controller: import('./monaco/textarea.ts').MonacoTextareaController | null = null
+    const language = textarea.matches('textarea[data-yaml]') ? 'yaml' : 'json'
+    textarea.hidden = true
+    void import('./monaco/textarea.ts').then(({ mountMonacoTextarea }) => {
+      if (disposed || !textarea.isConnected) return
+      controller = mountMonacoTextarea(textarea, language)
+    })
+    cleanups.push(() => {
+      disposed = true
+      controller?.dispose()
+      textarea.hidden = false
+    })
+  }
   return () => cleanups.forEach((cleanup) => cleanup())
 }

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { useSiteSettings } from '../site-settings.tsx'
 
 const SECTIONS = [
   {
@@ -20,14 +21,31 @@ const SECTIONS = [
 ]
 
 export function AboutPage() {
+  const { settings } = useSiteSettings()
+  const sections = useMemo(() => {
+    const source = (settings.aboutMarkdown || '').replaceAll('{{ name }}', settings.siteName)
+    if (!source.trim()) return SECTIONS
+    const ids = [...source.matchAll(/^#\s+(\S+)\s+(.+)$/gm)]
+    if (!ids.length) return [{ id: 'about', title: '关于', content: source }]
+    return ids.map((match, index) => {
+      const start = match.index ?? 0
+      const next = ids[index + 1]?.index ?? source.length
+      const chunk = source.slice(start, next)
+      return {
+        id: match[1],
+        title: match[2],
+        content: chunk.replace(/^#\s+.+\n?/, '').trim(),
+      }
+    })
+  }, [settings.aboutMarkdown, settings.siteName])
   const context = useMemo(() => ({
     page_name: 'wiki_about',
-    sections: SECTIONS,
-    model: { system: { get: (key: string) => (key === 'server.name' ? 'SYUCT ACM OJ' : '') } },
+    sections,
+    model: { system: { get: (key: string) => (key === 'server.name' ? settings.siteName : '') } },
     handler: {
       user: { _id: 0, viewLang: 'zh', hasPriv: () => false, hasPerm: () => false },
-      domain: { ui: { name: 'SYUCT ACM OJ' } },
+      domain: { ui: { name: settings.siteName } },
     },
-  }), [])
+  }), [sections, settings.siteName])
   return <HydroTemplate template="about.html" context={context} />
 }

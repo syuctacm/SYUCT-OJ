@@ -67,22 +67,7 @@ export function TrainingEditPage({ mode }: { mode: 'create' | 'edit' }) {
       tid: mode === 'edit' ? tid : undefined,
     })
 
-    let disposed = false
-    let stopJsonEditor = () => {}
-    const jsonTextarea = root.querySelector<HTMLTextAreaElement>('textarea[data-json]')
-    if (jsonTextarea) {
-      void import('../upstream/monaco/textarea.ts')
-        .then(({ mountMonacoTextarea }) => {
-          if (!disposed) stopJsonEditor = mountMonacoTextarea(jsonTextarea, 'json').dispose
-        })
-        .catch((err: unknown) => {
-          if (!disposed) setError(err instanceof Error ? err.message : 'JSON 编辑器加载失败')
-        })
-    }
-
     return () => {
-      disposed = true
-      stopJsonEditor()
       form?.removeEventListener('submit', onSubmit)
       stopHydration()
     }

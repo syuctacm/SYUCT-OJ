@@ -893,6 +893,29 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - Playwright 验证默认用户同步为 `65540`，自定义权限用户保持 `4`
 - `pnpm --dir web lint`
 
+## 6.49 核心站点设置（2026-11-02）
+
+- `/admin/settings` 继续渲染上游 `manage_setting.html` / `partials/setting.html`
+- 恢复站点名、Logo、Gravatar 前缀、页脚 HTML、公告、About、Scratchpad 开关和 `hydrooj.homepage` YAML
+- 设置 API 返回带类型字段；缺省值兼容 Hydro，图片地址只接受站内路径、HTTP(S) 或协议相对地址，拒绝 `javascript:`、`data:` 等协议
+- `SiteSettingsProvider` 统一向前台提供配置，修改保存后无需刷新即可更新标题、导航、页脚和页面内容
+- 首页按 `hydrooj.homepage` YAML 动态生成栏目、顺序、宽度和数量；非法 YAML 返回 400
+- About 支持按要求划分多个章节；没有章节标题时也会把整段 Markdown 作为单篇文章渲染
+- Markdown/YAML 设置继续使用上游编辑器挂载，训练 JSON 编辑器统一走同一套 Monaco 挂载逻辑
+
+验证：
+
+- Go 集成测试覆盖默认值、管理员更新、非管理员 403、非法/超长字段和 YAML 校验
+- Playwright 修改站点名为 `Configured OJ`、Logo、Gravatar、页脚、Scratchpad 和首页布局后：
+  - 页面标题变为 `... - Configured OJ`
+  - 导航 Logo 和页脚立即更新
+  - 首页变为单列 12 栏并只显示配置栏目
+  - Scratchpad 入口消失
+  - Gravatar 使用新前缀
+  - About 页面显示新 Markdown 内容
+- 本地 Docker 生产构建复验
+- `pnpm --dir web lint`
+
 ## 7. 当前已知差异
 
 ```text
@@ -907,6 +930,6 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 ## 8. 尚未迁移的模块
 
-以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：OAuth、组队赛、后台脚本/配置，以及 Hack/交互题/特殊 checker 的完整兼容验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：OAuth、组队赛、后台脚本/高级配置，以及 Hack/交互题/特殊 checker 的完整兼容验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
 
 已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、SSR。

@@ -60,7 +60,16 @@ export async function getCountdown(): Promise<Countdown> {
   return result.data
 }
 
-export type PublicSettings = { bulletin: string }
+export type PublicSettings = {
+  bulletin: string
+  siteName: string
+  navLogo: string
+  footerExtraHtml: string
+  enableScratchpad: boolean
+  gravatarUrl: string
+  homepageYaml: string
+  aboutMarkdown: string
+}
 
 export async function getPublicSettings(): Promise<PublicSettings> {
   const result = await request<Envelope<PublicSettings>>('/api/v1/settings')
@@ -72,11 +81,12 @@ export async function getAdminSettings(): Promise<PublicSettings> {
   return result.data
 }
 
-export async function updateAdminSettings(input: PublicSettings): Promise<void> {
-  await request<Envelope<PublicSettings>>('/api/v1/admin/settings', {
+export async function updateAdminSettings(input: Partial<PublicSettings>): Promise<PublicSettings> {
+  const result = await request<Envelope<PublicSettings>>('/api/v1/admin/settings', {
     method: 'PUT',
     body: JSON.stringify(input),
   })
+  return result.data
 }
 
 export type AdminIPLogin = {

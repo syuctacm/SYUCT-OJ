@@ -2,6 +2,7 @@ import $ from 'jquery'
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { Outlet, useLocation, useNavigationType, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth.tsx'
+import { useSiteSettings } from '../site-settings.tsx'
 import { applyPageMeta, pageMetaForPath } from '../page-meta.ts'
 import { initHydroFooter } from '../upstream/footer.ts'
 import { warnUnsupportedSuperAdminBrowser } from '../upstream/browser-warning.ts'
@@ -17,6 +18,7 @@ import { SignInDialog } from './SignInDialog.tsx'
 
 export function Layout() {
   const { user, logout } = useAuth()
+  const { settings } = useSiteSettings()
   const navigate = useNavigate()
   const location = useLocation()
   const navigationType = useNavigationType()
@@ -132,8 +134,8 @@ export function Layout() {
   }, [])
 
   const context = useMemo(
-    () => layoutChromeContext(user, pageName, `${location.pathname}${location.search}`),
-    [location.pathname, location.search, pageName, user],
+    () => layoutChromeContext(user, pageName, `${location.pathname}${location.search}`, settings),
+    [location.pathname, location.search, pageName, settings, user],
   )
 
   return (

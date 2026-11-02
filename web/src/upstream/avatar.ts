@@ -4,10 +4,15 @@
 import { md5 } from './md5.ts'
 
 // Upstream default of the `avatar.gravatar_url` system setting.
-const GRAVATAR_URL = '//cn.gravatar.com/avatar/'
+let gravatarURL = '//cn.gravatar.com/avatar/'
+
+export function setGravatarURL(value?: string) {
+  const next = value?.trim()
+  gravatarURL = next || '//cn.gravatar.com/avatar/'
+}
 
 const PROVIDERS: Record<string, (source: string, size: number) => string> = {
-  gravatar: (email, size) => `${GRAVATAR_URL}${md5(String(email ?? '').trim().toLowerCase())}?d=mm&s=${size || 32}`,
+  gravatar: (email, size) => `${gravatarURL}${md5(String(email ?? '').trim().toLowerCase())}?d=mm&s=${size || 32}`,
   qq: (id) => `//q1.qlogo.cn/g?b=qq&nk=${(/(\d+)/.exec(id) || ['', ''])[1]}&s=160`,
   github: (id, size) => `//github.com/${id}.png?size=${Math.min(size, 460)}`,
   url: (url) => url,

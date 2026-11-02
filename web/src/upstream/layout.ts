@@ -1,4 +1,5 @@
-import type { User } from '../api.ts'
+import type { PublicSettings, User } from '../api.ts'
+import { DEFAULT_SITE_SETTINGS } from '../site-settings.tsx'
 
 export const LAYOUT_PRIV = {
   PRIV_USER_PROFILE: 1,
@@ -39,14 +40,19 @@ function userHandler(user: User | null) {
   }
 }
 
-export function layoutChromeContext(user: User | null, pageName: string, path = '/') {
+export function layoutChromeContext(
+  user: User | null,
+  pageName: string,
+  path = '/',
+  settings: PublicSettings = DEFAULT_SITE_SETTINGS,
+) {
   const handlerUser = userHandler(user)
   return {
     page_name: pageName,
     overrideNav: NAV_ITEMS.map((item) => ({ ...item, checker: () => true })),
     handler: {
       user: handlerUser,
-      domain: { name: 'SYUCT ACM', avatar: '', ui: {} },
+      domain: { name: settings.siteName, avatar: '', ui: {} },
       args: { domainId: 'system' },
       request: { query: {}, path, headers: { 'user-agent': navigator.userAgent } },
       session: { legacy: false, viewLang: user?.viewLang || 'zh' },
@@ -55,7 +61,7 @@ export function layoutChromeContext(user: User | null, pageName: string, path = 
       system: {
         get: (key: string) => {
           if (key === 'server.login') return true
-          if (key === 'server.name') return 'SYUCT OJ'
+          if (key === 'server.name') return settings.siteName
           return ''
         },
       },
@@ -64,9 +70,10 @@ export function layoutChromeContext(user: User | null, pageName: string, path = 
     PRIV: LAYOUT_PRIV,
     ctx: {
       setting: {
-        get: (key: string) => key === 'ui-default.nav_logo_dark' ? '/nav_logo_dark.png' : '',
+        get: (key: string) => key === 'ui-default.nav_logo_dark' ? settings.navLogo : '',
       },
     },
+    settings,
     global: { Hydro: { version: { hydrooj: '4.58.5' } } },
     UserContext: user,
   }

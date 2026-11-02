@@ -1,3 +1,5 @@
+import { getCurrentSiteName } from './site-settings.tsx'
+
 export type PageMeta = {
   name: string
   layout: 'basic' | 'immersive'
@@ -89,5 +91,5 @@ export function applyPageMeta(meta: PageMeta) {
   root.dataset.layout = meta.layout
   root.dataset.app = 'Hydro'
   root.dataset.mantineColorScheme = root.classList.contains('theme--dark') ? 'dark' : 'light'
-  document.title = `${meta.title} - SYUCT OJ`
+  document.title = `${meta.title} - ${getCurrentSiteName()}`
 }
