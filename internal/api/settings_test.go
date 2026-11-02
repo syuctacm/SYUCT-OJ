@@ -59,7 +59,14 @@ func TestPublicSettingsIntegration(t *testing.T) {
 
 	type settingsPayload struct {
 		Data struct {
-			Bulletin string `json:"bulletin"`
+			Bulletin         string `json:"bulletin"`
+			SiteName         string `json:"siteName"`
+			NavLogo          string `json:"navLogo"`
+			FooterExtraHTML  string `json:"footerExtraHtml"`
+			EnableScratchpad bool   `json:"enableScratchpad"`
+			GravatarURL      string `json:"gravatarUrl"`
+			HomepageYAML     string `json:"homepageYaml"`
+			AboutMarkdown    string `json:"aboutMarkdown"`
 		} `json:"data"`
 	}
 	get := func(path string, cookies []*http.Cookie) (int, settingsPayload) {
@@ -95,7 +102,9 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	}
 
 	status, payload := get("/api/v1/settings", nil)
-	if status != http.StatusOK || payload.Data.Bulletin != "" {
+	if status != http.StatusOK || payload.Data.Bulletin != "" || payload.Data.SiteName != handler.DefaultSiteName ||
+		payload.Data.NavLogo != handler.DefaultNavLogo || !payload.Data.EnableScratchpad ||
+		payload.Data.GravatarURL != handler.DefaultGravatarURL || payload.Data.HomepageYAML == "" {
 		t.Fatalf("initial public settings = %d %+v", status, payload.Data)
 	}
 
@@ -111,16 +120,47 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status := put(`{"bulletin":"`+strings.Repeat("x", 20001)+`"}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("oversized bulletin = %d", status)
 	}
-	if status := put(`{"bulletin":"# 欢迎来到 SYUCT OJ"}`, adminCookies); status != http.StatusOK {
+	if status := put(`{"homepageYaml":"not: [valid"}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid homepage yaml = %d", status)
+	}
+	if status := put(`{"homepageYaml":"- width: 13\n  contest: 1\n"}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid homepage width = %d", status)
+	}
+	if status := put(`{"homepageYaml":"- width: 12\n  contest: {limit: 1}\n"}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid homepage section = %d", status)
+	}
+	if status := put(`{"siteName":""}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("empty site name = %d", status)
+	}
+	if status := put(`{"navLogo":"javascript:alert(1)"}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid nav logo = %d", status)
+	}
+	if status := put(`{"gravatarUrl":"data:text/html,bad"}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid gravatar url = %d", status)
+	}
+	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About"}`
+	if status := put(updateBody, adminCookies); status != http.StatusOK {
 		t.Fatalf("admin update = %d", status)
 	}
 
 	status, payload = get("/api/v1/settings", nil)
-	if status != http.StatusOK || payload.Data.Bulletin != "# 欢迎来到 SYUCT OJ" {
+	if status != http.StatusOK || payload.Data.Bulletin != "# 欢迎来到 Test OJ" || payload.Data.SiteName != "Test OJ" ||
+		payload.Data.NavLogo != "/test-logo.png" || payload.Data.FooterExtraHTML != "<b>Test Footer</b>" ||
+		payload.Data.EnableScratchpad || payload.Data.GravatarURL != "https://example.com/avatar/" ||
+		!strings.Contains(payload.Data.HomepageYAML, "contest: 3") || !strings.Contains(payload.Data.AboutMarkdown, "Test About") {
 		t.Fatalf("public settings after update = %d %+v", status, payload.Data)
 	}
 	status, payload = get("/api/v1/admin/settings", adminCookies)
-	if status != http.StatusOK || payload.Data.Bulletin != "# 欢迎来到 SYUCT OJ" {
+	if status != http.StatusOK || payload.Data.SiteName != "Test OJ" || payload.Data.Bulletin != "# 欢迎来到 Test OJ" {
 		t.Fatalf("admin settings = %d %+v", status, payload.Data)
+	}
+
+	if status := put(`{"bulletin":"# 部分更新"}`, adminCookies); status != http.StatusOK {
+		t.Fatalf("partial update = %d", status)
+	}
+	status, payload = get("/api/v1/settings", nil)
+	if status != http.StatusOK || payload.Data.Bulletin != "# 部分更新" || payload.Data.SiteName != "Test OJ" ||
+		payload.Data.NavLogo != "/test-logo.png" || payload.Data.EnableScratchpad {
+		t.Fatalf("partial update changed unrelated settings = %d %+v", status, payload.Data)
 	}
 }

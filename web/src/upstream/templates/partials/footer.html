@@ -32,7 +32,9 @@
     <div class="footer__extra-link clearfix">
       <div class="footer__extra-left">
         <ol class="clearfix">
-          <li class="footer__extra-link-item">沈阳化工大学 ACM-ICPC 集训队</li>
+          {%- for line in (settings.footerExtraHtml or '').split('\n') -%}
+            {%- if line|trim -%}<li class="footer__extra-link-item">{{ line|safe }}</li>{%- endif -%}
+          {%- endfor -%}
           <li class="footer__extra-link-item nojs--hide" data-dropdown-target="#menu-footer-theme">
             <span><span class="icon icon-global"></span> {{ _('Theme') }} <span class="icon icon-expand_less"></span></span>
             <ol class="dropdown-target menu" id="menu-footer-theme">

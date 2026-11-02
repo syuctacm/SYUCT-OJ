@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import { AuthProvider } from './auth.tsx'
+import { SiteSettingsProvider } from './site-settings.tsx'
 import './index.css'
 
 ensureHydroGlobals()
@@ -11,9 +12,11 @@ ensureHydroGlobals()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <SiteSettingsProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </SiteSettingsProvider>
     </BrowserRouter>
   </StrictMode>,
 )

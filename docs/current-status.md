@@ -14,6 +14,7 @@
 - 后台 IP 自动登录映射可视化管理
 - 用户时区偏好及比赛/作业时间、日期展示的时区转换
 - 后台默认权限读取、编辑和新用户权限继承
+- 后台核心站点设置：站点名、Logo、Gravatar、页脚、公告、About、Scratchpad 和首页布局
 - 本地 Docker 判题闭环、迁移演练、生产形态 Compose 冒烟脚本
 
 ## 验证基线
@@ -40,7 +41,7 @@ TEST_MONGO_URI='mongodb://syuct:syuct_dev_password@127.0.0.1:27017/?authSource=a
 
 - OAuth 第三方登录/绑定；当前没有配置 provider
 - 比赛组队模式
-- 后台脚本管理、配置管理
+- 后台脚本管理、尚未消费的高级系统配置
 - Hack、交互题和特殊 checker 的完整兼容验证
 
 ### 前端低优先级

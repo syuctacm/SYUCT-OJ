@@ -11,6 +11,7 @@ import {
   type ProblemDetail,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
+import { useSiteSettings } from '../site-settings.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { confirmDialog } from '../components/dialogs.tsx'
 import { notifyError } from '../components/Notification.tsx'
@@ -67,6 +68,7 @@ export function ProblemDetailPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user } = useAuth()
+  const { settings: siteSettings } = useSiteSettings()
   const tid = searchParams.get('tid') ?? ''
   const language = searchParams.get('lang') ?? user?.viewLang ?? 'zh'
   const [problem, setProblem] = useState<ProblemDetail | null>(null)
@@ -382,7 +384,7 @@ export function ProblemDetailPage() {
       ctx: {
         setting: {
           get: (key: string) => key === 'ui-default.enableScratchpad'
-            && Boolean(user) && (problem.problemType || 'default') === 'default',
+            && siteSettings.enableScratchpad && Boolean(user) && (problem.problemType || 'default') === 'default',
         },
         i18n: { get: (key: string, value: string) => key === '__langname' ? LANGUAGE_NAMES[value] ?? value : '' },
       },
@@ -442,7 +444,7 @@ export function ProblemDetailPage() {
       },
       UserContext: user,
     }
-  }, [language, problem, tid, user, users])
+  }, [language, problem, siteSettings.enableScratchpad, tid, user, users])
 
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   if (!problem || !context) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>

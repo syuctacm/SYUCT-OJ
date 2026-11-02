@@ -48,4 +48,4 @@ COUNTDOWN_DATES='[{"name":"CSP-J/S 初赛","date":"2026-09-19"}]'
 - 训练列表 API 额外返回 `progress` 映射，包含报名状态、完成题数、总题数和完成状态
 - 首页训练区块按上游 `tsdict` 结构显示 `Not Enrolled` 或完成百分比
 - 匿名请求不会返回任何用户状态
-- 区块配置目前写在前端（等价于上游 `hydrooj.homepage` 默认配置的可用子集），后续可迁移到服务端设置
+- 区块配置存储为 `hydrooj.homepage` YAML，可在 `/admin/settings` 编辑；前台解析失败时回退到最后可用默认布局

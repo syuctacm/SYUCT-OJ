@@ -1,9 +1,10 @@
 // Page markup is rendered from the pinned Hydro ui-default template
-// (manage_setting.html + partials/setting.html). The schema only lists the
-// system settings this rewrite actually stores.
+// (manage_setting.html + partials/setting.html). Only settings consumed by this
+// single-site frontend are exposed.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getAdminSettings, updateAdminSettings } from '../api.ts'
+import { getAdminSettings, updateAdminSettings, type PublicSettings } from '../api.ts'
 import { useAuth } from '../auth.tsx'
+import { useSiteSettings } from '../site-settings.tsx'
 import { ErrorPage } from './ErrorPage.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
@@ -14,28 +15,30 @@ const FLAG_DISABLED = 2
 const FLAG_SECRET = 4
 
 const SYSTEM_SETTINGS = [
-  {
-    family: 'setting_basic',
-    key: 'bulletin',
-    type: 'markdown',
-    name: 'Bulletin',
-    desc: 'Markdown shown at the top of the homepage.',
-    value: '',
-    flag: 0,
-  },
+  { family: 'setting_basic', key: 'siteName', type: 'text', name: 'Site Name', value: 'SYUCT ACM OJ', flag: 0 },
+  { family: 'setting_basic', key: 'navLogo', type: 'text', name: 'Navigation Logo URL', value: '/nav_logo_dark.png', flag: 0 },
+  { family: 'setting_basic', key: 'gravatarUrl', type: 'text', name: 'Gravatar URL Prefix', value: '//cn.gravatar.com/avatar/', flag: 0 },
+  { family: 'setting_basic', key: 'footerExtraHtml', type: 'textarea', name: 'Footer Extra HTML', value: '', flag: 0 },
+  { family: 'setting_basic', key: 'bulletin', type: 'markdown', name: 'Bulletin', value: '', flag: 0 },
+  { family: 'setting_basic', key: 'aboutMarkdown', type: 'markdown', name: 'About', value: '', flag: 0 },
+  { family: 'setting_basic', key: 'enableScratchpad', type: 'boolean', name: 'Enable Scratchpad Mode', value: true, flag: 0 },
+  { family: 'setting_basic', key: 'homepageYaml', type: 'textarea', subType: 'yaml', name: 'Homepage Config', value: '', flag: 0 },
 ]
+
+const STRING_KEYS = ['siteName', 'navLogo', 'gravatarUrl', 'footerExtraHtml', 'bulletin', 'aboutMarkdown', 'homepageYaml'] as const
 
 export function AdminSettingsPage() {
   const { user } = useAuth()
-  const [bulletin, setBulletin] = useState<string | null>(null)
+  const { refresh: refreshSiteSettings } = useSiteSettings()
+  const [settings, setSettings] = useState<PublicSettings | null>(null)
   const [saved, setSaved] = useState('')
   const [error, setError] = useState('')
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
 
   useEffect(() => {
     getAdminSettings()
-      .then((settings) => setBulletin(settings.bulletin))
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : '设置加载失败'))
+      .then(setSettings)
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : '设置加载失败'))
   }, [])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
@@ -51,14 +54,18 @@ export function AdminSettingsPage() {
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     const data = new FormData(event.target as HTMLFormElement)
+    const payload: Partial<PublicSettings> = {}
+    for (const key of STRING_KEYS) payload[key] = String(data.get(key) ?? '')
+    payload.enableScratchpad = data.has('enableScratchpad')
     setSaved('')
     setError('')
     try {
-      await updateAdminSettings({ bulletin: String(data.get('bulletin') ?? '') })
-      setBulletin(String(data.get('bulletin') ?? ''))
+      const next = await updateAdminSettings(payload)
+      setSettings(next)
+      await refreshSiteSettings()
       setSaved('已保存')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '保存失败')
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '保存失败')
     }
   }
   submitRef.current = (event) => void handleSubmit(event)
@@ -76,7 +83,7 @@ export function AdminSettingsPage() {
 
   const context = useMemo(() => ({
     page_name: 'manage_setting',
-    current: { bulletin: bulletin ?? '' },
+    current: settings ?? {},
     settings: SYSTEM_SETTINGS,
     model: { setting: { FLAG_HIDDEN, FLAG_DISABLED, FLAG_SECRET } },
     handler: {
@@ -95,24 +102,19 @@ export function AdminSettingsPage() {
     avatarUrl,
     UiContext: {},
     UserContext: user,
-  }), [bulletin, user])
+  }), [settings, user])
 
   if (!user || ((user.priv ?? 0) & 1) === 0) {
     return <ErrorPage status={403} />
   }
-  if (bulletin === null) {
+  if (!settings) {
     return <div className="row"><div className="columns"><div className="nothing-placeholder">{error || '加载中...'}</div></div></div>
   }
   return (
     <>
       {saved ? <div className="row"><div className="columns"><blockquote className="note"><p>{saved}</p></blockquote></div></div> : null}
       {error ? <div className="row"><div className="columns"><blockquote className="warn"><p>{error}</p></blockquote></div></div> : null}
-      <HydroTemplate
-        template="manage_setting.html"
-        context={context}
-        url={buildUrl}
-        onReady={handleReady}
-      />
+      <HydroTemplate template="manage_setting.html" context={context} url={buildUrl} onReady={handleReady} />
     </>
   )
 }

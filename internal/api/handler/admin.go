@@ -280,7 +280,7 @@ func (h *AdminHandler) settings(c *gin.Context) {
 	if !h.requireAdmin(c) {
 		return
 	}
-	values, err := readSettings(c.Request.Context(), h.db, PublicSettingKeys)
+	values, err := readSiteSettings(c.Request.Context(), h.db)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load settings"})
 		return
@@ -292,25 +292,32 @@ func (h *AdminHandler) updateSettings(c *gin.Context) {
 	if !h.requireAdmin(c) {
 		return
 	}
-	var request struct {
-		Bulletin string `json:"bulletin"`
-	}
+	var request SiteSettingsInput
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	if len(request.Bulletin) > 20000 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bulletin is too long"})
+	if err := validateSiteSettings(request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if _, err := h.db.Collection("system").UpdateOne(c.Request.Context(), bson.M{"_id": "bulletin"},
-		bson.M{"$set": bson.M{"value": request.Bulletin}}, options.UpdateOne().SetUpsert(true)); err != nil {
+	updates := siteSettingUpdates(request)
+	if err := writeSiteSettings(c.Request.Context(), h.db, updates); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save settings"})
 		return
 	}
+	values, err := readSiteSettings(c.Request.Context(), h.db)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to reload settings"})
+		return
+	}
 	session, _ := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
-	h.logAudit(c.Request.Context(), session.UserID, "admin.settings", 0, bson.M{"key": "bulletin", "length": len(request.Bulletin)})
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"bulletin": request.Bulletin}})
+	keys := make([]string, 0, len(updates))
+	for key := range updates {
+		keys = append(keys, key)
+	}
+	h.logAudit(c.Request.Context(), session.UserID, "admin.settings", 0, bson.M{"keys": keys})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": values})
 }
 
 func (h *AdminHandler) updateUserPriv(c *gin.Context) {
