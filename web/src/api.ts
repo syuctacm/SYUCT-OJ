@@ -1449,6 +1449,7 @@ export type PublicUser = {
   rank?: number
   acceptedProblems?: Array<{ docId: number; pid: string; title: string }>
   tdocs?: Array<{ docId: string; title: string; rule: string }>
+  recentSolutions?: Array<{ id: string; pid: number; problemPid: string; title: string }>
   tags?: Array<{ tag: string; count: number }>
   qq?: string
   wechat?: string
