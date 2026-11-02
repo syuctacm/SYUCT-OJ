@@ -849,6 +849,20 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - `go test ./internal/api -run TestUserProfileRecentSolutions`
 - `pnpm --dir web lint`
 
+## 6.46 IP 自动登录管理（2026-11-02）
+
+- 新增 `/admin/ip-login`，复用 `manage_base.html` 控制面板侧栏和 Hydro 表格/表单样式
+- 支持列出 IP、UID、用户名，新增或更新 IP → 用户映射，编辑表单和删除确认
+- 页面明确提示只有服务端设置 `ONSITE_IP_LOGIN=1` 时映射才会生效
+- 控制面板侧栏在用户管理、系统设置、审计和讨论节点页面中统一出现新入口
+
+验证：
+
+- Go 集成测试覆盖管理员 CRUD、普通用户 403 和非法 IP 400
+- Playwright 验证侧栏入口、新增映射、用户名回显、编辑预填和删除后空状态
+- 本地 Docker 生产构建复验新增、删除和页面导航
+- `pnpm --dir web lint`
+
 ## 7. 当前已知差异
 
 ```text

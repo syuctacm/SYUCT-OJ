@@ -110,8 +110,17 @@ func TestIPAutoLoginIntegration(t *testing.T) {
 	adminServer := httptest.NewServer(adminRouter)
 	defer adminServer.Close()
 	adminCookies := loginAssetUser(t, adminServer.URL, "admin", "secret")
+	aliceCookies := loginAssetUser(t, adminServer.URL, "alice", "secret")
+	status, body := getJSON(t, adminServer.URL+"/api/v1/admin/ip-login", aliceCookies)
+	if status != http.StatusForbidden {
+		t.Fatalf("non-admin list ip login = %d: %s", status, body)
+	}
+	status, body = rawRequest(t, http.MethodPut, adminServer.URL+"/api/v1/admin/ip-login/not-an-ip", []byte(`{"uid":7}`), adminCookies)
+	if status != http.StatusBadRequest {
+		t.Fatalf("invalid ip login = %d: %s", status, body)
+	}
 	requestBody, _ := json.Marshal(map[string]int64{"uid": 7})
-	status, body := rawRequest(t, http.MethodPut, adminServer.URL+"/api/v1/admin/ip-login/10.9.9.9", requestBody, adminCookies)
+	status, body = rawRequest(t, http.MethodPut, adminServer.URL+"/api/v1/admin/ip-login/10.9.9.9", requestBody, adminCookies)
 	if status != http.StatusOK {
 		t.Fatalf("set ip login = %d: %s", status, body)
 	}

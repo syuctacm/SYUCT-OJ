@@ -69,6 +69,8 @@ export function AdminSettingsPage() {
     if (name === 'manage_user_import') return '/admin/users/import'
     if (name === 'manage_audit') return '/admin/audit'
     if (name === 'manage_setting') return '/admin/settings'
+    if (name === 'manage_discussion_nodes') return '/admin/discussion-nodes'
+    if (name === 'manage_ip_login') return '/admin/ip-login'
     return '#'
   }, [])
 
