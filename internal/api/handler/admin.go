@@ -40,6 +40,8 @@ func (h *AdminHandler) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/api/v1/admin/ip-login", h.listIPLogins)
 	router.PUT("/api/v1/admin/ip-login/:ip", h.setIPLogin)
 	router.DELETE("/api/v1/admin/ip-login/:ip", h.deleteIPLogin)
+	router.GET("/api/v1/admin/default-priv", h.defaultPrivilege)
+	router.PUT("/api/v1/admin/default-priv", h.setDefaultPrivilege)
 }
 
 type auditEntry struct {
@@ -357,6 +359,43 @@ func (h *AdminHandler) updateUserPriv(c *gin.Context) {
 		"before": target.Priv, "after": request.Priv,
 	})
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"id": uid, "priv": request.Priv}})
+}
+
+func (h *AdminHandler) defaultPrivilege(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+	priv, err := h.users.DefaultPrivilege(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load default privilege"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"priv": priv}})
+}
+
+func (h *AdminHandler) setDefaultPrivilege(c *gin.Context) {
+	if !h.requireAdmin(c) {
+		return
+	}
+	var request struct {
+		Priv int64 `json:"priv"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || request.Priv < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid privilege value"})
+		return
+	}
+	previous, updated, err := h.users.SetDefaultPrivilege(c.Request.Context(), request.Priv)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save default privilege"})
+		return
+	}
+	session, _ := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
+	h.logAudit(c.Request.Context(), session.UserID, "admin.default_priv", 0, bson.M{
+		"before": previous, "after": request.Priv, "usersUpdated": updated,
+	})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
+		"priv": request.Priv, "previous": previous, "usersUpdated": updated,
+	}})
 }
 
 func (h *AdminHandler) setUserBanned(c *gin.Context) {

@@ -82,6 +82,7 @@ type Repository struct {
 	tokens      *mongo.Collection
 	ipLogins    *mongo.Collection
 	credentials *mongo.Collection
+	system      *mongo.Collection
 }
 
 func NewRepository(db *mongo.Database) *Repository {
@@ -95,6 +96,7 @@ func NewRepository(db *mongo.Database) *Repository {
 		tokens:      db.Collection("token"),
 		ipLogins:    db.Collection("iplogin"),
 		credentials: db.Collection("webauthn_credentials"),
+		system:      db.Collection("system"),
 	}
 }
 
