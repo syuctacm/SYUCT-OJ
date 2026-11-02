@@ -278,6 +278,23 @@ func TestDefaultLanguagesMatchHydroContract(t *testing.T) {
 			}
 		}
 	}
+	for alias, codeFile := range map[string]string{"cc": "foo.cc", "py": "foo.py"} {
+		lang := languages[alias].(map[string]any)
+		if lang["hidden"] != true || lang["code_file"] != codeFile {
+			t.Fatalf("hidden language alias %s = %+v", alias, lang)
+		}
+		compile, _ := lang["compile"].(string)
+		if !strings.Contains(compile, codeFile) && alias == "cc" {
+			t.Fatalf("hidden language alias %s does not compile %s: %q", alias, codeFile, compile)
+		}
+	}
+	visible := map[string]bool{}
+	for _, option := range LanguageOptions() {
+		visible[option.ID] = true
+	}
+	if visible["cc"] || visible["py"] || !visible["cpp"] || !visible["python3"] {
+		t.Fatalf("visible language options = %+v", visible)
+	}
 }
 
 func TestTaskRIDFromBSON(t *testing.T) {
