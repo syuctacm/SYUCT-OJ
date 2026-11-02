@@ -145,6 +145,10 @@ func PublicUser(u *user.User) gin.H {
 	if preferredEditorType == "" {
 		preferredEditorType = "sv"
 	}
+	timeZone := u.TimeZone
+	if timeZone == "" {
+		timeZone = "Asia/Shanghai"
+	}
 	return gin.H{
 		"id":                  u.ID,
 		"username":            u.Uname,
@@ -159,6 +163,7 @@ func PublicUser(u *user.User) gin.H {
 		"school":              u.School,
 		"backgroundImage":     u.BackgroundImage,
 		"viewLang":            u.ViewLang,
+		"timeZone":            timeZone,
 		"fontFamily":          u.FontFamily,
 		"codeFontFamily":      u.CodeFontFamily,
 		"theme":               theme,

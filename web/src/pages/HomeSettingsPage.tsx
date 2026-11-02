@@ -47,6 +47,14 @@ const CODE_FONT_RANGE: Record<string, string> = {
   'SF Mono': 'SF Mono',
 }
 
+function timeZoneRange(): Record<string, string> {
+  const supportedValuesOf = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf
+  const zones = new Set(['Asia/Shanghai', 'UTC', ...(supportedValuesOf?.('timeZone') ?? [])])
+  return Object.fromEntries([...zones].sort().map((zone) => [zone, zone]))
+}
+
+const TIME_ZONE_RANGE = timeZoneRange()
+
 type SettingSchema = {
   family: string
   key: string
@@ -77,7 +85,7 @@ const ACCOUNT_SETTINGS: SettingSchema[] = [
 ]
 
 const ACCOUNT_KEYS = ['avatar', 'qq', 'bio', 'school', 'studentId', 'backgroundImage'] as const
-const PREFERENCE_STRING_KEYS = ['fontFamily', 'codeFontFamily', 'codeLang', 'codeTemplate'] as const
+const PREFERENCE_STRING_KEYS = ['timeZone', 'fontFamily', 'codeFontFamily', 'codeLang', 'codeTemplate'] as const
 const PREFERENCE_BOOLEAN_KEYS = [
   'rounded', 'skipAnimate', 'showTimeAgo', 'showInvisibleChar', 'formatCode',
 ] as const
@@ -91,6 +99,7 @@ function preferenceSettings(languages: LanguageItem[]): SettingSchema[] {
     { family: 'setting_display', key: 'fontFamily', type: 'select', name: 'Font Family', value: 'Open Sans', range: FONT_RANGE, flag: 0 },
     { family: 'setting_display', key: 'codeFontFamily', type: 'select', name: 'Code Font Family', value: 'Source Code Pro', range: CODE_FONT_RANGE, flag: 0 },
     { family: 'setting_display', key: 'theme', type: 'select', name: 'Theme', value: 'light', range: { light: 'Light', dark: 'Dark' }, flag: 0 },
+    { family: 'setting_display', key: 'timeZone', type: 'select', name: 'Timezone', value: 'Asia/Shanghai', range: TIME_ZONE_RANGE, flag: 0 },
     {
       family: 'setting_markdown', key: 'preferredEditorType', type: 'select', name: 'Preferred Editor Type',
       value: 'sv', range: { sv: 'Split View', monaco: 'Monaco Editor' }, flag: 0,

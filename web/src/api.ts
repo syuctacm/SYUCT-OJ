@@ -19,6 +19,7 @@ export type User = {
   school?: string
   backgroundImage?: string
   viewLang?: string
+  timeZone?: string
   fontFamily?: string
   codeFontFamily?: string
   codeLang?: string
@@ -109,6 +110,7 @@ export type UserSettingsInput = {
   studentId?: string
   backgroundImage?: string
   viewLang?: string
+  timeZone?: string
   fontFamily?: string
   codeFontFamily?: string
   codeLang?: string

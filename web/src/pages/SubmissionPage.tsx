@@ -8,6 +8,7 @@ import { languageOptions } from '../components/autocomplete/LanguageSelectAutoCo
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { statusClass, statusLabels } from '../status.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
+import { localeStringInTimeZone } from '../upstream/timezone.ts'
 
 const languageMap = Object.fromEntries(languageOptions.map((language) => [
   language._id,
@@ -44,7 +45,7 @@ function judgeText(value: unknown) {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+  return localeStringInTimeZone(new Date(value))
 }
 
 export function SubmissionPage() {

@@ -16,6 +16,7 @@ import { loadLanguages, type LanguageItem } from '../upstream/languages.ts'
 import { monaco } from '../upstream/monaco/base.ts'
 import { getScratchpadDraft, putScratchpadDraft } from '../upstream/scratchpad-drafts.ts'
 import { subscribeScratchpadPretest } from '../upstream/scratchpad-pretest.ts'
+import { localeStringInTimeZone } from '../upstream/timezone.ts'
 
 type ScratchpadProps = {
   problem: ProblemDetail
@@ -502,7 +503,7 @@ export function Scratchpad({ problem, user, contestId = '', canViewRecord, onExi
                     </td>
                     <td className="col--memory">{record.memory ? `${Math.ceil(record.memory / 1000)} MB` : '-'}</td>
                     <td className="col--time">{record.time ? `${(record.time / 1000).toFixed(1)}s` : '-'}</td>
-                    <td className="col--at"><time>{new Date(record.createdAt).toLocaleString('zh-CN', { hour12: false })}</time></td>
+                    <td className="col--at"><time>{localeStringInTimeZone(new Date(record.createdAt))}</time></td>
                   </tr>
                 ))}
               </tbody>

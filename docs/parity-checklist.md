@@ -288,7 +288,7 @@ Playwright 验证：
 
 Go User 模型和 settings API 增加字段及校验；非法语言、非法字体和超过 64 KiB 的代码模板返回 400。登录和 `/auth/me` 会返回偏好，前端刷新后重新同步 `UserContext` 与 CSS。
 
-未实现的上游字段没有被做成空壳 UI：`theme`、`rounded`、`timeZone`、highlight 选项等当前站点没有实际消费方。
+后续补齐的 `theme`、`rounded`、`timeZone` 和 highlight 选项见 6.44、6.47；所有设置项都必须有明确消费方。
 
 Playwright 验证：
 
@@ -861,6 +861,21 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - Go 集成测试覆盖管理员 CRUD、普通用户 403 和非法 IP 400
 - Playwright 验证侧栏入口、新增映射、用户名回显、编辑预填和删除后空状态
 - 本地 Docker 生产构建复验新增、删除和页面导航
+- `pnpm --dir web lint`
+
+## 6.47 用户时区偏好（2026-11-02）
+
+- Go 用户模型和设置 API 持久化 IANA `timeZone`，默认 `Asia/Shanghai`
+- 设置页新增 Timezone 下拉，使用浏览器 `Intl.supportedValuesOf('timeZone')`，并始终包含 `Asia/Shanghai` 与 `UTC`
+- `datetimeSpan`、比赛/作业列表、记录时间、消息、讨论历史和 Scratchpad 时间按用户时区格式化
+- 比赛和作业编辑表单按用户时区显示开始/截止时间，并把表单输入按用户时区解析为 UTC
+- 比赛创建器、作业默认时间、结束时间联动和跨时区日期加减使用同一套时区 helper
+
+验证：
+
+- Go 集成测试覆盖非法时区 400、合法时区持久化，以及 `/auth/me` 默认 `Asia/Shanghai`
+- Playwright 在本地 Docker 构建上验证 `America/Los_Angeles` 下 `2026-01-01T00:30:00Z` 显示为 `2025-12-31 16:30`
+- 设置页切换 `Asia/Tokyo` 后刷新保持，并同步更新比赛编辑表单中的日期时间
 - `pnpm --dir web lint`
 
 ## 7. 当前已知差异

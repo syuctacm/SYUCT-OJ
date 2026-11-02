@@ -1,5 +1,7 @@
 // Ported from Hydro ui-default components/time/time.page.js (AGPL-3.0).
 // The locale wording uses Intl.RelativeTimeFormat to stay close to timeago.js.
+import { localeStringInTimeZone } from './timezone.ts'
+
 const relativeFormatter = new Intl.RelativeTimeFormat('zh-CN', { numeric: 'auto' })
 
 function relativeText(timestamp: number) {
@@ -32,7 +34,7 @@ export function initHydroRelativeTime(root: ParentNode) {
     if (element.dataset.hasTimeago) continue
     const timestamp = Number(element.dataset.timestamp)
     if (!Number.isFinite(timestamp)) continue
-    const absolute = element.textContent?.trim() || new Date(timestamp * 1000).toLocaleString('zh-CN', { hour12: false })
+    const absolute = element.textContent?.trim() || localeStringInTimeZone(new Date(timestamp * 1000))
     element.dataset.hasTimeago = '1'
     element.dataset.tooltip = absolute
     element.setAttribute('datetime', new Date(timestamp * 1000).toISOString())

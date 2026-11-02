@@ -18,6 +18,7 @@ import { alertDialog } from '../components/dialogs.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 import { legacyMoment } from '../upstream/moment.ts'
 import { renderHydroTemplate } from '../upstream/render.ts'
+import { currentTimeZone, parseZonedDateTime, zonedDateParts } from '../upstream/timezone.ts'
 
 const rules = {
   acm: 'XCPC / ACM',
@@ -27,15 +28,20 @@ const rules = {
   ledo: 'Ledo',
 }
 
-function nextSlot() {
-  const date = new Date()
-  date.setSeconds(0, 0)
-  date.setMinutes(date.getMinutes() - (date.getMinutes() % 15) + 15)
-  return date
+function nextSlot(timeZone = currentTimeZone()) {
+  const now = zonedDateParts(new Date(), timeZone)
+  const rounded = Math.ceil((now.hour * 60 + now.minute + 1) / 15) * 15
+  const dayShift = Math.floor(rounded / (24 * 60))
+  const minuteOfDay = rounded % (24 * 60)
+  const day = new Date(Date.UTC(now.year, now.month - 1, now.day + dayShift))
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const date = `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}`
+  const time = `${pad(Math.floor(minuteOfDay / 60))}:${pad(minuteOfDay % 60)}`
+  return parseZonedDateTime(date, time, timeZone)
 }
 
-function emptyContest(owner = 0): Contest {
-  const begin = nextSlot()
+function emptyContest(owner = 0, timeZone = currentTimeZone()): Contest {
+  const begin = nextSlot(timeZone)
   return {
     id: '',
     docId: '',
@@ -76,7 +82,7 @@ export function ContestEditPage({ mode }: { mode: 'create' | 'edit' }) {
   const { user } = useAuth()
   const draft = (location.state as { draft?: Partial<Contest> } | null)?.draft
   const [item, setItem] = useState<Contest | null>(() => (
-    mode === 'create' ? { ...emptyContest(user?.id ?? 0), ...draft } : null
+    mode === 'create' ? { ...emptyContest(user?.id ?? 0, user?.timeZone), ...draft } : null
   ))
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
@@ -191,7 +197,7 @@ export function ContestEditPage({ mode }: { mode: 'create' | 'edit' }) {
     const form = event.target as HTMLFormElement
     const data = new FormData(form)
     const text = (name: string) => String(data.get(name) ?? '')
-    const begin = new Date(`${text('beginAtDate')}T${text('beginAtTime') || '00:00'}:00`)
+    const begin = parseZonedDateTime(text('beginAtDate'), text('beginAtTime') || '00:00')
     const duration = Number(text('duration'))
     if (Number.isNaN(begin.getTime()) || !Number.isFinite(duration) || duration <= 0) {
       setError('开始时间或持续时间不正确')

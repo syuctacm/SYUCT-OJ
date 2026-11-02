@@ -10,6 +10,7 @@ import { statusClass, statusLabels } from '../status.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
 import { mountAutocomplete } from '../upstream/hydrate.tsx'
 import { loadLanguages } from '../upstream/languages.ts'
+import { localeStringInTimeZone } from '../upstream/timezone.ts'
 
 const languageMap = Object.fromEntries(languageOptions.map((language) => [
   language._id,
@@ -40,7 +41,7 @@ const statusShortTexts: Record<number, string> = {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+  return localeStringInTimeZone(new Date(value))
 }
 
 export function RecordsPage() {

@@ -17,6 +17,7 @@ type AuthContextValue = {
 function syncHydroGlobals(nextUser: User | null) {
   ensureHydroGlobals(nextUser?.id ?? 0, {
     viewLang: nextUser?.viewLang,
+    timeZone: nextUser?.timeZone,
     fontFamily: nextUser?.fontFamily,
     codeFontFamily: nextUser?.codeFontFamily,
     codeLang: nextUser?.codeLang,

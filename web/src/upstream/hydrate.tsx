@@ -7,6 +7,7 @@ import { LanguageSelectAutoComplete } from '../components/autocomplete/LanguageS
 import { ProblemSelectAutoComplete } from '../components/autocomplete/ProblemSelectAutoComplete.tsx'
 import { UserSelectAutoComplete } from '../components/autocomplete/UserSelectAutoComplete.tsx'
 import { attachDatePicker, attachTimePicker } from '../legacy-pickers.ts'
+import { parseZonedDateTime, zonedInputParts } from './timezone.ts'
 
 type Cleanup = () => void
 type AutocompleteKind = 'problems' | 'users' | 'assign' | 'langs'
@@ -214,12 +215,12 @@ function attachDateTime(root: HTMLElement): Cleanup {
   const endAt = root.querySelector<HTMLInputElement>('[name="endAt"]')
   if (beginDate && beginTime && duration && endAt) {
     const update = () => {
-      const begin = new Date(`${beginDate.value}T${beginTime.value || '00:00'}:00`)
+      const begin = parseZonedDateTime(beginDate.value, beginTime.value || '00:00')
       const hours = Number(duration.value)
       if (Number.isNaN(begin.getTime()) || !Number.isFinite(hours)) return
       const end = new Date(begin.getTime() + hours * 3600000)
-      const pad = (value: number) => String(value).padStart(2, '0')
-      endAt.value = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())} ${pad(end.getHours())}:${pad(end.getMinutes())}`
+      const parts = zonedInputParts(end)
+      endAt.value = `${parts.date} ${parts.time}`
     }
     for (const input of [beginDate, beginTime, duration]) cleanups.push(addListener(input, 'change', update))
     update()

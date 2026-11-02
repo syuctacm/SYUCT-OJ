@@ -295,6 +295,7 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		StudentID       *string `json:"studentId"`
 		BackgroundImage *string `json:"backgroundImage"`
 		ViewLang        *string `json:"viewLang"`
+		TimeZone        *string `json:"timeZone"`
 		FontFamily      *string `json:"fontFamily"`
 		CodeFontFamily  *string `json:"codeFontFamily"`
 		Theme           *string `json:"theme"`
@@ -374,6 +375,18 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		}
 		set["viewLang"] = value
 	}
+	if input.TimeZone != nil {
+		value := strings.TrimSpace(*input.TimeZone)
+		if value == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "timezone is required"})
+			return
+		}
+		if _, err := time.LoadLocation(value); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid timezone"})
+			return
+		}
+		set["timeZone"] = value
+	}
 	if input.FontFamily != nil {
 		value := strings.TrimSpace(*input.FontFamily)
 		if value != "" && !allowedFontFamilies[value] {
@@ -450,7 +463,7 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		"avatar": updated.Avatar, "bio": updated.Bio, "qq": updated.QQ,
 		"gender": updated.Gender, "school": updated.School,
 		"studentId": updated.StudentID, "backgroundImage": updated.BackgroundImage,
-		"viewLang": updated.ViewLang, "fontFamily": updated.FontFamily,
+		"viewLang": updated.ViewLang, "timeZone": updated.TimeZone, "fontFamily": updated.FontFamily,
 		"codeFontFamily": updated.CodeFontFamily, "theme": updated.Theme,
 		"rounded": updated.Rounded, "showTimeAgo": updated.ShowTimeAgo,
 		"preferredEditorType": updated.PreferredEditorType,

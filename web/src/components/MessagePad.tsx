@@ -10,6 +10,7 @@ import { Dialog } from './Dialog.tsx'
 import { Icon } from './Icon.tsx'
 import { notifyMessage } from './Notification.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
+import { localeStringInTimeZone } from '../upstream/timezone.ts'
 
 function timeAgo(iso: string) {
   const date = new Date(iso)
@@ -19,12 +20,12 @@ function timeAgo(iso: string) {
   if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`
   if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`
   if (diff < 86400 * 30) return `${Math.floor(diff / 86400)} 天前`
-  return date.toLocaleDateString('zh-CN')
+  return localeStringInTimeZone(date, 'zh-CN', { dateStyle: 'medium' })
 }
 
 function absoluteTime(iso: string) {
   const date = new Date(iso)
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('zh-CN', { hour12: false })
+  return Number.isNaN(date.getTime()) ? '' : localeStringInTimeZone(date)
 }
 
 // System messages (from uid 1) may carry {message, params} payloads, matching

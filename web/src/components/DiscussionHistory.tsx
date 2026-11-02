@@ -8,6 +8,7 @@ import { clearRendered, renderInto } from '../upstream/roots.ts'
 import { getDiscussionHistory, getDiscussionRevision, type DiscussionHistoryEntry } from '../api.ts'
 import { renderMarkdown } from '../upstream/markdown.ts'
 import { Dialog } from './Dialog.tsx'
+import { localeStringInTimeZone } from '../upstream/timezone.ts'
 
 function History({ payload }: { payload: string }) {
   const [opened, setOpened] = useState(false)
@@ -79,7 +80,7 @@ function History({ payload }: { payload: string }) {
               {entries.map((entry) => (
                 <li className="menu__item" key={entry.time}>
                   <a className="menu__link" onClick={() => void openRevision(entry)}>
-                    UID {entry.uid} · {new Date(entry.time).toLocaleString('zh-CN')}
+                    UID {entry.uid} · {localeStringInTimeZone(new Date(entry.time))}
                   </a>
                 </li>
               ))}
@@ -98,7 +99,7 @@ function History({ payload }: { payload: string }) {
           <div className="typo richmedia">
             <p>
               <span data-user>{revision.entry.uid}</span> 编辑于{' '}
-              <span className="time relative">{new Date(revision.entry.time).toLocaleString('zh-CN')}</span>
+              <span className="time relative">{localeStringInTimeZone(new Date(revision.entry.time))}</span>
             </p>
             <div
               style={{ scrollBehavior: 'smooth', maxHeight: '60vh', overflow: 'auto' }}
