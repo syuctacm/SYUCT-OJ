@@ -45,4 +45,6 @@ Hydro 中作业是 `document` 集合里 `docType=30`、`rule=homework` 的文档
 
 ## 尚未完成
 
-- 作业题目依赖和进度
+Hydro 4.58.5 的作业没有独立于题目集合的“前置题目依赖”数据模型。当前实现已经覆盖该版本实际存在的作业分组 `assign`、认领、题目列表和每题提交状态；不再把不存在的依赖功能作为迁移缺口。
+
+用户时区对作业列表和编辑表单的影响见 [parity-checklist.md](./parity-checklist.md) 的 6.47 节。
