@@ -94,6 +94,12 @@ func TestUserSettingsIntegration(t *testing.T) {
 	if status := patch(`{"codeFontFamily":"bad;font"}`, aliceCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid code font family = %d", status)
 	}
+	if status := patch(`{"theme":"solarized"}`, aliceCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid theme = %d", status)
+	}
+	if status := patch(`{"preferredEditorType":"vim"}`, aliceCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid preferred editor = %d", status)
+	}
 	if status := patch(`{"codeLang":"python 3"}`, aliceCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid default code language = %d", status)
 	}
@@ -102,7 +108,7 @@ func TestUserSettingsIntegration(t *testing.T) {
 		t.Fatalf("long code template = %d", status)
 	}
 
-	body := `{"avatar":"gravatar:alice@example.com","qq":"123456","gender":1,"bio":"hello","school":"SYUCT","studentId":"2023001","backgroundImage":"/components/profile/backgrounds/1.jpg","viewLang":"zh","fontFamily":"PingFang SC","codeFontFamily":"Fira Code","codeLang":"python3","codeTemplate":"print(1)","skipAnimate":true}`
+	body := `{"avatar":"gravatar:alice@example.com","qq":"123456","gender":1,"bio":"hello","school":"SYUCT","studentId":"2023001","backgroundImage":"/components/profile/backgrounds/1.jpg","viewLang":"zh","fontFamily":"PingFang SC","codeFontFamily":"Fira Code","theme":"dark","rounded":true,"showTimeAgo":false,"preferredEditorType":"monaco","showInvisibleChar":true,"formatCode":false,"codeLang":"python3","codeTemplate":"print(1)","skipAnimate":true}`
 	if status := patch(body, aliceCookies); status != http.StatusOK {
 		t.Fatalf("settings update = %d", status)
 	}
@@ -120,6 +126,10 @@ func TestUserSettingsIntegration(t *testing.T) {
 	if stored.ViewLang != "zh" || stored.FontFamily != "PingFang SC" || stored.CodeFontFamily != "Fira Code" ||
 		stored.CodeLang != "python3" || stored.CodeTemplate != "print(1)" || !stored.SkipAnimate {
 		t.Fatalf("stored preferences = %+v", stored)
+	}
+	if stored.Theme != "dark" || !stored.Rounded || stored.PreferredEditorType != "monaco" || !stored.ShowInvisibleChar ||
+		stored.ShowTimeAgo == nil || *stored.ShowTimeAgo || stored.FormatCode == nil || *stored.FormatCode {
+		t.Fatalf("stored extended preferences = %+v", stored)
 	}
 
 	profile := func(cookies []*http.Cookie) map[string]any {

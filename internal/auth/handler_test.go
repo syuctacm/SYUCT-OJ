@@ -86,7 +86,11 @@ func TestAuthHandler(t *testing.T) {
 	}
 	var me struct {
 		User struct {
-			ID int64 `json:"id"`
+			ID              int64  `json:"id"`
+			Theme           string `json:"theme"`
+			PreferredEditor string `json:"preferredEditorType"`
+			ShowTimeAgo     bool   `json:"showTimeAgo"`
+			FormatCode      bool   `json:"formatCode"`
 		} `json:"user"`
 	}
 	if err := json.Unmarshal(meResp.Body.Bytes(), &me); err != nil {
@@ -94,6 +98,9 @@ func TestAuthHandler(t *testing.T) {
 	}
 	if me.User.ID != 7 {
 		t.Fatalf("me user id = %d", me.User.ID)
+	}
+	if me.User.Theme != "light" || me.User.PreferredEditor != "sv" || !me.User.ShowTimeAgo || !me.User.FormatCode {
+		t.Fatalf("default preferences = %+v", me.User)
 	}
 
 	logoutReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)

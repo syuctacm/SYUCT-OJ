@@ -814,6 +814,27 @@ Playwright 验证：
 - `go test ./... -count=1`、`go vet ./...`、`go build ./...`
 - `pnpm --dir web lint`、`pnpm --dir web build`
 
+## 6.44 用户偏好与本机字体（2026-11-02）
+
+- 设置页继续渲染上游 `home_settings.html` / `partials/setting.html`
+- 恢复 `theme`、`rounded`、`showTimeAgo`、`preferredEditorType`、`showInvisibleChar` 和 `formatCode` 偏好字段
+- 主题切换同时更新 `theme--dark`、Mantine color scheme 和 Monaco 编辑器主题；页脚恢复亮色/暗色入口，并返回切换前页面
+- `preferredEditorType=monaco` 时，上游 Markdown 表单改用与上游一致的 Monaco 文本编辑器
+- 不可见字符恢复上游 Prism grammar hook，空格、Tab 和换行使用相同 token 与 CSS 标记
+- 支持 `queryLocalFonts()` 时恢复正文字体/代码字体选择，沿用 `customFont` / `customCodeFont` localStorage key
+- 恢复超级管理员不支持浏览器提示，沿用 `su-browser-warn` 24 小时节流
+
+Playwright 在本地 Vite 和 Docker 生产构建上验证：
+
+- 偏好保存后刷新仍保持，主题类和 `data-mantine-color-scheme` 在 SPA 路由切换后不被覆盖
+- 圆角样式为 8px；相对时间关闭后保留绝对时间
+- 上游 Markdown 表单出现 `.monaco-textarea-host`，不再初始化旧 Markdown 编辑器
+- Prism 样例生成 `.token.space/.token.lf` 等不可见字符 token
+- 自定义字体会写入 localStorage，在实际 `--font-family` 中生效，并更新按钮状态
+- 页脚主题切换完成后返回原页面，标题与页面 meta 正确
+- 超管浏览器提示在模拟旧 Firefox UA 时显示并写入节流时间
+- `go test ./...`、`go vet ./...`、`go build ./...`、`pnpm --dir web lint`、`pnpm --dir web build` 通过
+
 ## 7. 当前已知差异
 
 ```text
@@ -828,6 +849,6 @@ Playwright 验证：
 
 ## 8. 尚未迁移的模块
 
-以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：OAuth、组队赛、讨论节点管理、作业分组/依赖、后台脚本/配置/默认权限/IP 可视化，以及 Hack/交互题/特殊 checker 的完整兼容验证。
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：OAuth、组队赛、作业分组/依赖、后台脚本/配置/默认权限/IP 可视化，以及 Hack/交互题/特殊 checker 的完整兼容验证。
 
 已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、SSR。

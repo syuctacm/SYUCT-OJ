@@ -23,6 +23,7 @@ export function LegacyMarkdownEditor({ value, placeholder, disabled, autoFocus, 
       autoFocus={autoFocus}
       codeTheme="github"
       codeStyleReverse={false}
+      theme={globalThis.UserContext?.theme === 'dark' ? 'dark' : 'light'}
       language="zh-CN"
       noMermaid
       noPrettier

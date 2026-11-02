@@ -24,6 +24,12 @@ export type User = {
   codeLang?: string
   codeTemplate?: string
   skipAnimate?: boolean
+  theme?: 'light' | 'dark'
+  rounded?: boolean
+  showTimeAgo?: boolean
+  preferredEditorType?: 'sv' | 'monaco'
+  showInvisibleChar?: boolean
+  formatCode?: boolean
   tfa?: boolean
 }
 
@@ -86,6 +92,12 @@ export type UserSettingsInput = {
   codeLang?: string
   codeTemplate?: string
   skipAnimate?: boolean
+  theme?: 'light' | 'dark'
+  rounded?: boolean
+  showTimeAgo?: boolean
+  preferredEditorType?: 'sv' | 'monaco'
+  showInvisibleChar?: boolean
+  formatCode?: boolean
 }
 
 export async function updateUserSettings(input: UserSettingsInput): Promise<void> {

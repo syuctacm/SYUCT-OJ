@@ -13,6 +13,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/about') return basic('wiki_about', '关于')
   if (pathname === '/wiki/help') return basic('wiki_help', '帮助')
   if (pathname === '/status') return basic('status', '服务状态')
+  if (/^\/set_theme\/(?:light|dark)\/?$/.test(pathname)) return basic('set_theme', '切换主题')
   if (pathname === '/login') return { name: 'user_login', layout: 'immersive', title: '登录' }
   if (pathname === '/lostpass') return { name: 'user_lostpass', layout: 'immersive', title: '找回密码' }
   if (/^\/lostpass\/[^/]+\/?$/.test(pathname)) return { name: 'user_lostpass_with_code', layout: 'immersive', title: '重置密码' }
@@ -86,6 +87,6 @@ export function applyPageMeta(meta: PageMeta) {
   root.dataset.page = meta.name
   root.dataset.layout = meta.layout
   root.dataset.app = 'Hydro'
-  root.dataset.mantineColorScheme = 'light'
+  root.dataset.mantineColorScheme = root.classList.contains('theme--dark') ? 'dark' : 'light'
   document.title = `${meta.title} - SYUCT OJ`
 }

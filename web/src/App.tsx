@@ -19,6 +19,7 @@ const ContestScoreboardPage = lazy(() => import('./pages/ContestScoreboardPage.t
 const ContestUserPage = lazy(() => import('./pages/ContestUserPage.tsx').then((module) => ({ default: module.ContestUserPage })))
 const RankingPage = lazy(() => import('./pages/RankingPage.tsx').then((module) => ({ default: module.RankingPage })))
 const StatusPage = lazy(() => import('./pages/StatusPage.tsx').then((module) => ({ default: module.StatusPage })))
+const SetThemePage = lazy(() => import('./pages/SetThemePage.tsx').then((module) => ({ default: module.SetThemePage })))
 const AboutPage = lazy(() => import('./pages/AboutPage.tsx').then((module) => ({ default: module.AboutPage })))
 const HelpPage = lazy(() => import('./pages/HelpPage.tsx').then((module) => ({ default: module.HelpPage })))
 import { NotFoundPage } from './pages/ErrorPage.tsx'
@@ -129,6 +130,7 @@ export default function App() {
         <Route path="/user/:uid" element={<UserProfilePage />} />
         <Route path="/ranking" element={<RankingPage />} />
         <Route path="/status" element={<StatusPage />} />
+        <Route path="/set_theme/:theme" element={<SetThemePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/wiki/help" element={<HelpPage />} />
         <Route path="/user/delete" element={<UserDeletePage />} />

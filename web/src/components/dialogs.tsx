@@ -219,3 +219,11 @@ export function alertDialog(message: string): Promise<void> {
     </Dialog>
   ))
 }
+
+export function infoDialog(message: string): Promise<void> {
+  return openDialog<void>((resolve) => (
+    <Dialog onOk={() => resolve()} onCancel={() => resolve()} okLabel="确定" cancelLabel="">
+      <div className="typo" style={{ whiteSpace: 'pre-line' }}><p>{message}</p></div>
+    </Dialog>
+  ))
+}

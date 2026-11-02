@@ -107,6 +107,20 @@ function randomizeImageNames(files: File[]): File[] {
 }
 
 function mountMarkdownEditor(textarea: HTMLTextAreaElement, options: MarkdownHydrationOptions): Cleanup {
+  if (globalThis.UserContext?.preferredEditorType === 'monaco') {
+    let disposed = false
+    let controller: import('./monaco/textarea.ts').MonacoTextareaController | null = null
+    textarea.hidden = true
+    void import('./monaco/textarea.ts').then(({ mountMonacoTextarea }) => {
+      if (disposed || !textarea.isConnected) return
+      controller = mountMonacoTextarea(textarea, 'markdown')
+    })
+    return () => {
+      disposed = true
+      controller?.dispose()
+      textarea.hidden = false
+    }
+  }
   const host = document.createElement('div')
   textarea.hidden = true
   textarea.parentElement?.appendChild(host)

@@ -129,25 +129,47 @@ func Token(c *gin.Context) string {
 
 // PublicUser is the safe user payload shared by password and WebAuthn login.
 func PublicUser(u *user.User) gin.H {
+	showTimeAgo := true
+	if u.ShowTimeAgo != nil {
+		showTimeAgo = *u.ShowTimeAgo
+	}
+	formatCode := true
+	if u.FormatCode != nil {
+		formatCode = *u.FormatCode
+	}
+	theme := u.Theme
+	if theme == "" {
+		theme = "light"
+	}
+	preferredEditorType := u.PreferredEditorType
+	if preferredEditorType == "" {
+		preferredEditorType = "sv"
+	}
 	return gin.H{
-		"id":              u.ID,
-		"username":        u.Uname,
-		"email":           u.Mail,
-		"displayName":     u.DisplayName,
-		"studentId":       u.StudentID,
-		"avatar":          u.Avatar,
-		"priv":            u.Priv,
-		"bio":             u.Bio,
-		"qq":              u.QQ,
-		"gender":          u.Gender,
-		"school":          u.School,
-		"backgroundImage": u.BackgroundImage,
-		"viewLang":        u.ViewLang,
-		"fontFamily":      u.FontFamily,
-		"codeFontFamily":  u.CodeFontFamily,
-		"codeLang":        u.CodeLang,
-		"codeTemplate":    u.CodeTemplate,
-		"skipAnimate":     u.SkipAnimate,
-		"tfa":             u.TFA != "",
+		"id":                  u.ID,
+		"username":            u.Uname,
+		"email":               u.Mail,
+		"displayName":         u.DisplayName,
+		"studentId":           u.StudentID,
+		"avatar":              u.Avatar,
+		"priv":                u.Priv,
+		"bio":                 u.Bio,
+		"qq":                  u.QQ,
+		"gender":              u.Gender,
+		"school":              u.School,
+		"backgroundImage":     u.BackgroundImage,
+		"viewLang":            u.ViewLang,
+		"fontFamily":          u.FontFamily,
+		"codeFontFamily":      u.CodeFontFamily,
+		"theme":               theme,
+		"rounded":             u.Rounded,
+		"showTimeAgo":         showTimeAgo,
+		"preferredEditorType": preferredEditorType,
+		"showInvisibleChar":   u.ShowInvisibleChar,
+		"formatCode":          formatCode,
+		"codeLang":            u.CodeLang,
+		"codeTemplate":        u.CodeTemplate,
+		"skipAnimate":         u.SkipAnimate,
+		"tfa":                 u.TFA != "",
 	}
 }

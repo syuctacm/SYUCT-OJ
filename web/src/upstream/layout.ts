@@ -39,7 +39,7 @@ function userHandler(user: User | null) {
   }
 }
 
-export function layoutChromeContext(user: User | null, pageName: string) {
+export function layoutChromeContext(user: User | null, pageName: string, path = '/') {
   const handlerUser = userHandler(user)
   return {
     page_name: pageName,
@@ -48,7 +48,7 @@ export function layoutChromeContext(user: User | null, pageName: string) {
       user: handlerUser,
       domain: { name: 'SYUCT ACM', avatar: '', ui: {} },
       args: { domainId: 'system' },
-      request: { query: {}, headers: { 'user-agent': navigator.userAgent } },
+      request: { query: {}, path, headers: { 'user-agent': navigator.userAgent } },
       session: { legacy: false, viewLang: user?.viewLang || 'zh' },
     },
     model: {
@@ -92,6 +92,15 @@ export function buildLayoutUrl(name: string, args: Record<string, unknown> = {})
     case 'home_files': return '/file'
     case 'home_settings':
       return `/home/settings?category=${encodeURIComponent(String(args.category ?? 'account'))}`
+    case 'set_theme':
+      {
+        const params = new URLSearchParams()
+        for (const [key, value] of Object.entries((args.query ?? {}) as Record<string, unknown>)) {
+          if (value !== undefined && value !== null) params.set(key, String(value))
+        }
+        const suffix = params.toString() ? `?${params.toString()}` : ''
+        return `/set_theme/${encodeURIComponent(String(args.theme ?? 'light'))}${suffix}`
+      }
     case 'manage_dashboard': return '/admin'
     case 'manage_user_priv': return '/admin/users'
     case 'manage_user_import': return '/admin/users/import'
