@@ -88,6 +88,11 @@ docker compose -f deploy/compose.dev.yaml --profile judge up -d --build judge
 - 系统级判题错误写入 `judgeTexts`
 - 判题过程中停止 Docker 容器，重启后任务重新领取并 Accepted
 - 短 lease 下的 8 秒长任务只执行一次，不会因 lease 到期重复下发
+- testlib 特殊 checker 的 AC / WA 结果、checker 输出的错误信息
+- interactive 题的 AC / WA、interactor 消息和测试点耗时/内存
+- 特殊 checker 单条记录重判
+
+服务端广播语言时保留 hydrojudge 的文件扩展名别名：`cc` 和 `py` 会作为隐藏编译语言下发，不出现在提交语言选择列表中，因此 `chk.cc`、`interactor.cpp`、`interactor.py` 等文件可以按扩展名自动选择编译器。
 
 断线恢复验证：
 
@@ -96,9 +101,34 @@ JUDGE_TASK_LEASE=3s go run ./cmd/api
 ./scripts/real-judge-recovery-smoke.sh
 ```
 
+## 特殊 checker / 交互题回归
+
+使用隔离数据库和独立 API 进程：
+
+```bash
+MONGO_DATABASE=syuct_oj_judge_smoke JUDGE_FILE_ROOT=./data/judge-files \
+  SERVER_PORT=18080 go run ./cmd/api
+
+docker compose -f deploy/compose.dev.yaml --profile judge up -d judge
+
+ALLOW_DESTRUCTIVE_LOCAL_TEST=1 \
+MONGO_DATABASE=syuct_oj_judge_smoke \
+JUDGE_FILE_ROOT=./data/judge-files \
+./scripts/real-judge-special-smoke.sh
+```
+
+脚本会重建两个本地测试题，验证：
+
+- `checker_type: testlib` + `checker: chk.cc` 的 AC / WA
+- `type: interactive` + `interactor.cpp` 的 AC / WA
+- 特殊 checker 记录重判
+- 两个题目的 `nSubmit`、`nAccept` 和记录数
+
+脚本只允许 localhost API，并且只接受名称含 `test`、`smoke` 或 `e2e` 的数据库。所有写入都限制在本地 Docker MongoDB 和 `JUDGE_FILE_ROOT`。
+
 ## 尚未完成
 
-- 重判、Hack、交互题和特殊 checker 的完整验证
+- Hack 模式的记录页入口和端到端判题验证
 - 生产判题机版本与服务端协议的长期兼容矩阵
 
 真实联调只在本地 Docker 和测试环境中进行，不连接生产 OJ。
