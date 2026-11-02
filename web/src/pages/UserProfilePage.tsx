@@ -66,11 +66,20 @@ export function UserProfilePage() {
       title: item.title,
       rule: item.rule,
     }))
+    const recentSolutions = profile.recentSolutions ?? []
+    const psdocs = recentSolutions.map((item) => ({ _id: item.id, parentId: item.pid }))
+    const pdict = Object.fromEntries(recentSolutions.map((item) => [item.pid, {
+      docId: item.pid,
+      pid: item.problemPid,
+      title: item.title,
+    }]))
     return {
       page_name: 'user_detail',
       udoc,
       sdoc: profile.lastSeenAt ? { updateAt: new Date(profile.lastSeenAt) } : null,
       pdocs,
+      psdocs,
+      pdict,
       tdocs,
       tags: (profile.tags ?? []).map((item) => [item.tag, item.count]),
       isSelfProfile: Boolean(viewer && viewer.id === profile.id),
@@ -124,6 +133,8 @@ export function UserProfilePage() {
       case 'home_domain':
         return '#'
       case 'problem_detail': return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
+      case 'problem_solution_detail':
+        return `/p/${encodeURIComponent(String(args.pid ?? ''))}/solution/${encodeURIComponent(String(args.sid ?? ''))}`
       case 'contest_detail': return `/contest/${encodeURIComponent(String(args.tid ?? ''))}`
       case 'homework_detail': return `/homework/${encodeURIComponent(String(args.tid ?? ''))}`
       default: return '#'

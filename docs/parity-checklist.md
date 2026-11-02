@@ -835,6 +835,20 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 超管浏览器提示在模拟旧 Firefox UA 时显示并写入节流时间
 - `go test ./...`、`go vet ./...`、`go build ./...`、`pnpm --dir web lint`、`pnpm --dir web build` 通过
 
+## 6.45 用户主页最近题解（2026-11-02）
+
+- 用户 API 返回最近 10 条题解，按 ObjectId 时间倒序
+- 只返回当前仍可见题目的题解，隐藏题目不会出现在公开用户主页
+- 直接启用上游 `partials/user_detail/solution.html`，不复制题解列表 DOM
+- 题解链接沿用上游 `problem_solution_detail` 路由格式 `/p/:docId/solution/:sid`
+
+验证：
+
+- Go 集成测试覆盖 10 条上限、时间倒序、隐藏题过滤和 `pid/title` 映射
+- Playwright：用户主页出现「最近编写的题解」标签，两条测试题解均指向对应题目；点击后进入原版题解详情页
+- `go test ./internal/api -run TestUserProfileRecentSolutions`
+- `pnpm --dir web lint`
+
 ## 7. 当前已知差异
 
 ```text

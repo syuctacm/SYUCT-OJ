@@ -170,10 +170,16 @@ func (h *UserHandler) get(c *gin.Context) {
 		return
 	}
 	var nSolution, nLiked int64
+	recentSolutions := []problem.UserSolutionSummary{}
 	if h.problems != nil {
 		nSolution, nLiked, err = h.problems.SolutionStats(c.Request.Context(), uid)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load solution statistics"})
+			return
+		}
+		recentSolutions, err = h.problems.RecentSolutionsByUser(c.Request.Context(), uid, 10)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load recent solutions"})
 			return
 		}
 	}
@@ -189,6 +195,7 @@ func (h *UserHandler) get(c *gin.Context) {
 	payload := profilePayload(u, canSeePrivate, submit, accepted, rp, level, rank, acceptedProblems, nSolution, nLiked, lastSeen)
 	payload["tdocs"] = recentContests
 	payload["tags"] = problemTags
+	payload["recentSolutions"] = recentSolutions
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0, "message": "success",
 		"data": payload,

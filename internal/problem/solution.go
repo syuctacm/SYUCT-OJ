@@ -34,6 +34,15 @@ type Solution struct {
 	CreatedAt time.Time       `bson:"-" json:"createdAt"`
 }
 
+// UserSolutionSummary is the compact profile-page representation of one
+// solution. The upstream profile template renders the ten newest entries.
+type UserSolutionSummary struct {
+	ID         bson.ObjectID `json:"id"`
+	PID        int64         `json:"pid"`
+	ProblemPID string        `json:"problemPid"`
+	Title      string        `json:"title"`
+}
+
 func (r *Repository) solutionFilter(extra bson.M) bson.M {
 	filter := bson.M{
 		"domainId":   DomainSystem,
@@ -292,4 +301,62 @@ func (r *Repository) SolutionStats(ctx context.Context, uid int64) (int64, int64
 		liked += item.Vote
 	}
 	return count, liked, cursor.Err()
+}
+
+// RecentSolutionsByUser returns the ten newest solutions by a user. Solutions
+// attached to hidden or deleted problems are omitted from the public profile.
+func (r *Repository) RecentSolutionsByUser(ctx context.Context, uid int64, limit int) ([]UserSolutionSummary, error) {
+	if uid <= 0 {
+		return []UserSolutionSummary{}, nil
+	}
+	if limit <= 0 || limit > 10 {
+		limit = 10
+	}
+	scanLimit := limit * 5
+	cursor, err := r.coll.Find(ctx, r.solutionFilter(bson.M{"owner": uid}), options.Find().
+		SetProjection(bson.M{"parentId": 1}).
+		SetSort(bson.D{{Key: "_id", Value: -1}}).
+		SetLimit(int64(scanLimit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var solutions []struct {
+		ID  bson.ObjectID `bson:"_id"`
+		PID int64         `bson:"parentId"`
+	}
+	if err := cursor.All(ctx, &solutions); err != nil {
+		return nil, err
+	}
+
+	pids := make([]int64, 0, len(solutions))
+	seen := make(map[int64]bool, len(solutions))
+	for _, solution := range solutions {
+		if !seen[solution.PID] {
+			seen[solution.PID] = true
+			pids = append(pids, solution.PID)
+		}
+	}
+	problems, err := r.GetManyByDocIDs(ctx, pids)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]Problem, len(problems))
+	for _, pdoc := range problems {
+		byID[pdoc.DocID] = pdoc
+	}
+	items := make([]UserSolutionSummary, 0, len(solutions))
+	for _, solution := range solutions {
+		pdoc, ok := byID[solution.PID]
+		if !ok {
+			continue
+		}
+		items = append(items, UserSolutionSummary{
+			ID: solution.ID, PID: solution.PID, ProblemPID: pdoc.PID, Title: pdoc.Title,
+		})
+		if len(items) == limit {
+			break
+		}
+	}
+	return items, nil
 }
