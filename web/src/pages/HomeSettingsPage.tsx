@@ -7,6 +7,7 @@ import { updateUserSettings, uploadUserAvatar, type UserSettingsInput } from '..
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
+import { installCustomFontControls } from '../upstream/custom-fonts.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
 import { loadLanguages, type LanguageItem } from '../upstream/languages.ts'
 
@@ -76,14 +77,26 @@ const ACCOUNT_SETTINGS: SettingSchema[] = [
 ]
 
 const ACCOUNT_KEYS = ['avatar', 'qq', 'bio', 'school', 'studentId', 'backgroundImage'] as const
-const PREFERENCE_KEYS = ['fontFamily', 'codeFontFamily', 'codeLang', 'codeTemplate'] as const
+const PREFERENCE_STRING_KEYS = ['fontFamily', 'codeFontFamily', 'codeLang', 'codeTemplate'] as const
+const PREFERENCE_BOOLEAN_KEYS = [
+  'rounded', 'skipAnimate', 'showTimeAgo', 'showInvisibleChar', 'formatCode',
+] as const
 
 function preferenceSettings(languages: LanguageItem[]): SettingSchema[] {
   const codeLanguages = Object.fromEntries(languages.map((language) => [language._id, language.name]))
   return [
+    { family: 'setting_display', key: 'rounded', type: 'boolean', name: 'Rounded Corners', value: false, flag: 0 },
+    { family: 'setting_display', key: 'skipAnimate', type: 'boolean', name: 'Skip Animation', value: false, flag: 0 },
+    { family: 'setting_display', key: 'showTimeAgo', type: 'boolean', name: 'Enable Time Ago', value: true, flag: 0 },
     { family: 'setting_display', key: 'fontFamily', type: 'select', name: 'Font Family', value: 'Open Sans', range: FONT_RANGE, flag: 0 },
     { family: 'setting_display', key: 'codeFontFamily', type: 'select', name: 'Code Font Family', value: 'Source Code Pro', range: CODE_FONT_RANGE, flag: 0 },
-    { family: 'setting_display', key: 'skipAnimate', type: 'boolean', name: 'Skip Animation', value: false, flag: 0 },
+    { family: 'setting_display', key: 'theme', type: 'select', name: 'Theme', value: 'light', range: { light: 'Light', dark: 'Dark' }, flag: 0 },
+    {
+      family: 'setting_markdown', key: 'preferredEditorType', type: 'select', name: 'Preferred Editor Type',
+      value: 'sv', range: { sv: 'Split View', monaco: 'Monaco Editor' }, flag: 0,
+    },
+    { family: 'setting_highlight', key: 'showInvisibleChar', type: 'boolean', name: 'Show Invisible Characters', value: false, flag: 0 },
+    { family: 'setting_highlight', key: 'formatCode', type: 'boolean', name: 'Auto Format Code', value: true, flag: 0 },
     {
       family: 'setting_usage', key: 'codeLang', type: 'select', name: 'Default Code Language',
       value: languages[0]?._id || 'cpp', range: codeLanguages, flag: 0,
@@ -117,6 +130,7 @@ export function HomeSettingsPage() {
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const cleanups: Array<() => void> = [hydrateHydroEditForm(root)]
+    if (category === 'preference') cleanups.push(installCustomFontControls(root))
     if (category === 'account') {
       const row = root.querySelector('.row')
       if (row) {
@@ -167,10 +181,14 @@ export function HomeSettingsPage() {
       }
       if (data.has('gender')) payload.gender = Number(data.get('gender'))
     } else {
-      for (const key of PREFERENCE_KEYS) {
+      for (const key of PREFERENCE_STRING_KEYS) {
         if (data.has(key)) payload[key] = String(data.get(key) ?? '')
       }
-      payload.skipAnimate = data.has('skipAnimate')
+      const theme = String(data.get('theme') ?? '')
+      if (theme === 'light' || theme === 'dark') payload.theme = theme
+      const preferredEditorType = String(data.get('preferredEditorType') ?? '')
+      if (preferredEditorType === 'sv' || preferredEditorType === 'monaco') payload.preferredEditorType = preferredEditorType
+      for (const key of PREFERENCE_BOOLEAN_KEYS) payload[key] = data.has(key)
     }
     setSaved('')
     setError('')

@@ -4,6 +4,7 @@ import { Outlet, useLocation, useNavigationType, useNavigate } from 'react-route
 import { useAuth } from '../auth.tsx'
 import { applyPageMeta, pageMetaForPath } from '../page-meta.ts'
 import { initHydroFooter } from '../upstream/footer.ts'
+import { warnUnsupportedSuperAdminBrowser } from '../upstream/browser-warning.ts'
 import { buildLayoutUrl, layoutChromeContext } from '../upstream/layout.ts'
 import { initHydroNavigation } from '../upstream/navigation.ts'
 import { cleanupHydroOverlays } from '../upstream/overlays.ts'
@@ -40,6 +41,10 @@ export function Layout() {
       history.scrollRestoration = previous
     }
   }, [])
+
+  useEffect(() => {
+    if (user?.priv === -1) void warnUnsupportedSuperAdminBrowser(user.priv)
+  }, [user?.priv])
 
   useEffect(() => {
     let frame = 0
@@ -127,8 +132,8 @@ export function Layout() {
   }, [])
 
   const context = useMemo(
-    () => layoutChromeContext(user, pageName),
-    [pageName, user],
+    () => layoutChromeContext(user, pageName, `${location.pathname}${location.search}`),
+    [location.pathname, location.search, pageName, user],
   )
 
   return (

@@ -22,6 +22,13 @@ function syncHydroGlobals(nextUser: User | null) {
     codeLang: nextUser?.codeLang,
     codeTemplate: nextUser?.codeTemplate,
     skipAnimate: nextUser?.skipAnimate,
+    theme: nextUser?.theme,
+    rounded: nextUser?.rounded,
+    showTimeAgo: nextUser?.showTimeAgo,
+    preferredEditorType: nextUser?.preferredEditorType,
+    showInvisibleChar: nextUser?.showInvisibleChar,
+    formatCode: nextUser?.formatCode,
+    priv: nextUser?.priv,
   })
 }
 

@@ -1,4 +1,4 @@
-{# Copied from @hydrooj/ui-default partials/footer.html; unsupported language/theme/legacy controls removed. #}
+{# Copied from @hydrooj/ui-default partials/footer.html; unsupported language and legacy controls removed. #}
 <div class="footer">
   <div class="row"><div class="columns">
     <div class="row footer__links">
@@ -33,6 +33,13 @@
       <div class="footer__extra-left">
         <ol class="clearfix">
           <li class="footer__extra-link-item">沈阳化工大学 ACM-ICPC 集训队</li>
+          <li class="footer__extra-link-item nojs--hide" data-dropdown-target="#menu-footer-theme">
+            <span><span class="icon icon-global"></span> {{ _('Theme') }} <span class="icon icon-expand_less"></span></span>
+            <ol class="dropdown-target menu" id="menu-footer-theme">
+              <li class="menu__item"><a class="menu__link" href="{{ url('set_theme', theme='light', query={redirect: handler.request.path}) }}">{{ _('Light') }}</a></li>
+              <li class="menu__item"><a class="menu__link" href="{{ url('set_theme', theme='dark', query={redirect: handler.request.path}) }}">{{ _('Dark') }}</a></li>
+            </ol>
+          </li>
         </ol>
       </div>
       <div class="footer__extra-right">

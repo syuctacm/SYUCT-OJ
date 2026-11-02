@@ -240,6 +240,10 @@ var allowedCodeFontFamilies = map[string]bool{
 	"Jetbrains Mono": true, "DM Mono": true, "Ubuntu Mono": true, "PT Mono": true, "SF Mono": true,
 }
 
+var allowedThemes = map[string]bool{"light": true, "dark": true}
+
+var allowedEditorTypes = map[string]bool{"sv": true, "monaco": true}
+
 // validAvatar mirrors the upstream avatar.validate() provider checks.
 func validAvatar(value string) bool {
 	if value == "" {
@@ -286,6 +290,12 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		ViewLang        *string `json:"viewLang"`
 		FontFamily      *string `json:"fontFamily"`
 		CodeFontFamily  *string `json:"codeFontFamily"`
+		Theme           *string `json:"theme"`
+		Rounded         *bool   `json:"rounded"`
+		ShowTimeAgo     *bool   `json:"showTimeAgo"`
+		PreferredEditor *string `json:"preferredEditorType"`
+		ShowInvisible   *bool   `json:"showInvisibleChar"`
+		FormatCode      *bool   `json:"formatCode"`
 		CodeLang        *string `json:"codeLang"`
 		CodeTemplate    *string `json:"codeTemplate"`
 		SkipAnimate     *bool   `json:"skipAnimate"`
@@ -373,6 +383,34 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		}
 		set["codeFontFamily"] = value
 	}
+	if input.Theme != nil {
+		value := strings.TrimSpace(*input.Theme)
+		if !allowedThemes[value] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid theme"})
+			return
+		}
+		set["theme"] = value
+	}
+	if input.Rounded != nil {
+		set["rounded"] = *input.Rounded
+	}
+	if input.ShowTimeAgo != nil {
+		set["showTimeAgo"] = *input.ShowTimeAgo
+	}
+	if input.PreferredEditor != nil {
+		value := strings.TrimSpace(*input.PreferredEditor)
+		if !allowedEditorTypes[value] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid preferred editor type"})
+			return
+		}
+		set["preferredEditorType"] = value
+	}
+	if input.ShowInvisible != nil {
+		set["showInvisibleChar"] = *input.ShowInvisible
+	}
+	if input.FormatCode != nil {
+		set["formatCode"] = *input.FormatCode
+	}
 	if input.CodeLang != nil {
 		value := strings.TrimSpace(*input.CodeLang)
 		if len(value) > 64 || (value != "" && !languageKeyPattern.MatchString(value)) {
@@ -406,8 +444,11 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		"gender": updated.Gender, "school": updated.School,
 		"studentId": updated.StudentID, "backgroundImage": updated.BackgroundImage,
 		"viewLang": updated.ViewLang, "fontFamily": updated.FontFamily,
-		"codeFontFamily": updated.CodeFontFamily, "codeLang": updated.CodeLang,
-		"codeTemplate": updated.CodeTemplate, "skipAnimate": updated.SkipAnimate,
+		"codeFontFamily": updated.CodeFontFamily, "theme": updated.Theme,
+		"rounded": updated.Rounded, "showTimeAgo": updated.ShowTimeAgo,
+		"preferredEditorType": updated.PreferredEditorType,
+		"showInvisibleChar":   updated.ShowInvisibleChar, "formatCode": updated.FormatCode,
+		"codeLang": updated.CodeLang, "codeTemplate": updated.CodeTemplate, "skipAnimate": updated.SkipAnimate,
 	}})
 }
 

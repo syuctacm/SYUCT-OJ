@@ -71,6 +71,44 @@ const aliases = {
 
 const loaded = new Set()
 
+const invisibles = {
+  tab: /\t/,
+  crlf: /\r\n/,
+  lf: /\n/,
+  cr: /\r/,
+  space: / /,
+}
+
+function addInvisibles(grammar) {
+  if (!grammar || grammar.tab) return
+  for (const [name, pattern] of Object.entries(invisibles)) grammar[name] = pattern
+  for (const [name, token] of Object.entries(grammar)) {
+    if (invisibles[name]) continue
+    if (name === 'rest') addInvisibles(grammar.rest)
+    else addInvisiblesToken(grammar, name)
+  }
+}
+
+function addInvisiblesToken(tokens, name) {
+  const value = tokens[name]
+  if (!value) return
+  const type = Prism.util.type(value)
+  if (type === 'RegExp') {
+    const inside = {}
+    tokens[name] = { pattern: value, inside }
+    addInvisibles(inside)
+  } else if (type === 'Array') {
+    value.forEach((_, index) => addInvisiblesToken(value, index))
+  } else {
+    value.inside ||= {}
+    addInvisibles(value.inside)
+  }
+}
+
+Prism.hooks.add('before-highlight', (env) => {
+  if (globalThis.UserContext?.showInvisibleChar) addInvisibles(env.grammar)
+})
+
 async function loadLanguage(language) {
   if (!language || Prism.languages[language] || loaded.has(language)) return
   loaded.add(language)
