@@ -44,6 +44,7 @@ type User struct {
 	School              string          `bson:"school,omitempty" json:"school,omitempty"`
 	BackgroundImage     string          `bson:"backgroundImage,omitempty" json:"backgroundImage,omitempty"`
 	ViewLang            string          `bson:"viewLang,omitempty" json:"viewLang,omitempty"`
+	TimeZone            string          `bson:"timeZone,omitempty" json:"timeZone,omitempty"`
 	FontFamily          string          `bson:"fontFamily,omitempty" json:"fontFamily,omitempty"`
 	CodeFontFamily      string          `bson:"codeFontFamily,omitempty" json:"codeFontFamily,omitempty"`
 	Theme               string          `bson:"theme,omitempty" json:"theme,omitempty"`

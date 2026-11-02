@@ -2,6 +2,7 @@ type HydroUserContext = {
   _id: number
   priv: number
   viewLang: string
+  timeZone: string
   preferredEditorType: string
   fontFamily: string
   codeFontFamily: string
@@ -18,6 +19,7 @@ type HydroUserContext = {
 type HydroUserPreferences = {
   priv?: number
   viewLang?: string
+  timeZone?: string
   preferredEditorType?: 'sv' | 'monaco'
   fontFamily?: string
   codeFontFamily?: string
@@ -85,6 +87,7 @@ export function ensureHydroGlobals(userId = 0, preferences: HydroUserPreferences
     _id: 0,
     priv: 0,
     viewLang: 'zh',
+    timeZone: 'Asia/Shanghai',
     preferredEditorType: 'sv',
     fontFamily: 'Open Sans',
     codeFontFamily: 'Source Code Pro',
@@ -98,6 +101,7 @@ export function ensureHydroGlobals(userId = 0, preferences: HydroUserPreferences
   globalThis.UserContext._id = userId
   globalThis.UserContext.priv = preferences.priv ?? 0
   globalThis.UserContext.viewLang = preferences.viewLang || 'zh'
+  globalThis.UserContext.timeZone = preferences.timeZone || 'Asia/Shanghai'
   globalThis.UserContext.preferredEditorType = preferences.preferredEditorType || 'sv'
   globalThis.UserContext.fontFamily = preferences.fontFamily || 'Open Sans'
   globalThis.UserContext.codeFontFamily = preferences.codeFontFamily || 'Source Code Pro'

@@ -88,6 +88,7 @@ func TestAuthHandler(t *testing.T) {
 		User struct {
 			ID              int64  `json:"id"`
 			Theme           string `json:"theme"`
+			TimeZone        string `json:"timeZone"`
 			PreferredEditor string `json:"preferredEditorType"`
 			ShowTimeAgo     bool   `json:"showTimeAgo"`
 			FormatCode      bool   `json:"formatCode"`
@@ -99,7 +100,8 @@ func TestAuthHandler(t *testing.T) {
 	if me.User.ID != 7 {
 		t.Fatalf("me user id = %d", me.User.ID)
 	}
-	if me.User.Theme != "light" || me.User.PreferredEditor != "sv" || !me.User.ShowTimeAgo || !me.User.FormatCode {
+	if me.User.Theme != "light" || me.User.TimeZone != "Asia/Shanghai" ||
+		me.User.PreferredEditor != "sv" || !me.User.ShowTimeAgo || !me.User.FormatCode {
 		t.Fatalf("default preferences = %+v", me.User)
 	}
 

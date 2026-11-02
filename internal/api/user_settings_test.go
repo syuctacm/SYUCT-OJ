@@ -88,6 +88,9 @@ func TestUserSettingsIntegration(t *testing.T) {
 	if status := patch(`{"viewLang":"xx"}`, aliceCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid view language = %d", status)
 	}
+	if status := patch(`{"timeZone":"Mars/Olympus"}`, aliceCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid timezone = %d", status)
+	}
 	if status := patch(`{"fontFamily":"Comic Sans MS"}`, aliceCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid font family = %d", status)
 	}
@@ -108,7 +111,7 @@ func TestUserSettingsIntegration(t *testing.T) {
 		t.Fatalf("long code template = %d", status)
 	}
 
-	body := `{"avatar":"gravatar:alice@example.com","qq":"123456","gender":1,"bio":"hello","school":"SYUCT","studentId":"2023001","backgroundImage":"/components/profile/backgrounds/1.jpg","viewLang":"zh","fontFamily":"PingFang SC","codeFontFamily":"Fira Code","theme":"dark","rounded":true,"showTimeAgo":false,"preferredEditorType":"monaco","showInvisibleChar":true,"formatCode":false,"codeLang":"python3","codeTemplate":"print(1)","skipAnimate":true}`
+	body := `{"avatar":"gravatar:alice@example.com","qq":"123456","gender":1,"bio":"hello","school":"SYUCT","studentId":"2023001","backgroundImage":"/components/profile/backgrounds/1.jpg","viewLang":"zh","timeZone":"America/New_York","fontFamily":"PingFang SC","codeFontFamily":"Fira Code","theme":"dark","rounded":true,"showTimeAgo":false,"preferredEditorType":"monaco","showInvisibleChar":true,"formatCode":false,"codeLang":"python3","codeTemplate":"print(1)","skipAnimate":true}`
 	if status := patch(body, aliceCookies); status != http.StatusOK {
 		t.Fatalf("settings update = %d", status)
 	}
@@ -123,7 +126,7 @@ func TestUserSettingsIntegration(t *testing.T) {
 	if stored.Gender == nil || *stored.Gender != 1 {
 		t.Fatalf("stored gender = %v", stored.Gender)
 	}
-	if stored.ViewLang != "zh" || stored.FontFamily != "PingFang SC" || stored.CodeFontFamily != "Fira Code" ||
+	if stored.ViewLang != "zh" || stored.TimeZone != "America/New_York" || stored.FontFamily != "PingFang SC" || stored.CodeFontFamily != "Fira Code" ||
 		stored.CodeLang != "python3" || stored.CodeTemplate != "print(1)" || !stored.SkipAnimate {
 		t.Fatalf("stored preferences = %+v", stored)
 	}

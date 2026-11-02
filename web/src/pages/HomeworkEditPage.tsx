@@ -12,6 +12,9 @@ import {
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { hydrateHydroEditForm } from '../upstream/hydrate.tsx'
+import {
+  addZonedDays, currentTimeZone, parseZonedDateTime, zonedDateParts, zonedInputParts,
+} from '../upstream/timezone.ts'
 
 const defaultPenaltyRules = `1: 0.9
 3: 0.8
@@ -22,25 +25,22 @@ type HomeworkDraft = Contest & {
   penaltyRulesText?: string
 }
 
-function addDays(date: Date, days: number) {
-  const next = new Date(date)
-  next.setDate(next.getDate() + days)
-  return next
-}
-
-function defaultHomework(owner = 0): HomeworkDraft {
-  const begin = new Date()
-  begin.setDate(begin.getDate() + 1)
-  begin.setHours(0, 0, 0, 0)
-  const penalty = addDays(begin, 7)
-  penalty.setHours(23, 59, 0, 0)
+function defaultHomework(owner = 0, timeZone = currentTimeZone()): HomeworkDraft {
+  const now = zonedDateParts(new Date(), timeZone)
+  const tomorrow = new Date(Date.UTC(now.year, now.month - 1, now.day + 1))
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const beginDate = `${tomorrow.getUTCFullYear()}-${pad(tomorrow.getUTCMonth() + 1)}-${pad(tomorrow.getUTCDate())}`
+  const begin = parseZonedDateTime(beginDate, '00:00', timeZone)
+  const penaltyDay = addZonedDays(begin, 7, timeZone)
+  const penaltyParts = zonedInputParts(penaltyDay, timeZone)
+  const penalty = parseZonedDateTime(penaltyParts.date, '23:59', timeZone)
   return {
     id: '',
     docId: '',
     title: '',
     content: '',
     beginAt: begin.toISOString(),
-    endAt: addDays(penalty, 1).toISOString(),
+    endAt: addZonedDays(penalty, 1, timeZone).toISOString(),
     rule: 'homework',
     owner,
     attend: 0,
@@ -85,14 +85,6 @@ function parsePenaltyRules(value: string): Record<string, number> | null {
   return Object.keys(rules).length ? rules : null
 }
 
-function parts(date: Date) {
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return {
-    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
-  }
-}
-
 export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
   const { tid = '' } = useParams()
   const navigate = useNavigate()
@@ -100,7 +92,7 @@ export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
   const { user } = useAuth()
   const draft = (location.state as { draft?: Partial<HomeworkDraft> } | null)?.draft
   const [item, setItem] = useState<HomeworkDraft | null>(() => (
-    mode === 'create' ? { ...defaultHomework(user?.id ?? 0), ...draft } : null
+    mode === 'create' ? { ...defaultHomework(user?.id ?? 0, user?.timeZone), ...draft } : null
   ))
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
@@ -140,8 +132,8 @@ export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
     const penalty = new Date(item.penaltySince || item.endAt)
     const end = new Date(item.endAt)
     const extensionDays = Math.max(0, Math.round(((end.getTime() - penalty.getTime()) / 86400000) * 100) / 100)
-    const beginParts = parts(begin)
-    const penaltyParts = parts(penalty)
+    const beginParts = zonedInputParts(begin, user?.timeZone)
+    const penaltyParts = zonedInputParts(penalty, user?.timeZone)
     const isAdmin = Boolean(user && ((user.priv ?? 0) & 1) !== 0)
     return {
       page_name: mode === 'edit' ? 'homework_edit' : 'homework_create',
@@ -177,8 +169,8 @@ export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
     const form = event.target as HTMLFormElement
     const data = new FormData(form)
     const text = (name: string) => String(data.get(name) ?? '')
-    const begin = new Date(`${text('beginAtDate')}T${text('beginAtTime') || '00:00'}:00`)
-    const penalty = new Date(`${text('penaltySinceDate')}T${text('penaltySinceTime') || '00:00'}:00`)
+    const begin = parseZonedDateTime(text('beginAtDate'), text('beginAtTime') || '00:00', user?.timeZone)
+    const penalty = parseZonedDateTime(text('penaltySinceDate'), text('penaltySinceTime') || '00:00', user?.timeZone)
     const extensionDays = Number(text('extensionDays'))
     if (Number.isNaN(begin.getTime()) || Number.isNaN(penalty.getTime()) || penalty <= begin) {
       setError('截止时间必须晚于开始时间')
@@ -198,7 +190,7 @@ export function HomeworkEditPage({ mode }: { mode: 'create' | 'edit' }) {
       setError('延期递交扣分规则格式不正确')
       return
     }
-    const end = addDays(penalty, extensionDays)
+    const end = addZonedDays(penalty, extensionDays, user?.timeZone)
     const input: ContestEditInput = {
       title: text('title').trim(),
       content: text('content'),

@@ -7,26 +7,11 @@ import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { avatarUrl } from '../upstream/avatar.ts'
 import Calendar from '../upstream/calendar.ts'
-
-function pad(value: number) {
-  return String(value).padStart(2, '0')
-}
+import { formatInTimeZone } from '../upstream/timezone.ts'
 
 function colorIndexFor(docId: string) {
   const timestamp = Number.parseInt(docId.slice(0, 8), 16)
   return Number.isFinite(timestamp) ? timestamp % 12 : 0
-}
-
-function formatByPattern(value: Date, pattern: string) {
-  return pattern
-    .replace(/YYYY/g, String(value.getFullYear()))
-    .replace(/MM/g, pad(value.getMonth() + 1))
-    .replace(/M/g, String(value.getMonth() + 1))
-    .replace(/DD/g, pad(value.getDate()))
-    .replace(/D/g, String(value.getDate()))
-    .replace(/HH/g, pad(value.getHours()))
-    .replace(/H/g, String(value.getHours()))
-    .replace(/mm/g, pad(value.getMinutes()))
 }
 
 export function HomeworksPage() {
@@ -155,7 +140,7 @@ export function HomeworksPage() {
       },
       datetimeSpan: (value: Date | string, _relative?: boolean, pattern = 'YYYY-M-D H:mm') => {
         const date = value instanceof Date ? value : new Date(value)
-        return `<span class="time">${formatByPattern(date, pattern)}</span>`
+        return `<span class="time">${formatInTimeZone(date, pattern)}</span>`
       },
       avatarUrl,
       UiContext: { docs: calendarEvents },
