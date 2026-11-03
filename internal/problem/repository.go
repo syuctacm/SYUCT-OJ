@@ -54,6 +54,7 @@ type Problem struct {
 	AdditionalFiles []ProblemFile `bson:"additional_file" json:"-"`
 	UserStatus      *UserStatus   `bson:"-" json:"userStatus,omitempty"`
 	ProblemType     string        `bson:"-" json:"problemType,omitempty"`
+	Hackable        bool          `bson:"-" json:"hackable,omitempty"`
 	TimeLimit       string        `bson:"-" json:"timeLimit,omitempty"`
 	MemoryLimit     string        `bson:"-" json:"memoryLimit,omitempty"`
 	TimeMin         string        `bson:"-" json:"timeMin,omitempty"`
@@ -806,6 +807,9 @@ func applyConfigSummary(p *Problem) {
 	p.TimeMax = stripTimeUnit(configString("timeMax", "time"))
 	p.MemoryMin = stripMemoryUnit(configString("memoryMin", "memory"))
 	p.MemoryMax = stripMemoryUnit(configString("memoryMax", "memory"))
+	checkerType := configString("checker_type")
+	p.Hackable = configString("validator") != "" && configString("checker") != "" &&
+		checkerType != "" && checkerType != "default" && checkerType != "strict"
 }
 
 func normalizeListOptions(opts ListOptions) ListOptions {

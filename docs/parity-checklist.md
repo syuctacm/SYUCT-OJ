@@ -916,6 +916,23 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地 Docker 生产构建复验
 - `pnpm --dir web lint`
 
+## 6.50 普通题目 Hack（2026-11-03）
+
+- AC 记录页继续使用上游 `record_detail.html` 的 Hack 菜单和 `problem_hack.html`
+- 新路由 `/p/:pid/hack/:rid`，支持文本输入、文件上传和 Auto organize input
+- 后端校验可 Hack 配置、目标记录、本人 AC 前置条件和禁止自 Hack
+- 创建 `type=hack`、`files.hack`、`hackTarget` 记录，由 hydrojudge 原生 Hack 模式执行 validator + 目标代码 + checker
+- Hack Successful 后追加测试点，并为普通 AC 记录下发 `hackRejudge`
+- 记录页显示 Hack Successful / Unsuccessful、目标记录和 Download Hack Input
+- 记录列表恢复 `(Hack)` 标记，Hack 记录不计入题目提交/通过计数
+
+验证：
+
+- Go 集成测试覆盖权限、记录创建、测试点追加、rejudge 任务和 AC 计数
+- 本地 Docker `hydrojudge 4.0.6 + go-judge v1.13.3` 覆盖 successful / unsuccessful Hack、输入下载、目标记录变 Hacked 和失败目标保持 AC
+- Playwright 验证 AC 记录 Hack 入口、原版 Hack 表单、文本提交、记录状态、目标链接和输入下载
+- 本地生产构建修复 nginx WebSocket 转发 Host（保留端口），记录列表控制台 0 error
+
 ## 7. 当前已知差异
 
 ```text
@@ -930,6 +947,6 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 ## 8. 尚未迁移的模块
 
-以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：OAuth、组队赛、后台脚本/高级配置，以及 Hack；交互题与特殊 checker 已完成真实 hydrojudge 本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：OAuth、组队赛、后台脚本/高级配置，以及 Codeforces 比赛内 Hack；普通题目 Hack、交互题与特殊 checker 已完成真实 hydrojudge 本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
 
 已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、SSR。

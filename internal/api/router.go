@@ -63,6 +63,10 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		hub := submission.NewRecordHub()
 		submissionHandler.SetHub(hub)
 		submissionHandler.Repository().SetUpdateHook(hub.Publish)
+		if judgeHandler != nil {
+			submissionHandler.SetFileStore(judgeHandler.Store())
+			submissionHandler.Repository().SetFileStore(judgeHandler.Store())
+		}
 		submissionHandler.RegisterRoutes(router.Group("/"))
 	}
 	var activityStore *judge.FileStore

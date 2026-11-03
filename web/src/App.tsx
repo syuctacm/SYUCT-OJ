@@ -45,6 +45,7 @@ const RegisterCodePage = lazy(() => import('./pages/RegisterCodePage.tsx').then(
 const MessagesPage = lazy(() => import('./pages/MessagesPage.tsx').then((module) => ({ default: module.MessagesPage })))
 const SecurityPage = lazy(() => import('./pages/SecurityPage.tsx').then((module) => ({ default: module.SecurityPage })))
 const ProblemConfigPage = lazy(() => import('./pages/ProblemConfigPage.tsx').then((module) => ({ default: module.ProblemConfigPage })))
+const ProblemHackPage = lazy(() => import('./pages/ProblemHackPage.tsx').then((module) => ({ default: module.ProblemHackPage })))
 const ProblemDetailPage = lazy(() => import('./pages/ProblemDetailPage.tsx').then((module) => ({ default: module.ProblemDetailPage })))
 const ProblemEditPage = lazy(() => import('./pages/ProblemEditPage.tsx').then((module) => ({ default: module.ProblemEditPage })))
 const ProblemImportFpsPage = lazy(() => import('./pages/ProblemImportFpsPage.tsx').then((module) => ({ default: module.ProblemImportFpsPage })))
@@ -94,6 +95,7 @@ export default function App() {
         <Route path="/p/:pid/statistics" element={<ProblemStatisticsPage />} />
         <Route path="/p/:pid" element={<ProblemDetailPage />} />
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
+        <Route path="/p/:pid/hack/:rid" element={<ProblemHackPage />} />
         <Route path="/contest" element={<ContestsPage />} />
         <Route path="/contest/new" element={<ContestEditPage mode="create" />} />
         <Route path="/contest/:tid/edit" element={<ContestEditPage mode="edit" />} />

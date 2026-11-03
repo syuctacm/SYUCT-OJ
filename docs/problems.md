@@ -266,7 +266,7 @@ problem/system/<docId>/additional_file/<name>
 ## 已知差异
 
 - 题目分类侧栏仍使用标签统计，不读取旧多域时代的分类配置
-- testlib 特殊 checker 与交互题已通过真实本地 hydrojudge 联调；Hack 尚未接入记录页
+- testlib 特殊 checker、交互题和普通题目 Hack 已通过真实本地 hydrojudge 联调；Codeforces 比赛内 Hack 尚未开放
 - 题目文件的批量重命名、批量下载、创建、重命名和测试数据生成已实现；活动文件页不属于题目文件工具
 
 ## 响应

@@ -91,6 +91,7 @@ docker compose -f deploy/compose.dev.yaml --profile judge up -d --build judge
 - testlib 特殊 checker 的 AC / WA 结果、checker 输出的错误信息
 - interactive 题的 AC / WA、interactor 消息和测试点耗时/内存
 - 特殊 checker 单条记录重判
+- 普通题目 Hack：successful / unsuccessful、输入文件下载、追加测试点和 AC 记录 `hackRejudge`
 
 服务端广播语言时保留 hydrojudge 的文件扩展名别名：`cc` 和 `py` 会作为隐藏编译语言下发，不出现在提交语言选择列表中，因此 `chk.cc`、`interactor.cpp`、`interactor.py` 等文件可以按扩展名自动选择编译器。
 
@@ -126,9 +127,20 @@ JUDGE_FILE_ROOT=./data/judge-files \
 
 脚本只允许 localhost API，并且只接受名称含 `test`、`smoke` 或 `e2e` 的数据库。所有写入都限制在本地 Docker MongoDB 和 `JUDGE_FILE_ROOT`。
 
+## 普通题目 Hack 回归
+
+```bash
+ALLOW_DESTRUCTIVE_LOCAL_TEST=1 \
+MONGO_DATABASE=syuct_oj_judge_hack_smoke \
+JUDGE_FILE_ROOT=./data/judge-files \
+./scripts/real-judge-hack-smoke.sh
+```
+
+脚本使用本地 Docker hydrojudge 验证输入校验、Hack Successful / Unsuccessful、Hack 输入下载、测试点追加、`hackRejudge`、nSubmit/nAccept 和错误权限。脚本同样只允许 localhost API 和专用测试数据库。
+
 ## 尚未完成
 
-- Hack 模式的记录页入口和端到端判题验证
+- Codeforces 规则的比赛内 Hack
 - 生产判题机版本与服务端协议的长期兼容矩阵
 
 真实联调只在本地 Docker 和测试环境中进行，不连接生产 OJ。

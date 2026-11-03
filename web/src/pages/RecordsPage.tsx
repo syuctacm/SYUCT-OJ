@@ -38,6 +38,9 @@ const statusShortTexts: Record<number, string> = {
   21: 'Compiling',
   22: 'Fetched',
   30: 'Ignored',
+  31: 'FE',
+  32: 'Hack+',
+  33: 'Hack-',
 }
 
 function formatDate(value: string) {
@@ -198,7 +201,8 @@ export function RecordsPage() {
       contest: null,
       judgeAt: submission.judgeAt,
       createdAt: submission.createdAt,
-      files: {},
+      files: submission.files ?? {},
+      hackTarget: submission.hackTarget,
     }))
     const udict = Object.fromEntries(page.items.map((submission) => [
       String(submission.uid),

@@ -164,6 +164,7 @@ export type ProblemSummary = {
   nSubmit: number
   nAccept: number
   problemType?: string
+  hackable?: boolean
   timeMin?: string
   timeMax?: string
   memoryMin?: string
@@ -451,6 +452,7 @@ export type Submission = {
   pid: number
   lang: string
   code?: string
+  type?: string
   status: number
   score: number
   time: number
@@ -464,7 +466,10 @@ export type Submission = {
     docId: number
     pid: string
     title: string
+    hackable?: boolean
   }
+  files?: Record<string, string>
+  hackTarget?: string
   submitter?: {
     id: number
     username: string
@@ -648,6 +653,14 @@ export async function getSubmission(rid: string): Promise<Submission> {
   return result.data
 }
 
+export async function createHack(pid: string, rid: string, input: FormData): Promise<Submission> {
+  const result = await request<Envelope<Submission>>(
+    `/api/v1/problems/${encodeURIComponent(pid)}/hack/${encodeURIComponent(rid)}`,
+    { method: 'POST', body: input },
+  )
+  return result.data
+}
+
 export async function rejudgeSubmission(rid: string): Promise<Submission> {
   const result = await request<Envelope<Submission>>(`/api/v1/submissions/${encodeURIComponent(rid)}/rejudge`, { method: 'POST' })
   return result.data
@@ -660,6 +673,10 @@ export async function cancelSubmission(rid: string): Promise<Submission> {
 
 export function submissionCodeUrl(rid: string) {
   return `/api/v1/submissions/${encodeURIComponent(rid)}/code`
+}
+
+export function submissionHackUrl(rid: string) {
+  return `/api/v1/submissions/${encodeURIComponent(rid)}/hack`
 }
 
 export type SubmissionEvent = {
