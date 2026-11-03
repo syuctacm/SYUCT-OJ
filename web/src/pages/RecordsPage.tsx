@@ -198,7 +198,7 @@ export function RecordsPage() {
       time: submission.time,
       memory: submission.memory,
       lang: submission.lang,
-      contest: null,
+      contest: submission.contest ?? null,
       judgeAt: submission.judgeAt,
       createdAt: submission.createdAt,
       files: submission.files ?? {},
@@ -316,7 +316,11 @@ export function RecordsPage() {
           return `/record${params.toString() ? `?${params.toString()}` : ''}`
         }
         if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
-        if (name === 'user_detail') return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+        if (name === 'user_detail') {
+          return Number(args.uid) < 0
+            ? '/contest/team'
+            : `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+        }
         return '/'
       }}
     />

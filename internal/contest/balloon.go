@@ -49,7 +49,7 @@ func (r *Repository) Balloons(ctx context.Context, tid string) ([]Balloon, error
 // AddBalloon records the first accepted submission of a user and problem,
 // mirroring the upstream balloon creation on judge completion.
 func (r *Repository) AddBalloon(ctx context.Context, contestID bson.ObjectID, uid, pid int64) error {
-	if uid <= 0 || pid <= 0 {
+	if uid == 0 || pid <= 0 {
 		return nil
 	}
 	existing, err := r.balloons.CountDocuments(ctx, bson.M{

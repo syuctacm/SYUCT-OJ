@@ -79,13 +79,14 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "pid, lang and code are required"})
 		return
 	}
+	recordUID := uid
 	if request.ContestID != "" && h.contests != nil {
 		item, err := h.contests.Get(c.Request.Context(), request.ContestID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "contest not found"})
 			return
 		}
-		status, err := h.contests.Status(c.Request.Context(), request.ContestID, uid)
+		status, err := h.contests.StatusForUser(c.Request.Context(), request.ContestID, uid)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest status"})
 			return
@@ -94,6 +95,7 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "attend the contest first"})
 			return
 		}
+		recordUID = status.UID
 		now := time.Now()
 		deadline := item.EndAt
 		if status.EndAt != nil && status.EndAt.Before(deadline) {
@@ -110,7 +112,7 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 			return
 		}
 	}
-	record, err := h.repo.Create(c.Request.Context(), uid, request.PID, request.Lang, request.Code, request.ContestID)
+	record, err := h.repo.Create(c.Request.Context(), recordUID, request.PID, request.Lang, request.Code, request.ContestID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -119,15 +121,17 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 }
 
 func (h *SubmissionHandler) list(c *gin.Context) {
-	if _, ok := h.currentUser(c); !ok {
+	uid, ok := h.currentUser(c)
+	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	value := strings.TrimSpace(c.Query("uidOrName"))
 	var filterUID int64
-	if value := strings.TrimSpace(c.Query("uidOrName")); value != "" {
-		if parsed, err := strconv.ParseInt(value, 10, 64); err == nil && parsed > 0 {
+	if value != "" {
+		if parsed, err := strconv.ParseInt(value, 10, 64); err == nil && parsed != 0 {
 			filterUID = parsed
 		} else if h.users != nil {
 			found, err := h.users.FindByLogin(c.Request.Context(), value)
@@ -136,6 +140,16 @@ func (h *SubmissionHandler) list(c *gin.Context) {
 				return
 			}
 			filterUID = found.ID
+		}
+	}
+	if tid := strings.TrimSpace(c.Query("tid")); tid != "" && h.contests != nil {
+		if status, err := h.contests.StatusForUser(c.Request.Context(), tid, uid); err == nil && status != nil && status.UID < 0 {
+			// A team's submissions are stored under its negative vuser UID. The
+			// contest sidebar links to the signed-in user's own records, so map
+			// that self filter to the team participant.
+			if filterUID == uid || filterUID == 0 && value == "" {
+				filterUID = status.UID
+			}
 		}
 	}
 	var status *int
@@ -188,7 +202,23 @@ func (h *SubmissionHandler) canReadCode(c *gin.Context, uid int64, record *submi
 		return true
 	}
 	u, err := h.users.FindByID(c.Request.Context(), uid)
-	return err == nil && u.Priv&1 != 0
+	if err == nil && u.Priv&1 != 0 {
+		return true
+	}
+	if record.Contest == nil || record.UID >= 0 || h.contests == nil {
+		return false
+	}
+	status, err := h.contests.Status(c.Request.Context(), record.Contest.Hex(), record.UID)
+	return err == nil && status != nil && containsUserID(status.Members, uid)
+}
+
+func containsUserID(values []int64, uid int64) bool {
+	for _, value := range values {
+		if value == uid {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *SubmissionHandler) requireAdmin(c *gin.Context) (*user.User, bool) {

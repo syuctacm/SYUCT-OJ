@@ -2,7 +2,10 @@
 // file limited to polling and mapping the submission API to Hydro rdoc fields.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { cancelSubmission, getSubmission, rejudgeSubmission, submissionCodeUrl, submissionHackUrl, type Submission } from '../api.ts'
+import {
+  cancelSubmission, getContest, getSubmission, rejudgeSubmission, submissionCodeUrl, submissionHackUrl,
+  type Contest, type Submission,
+} from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -55,10 +58,12 @@ export function SubmissionPage() {
   const { rid = '' } = useParams()
   const { user } = useAuth()
   const [submission, setSubmission] = useState<Submission | null>(null)
+  const [contest, setContest] = useState<Contest | null>(null)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
   const [actionBusy, setActionBusy] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
+  const contestRef = useRef<Contest | null>(null)
   const actionRef = useRef<(event: SubmitEvent) => void>(() => {})
 
   useEffect(() => {
@@ -70,6 +75,20 @@ export function SubmissionPage() {
         if (cancelled) return
         setSubmission(next)
         setError('')
+        if (next.contest) {
+          if (contestRef.current?.docId !== next.contest) {
+            getContest(next.contest).then((value) => {
+              contestRef.current = value
+              setContest(value)
+            }).catch(() => {
+              contestRef.current = null
+              setContest(null)
+            })
+          }
+        } else {
+          contestRef.current = null
+          setContest(null)
+        }
         if ([0, 20, 21, 22].includes(next.status)) timer = window.setTimeout(load, 1000)
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : '提交加载失败')
@@ -189,13 +208,23 @@ export function SubmissionPage() {
       createdAt: submission.createdAt,
       files: submission.files ?? {},
       hackTarget: submission.hackTarget ?? null,
-      contest: null,
+      contest: submission.contest ?? null,
     }
+    const tdoc = contest ? {
+      ...contest,
+      _id: contest.docId,
+      beginAt: new Date(contest.beginAt),
+      endAt: new Date(contest.endAt),
+      lockAt: contest.lockAt ? new Date(contest.lockAt) : null,
+      penaltySince: contest.penaltySince ? new Date(contest.penaltySince) : null,
+      pids: contest.pids ?? [],
+      domainId: 'system',
+    } : null
     return {
       page_name: 'record_detail',
       rdoc,
       pdoc,
-      tdoc: null,
+      tdoc,
       udoc: submitter,
       judge_udoc: null,
       allRevs: [],
@@ -248,7 +277,7 @@ export function SubmissionPage() {
       UiContext: {},
       UserContext: user,
     }
-  }, [submission, user])
+  }, [contest, submission, user])
 
   if (error) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>
   if (!submission || !context) return <div className="row"><div className="columns"><div className="nothing-placeholder">加载中...</div></div></div>
@@ -265,7 +294,11 @@ export function SubmissionPage() {
           if (name === 'record_detail') return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
           if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
           if (name === 'problem_hack') return `/p/${encodeURIComponent(String(args.pid ?? submission.problem?.pid ?? ''))}/hack/${encodeURIComponent(String(args.rid ?? submission.id))}`
-          if (name === 'user_detail') return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+          if (name === 'user_detail') {
+            return Number(args.uid) < 0
+              ? '/contest/team'
+              : `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+          }
           if (name === 'contest_detail' || name === 'homework_detail') {
             return `/${name === 'contest_detail' ? 'contest' : 'homework'}/${encodeURIComponent(String(args.tid ?? ''))}`
           }
