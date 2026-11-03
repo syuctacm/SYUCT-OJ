@@ -484,7 +484,7 @@ func (h *UserHandler) currentUser(c *gin.Context) (int64, bool) {
 }
 
 func (h *UserHandler) ranking(c *gin.Context) {
-	page, limit := parsePaging(c)
+	page, limit := parsePaging(c, settingPaginationRanking)
 	entries, total, err := h.users.Ranking(c.Request.Context(), page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load ranking"})

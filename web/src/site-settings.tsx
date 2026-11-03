@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getPublicSettings, type PublicSettings } from './api.ts'
 import { setGravatarURL } from './upstream/avatar.ts'
+import { applyPaginationSettings } from './pagination.ts'
 
 export const DEFAULT_SITE_SETTINGS: PublicSettings = {
   bulletin: '',
@@ -27,6 +28,13 @@ export const DEFAULT_SITE_SETTINGS: PublicSettings = {
   suggestion: true
 `,
   aboutMarkdown: '',
+  paginationProblem: 100,
+  paginationContest: 20,
+  paginationDiscussion: 50,
+  paginationRecord: 100,
+  paginationRanking: 100,
+  paginationSolution: 20,
+  paginationTraining: 10,
 }
 
 let currentSiteName = DEFAULT_SITE_SETTINGS.siteName
@@ -40,6 +48,7 @@ function applyRuntimeSettings(settings: PublicSettings) {
   const previousSiteName = currentSiteName
   currentSiteName = settings.siteName || DEFAULT_SITE_SETTINGS.siteName
   setGravatarURL(settings.gravatarUrl)
+  applyPaginationSettings(settings)
   for (const name of new Set([previousSiteName, DEFAULT_SITE_SETTINGS.siteName])) {
     const suffix = ` - ${name}`
     if (!document.title.endsWith(suffix)) continue

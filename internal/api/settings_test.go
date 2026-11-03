@@ -59,14 +59,21 @@ func TestPublicSettingsIntegration(t *testing.T) {
 
 	type settingsPayload struct {
 		Data struct {
-			Bulletin         string `json:"bulletin"`
-			SiteName         string `json:"siteName"`
-			NavLogo          string `json:"navLogo"`
-			FooterExtraHTML  string `json:"footerExtraHtml"`
-			EnableScratchpad bool   `json:"enableScratchpad"`
-			GravatarURL      string `json:"gravatarUrl"`
-			HomepageYAML     string `json:"homepageYaml"`
-			AboutMarkdown    string `json:"aboutMarkdown"`
+			Bulletin             string `json:"bulletin"`
+			SiteName             string `json:"siteName"`
+			NavLogo              string `json:"navLogo"`
+			FooterExtraHTML      string `json:"footerExtraHtml"`
+			EnableScratchpad     bool   `json:"enableScratchpad"`
+			GravatarURL          string `json:"gravatarUrl"`
+			HomepageYAML         string `json:"homepageYaml"`
+			AboutMarkdown        string `json:"aboutMarkdown"`
+			PaginationProblem    int    `json:"paginationProblem"`
+			PaginationContest    int    `json:"paginationContest"`
+			PaginationDiscussion int    `json:"paginationDiscussion"`
+			PaginationRecord     int    `json:"paginationRecord"`
+			PaginationRanking    int    `json:"paginationRanking"`
+			PaginationSolution   int    `json:"paginationSolution"`
+			PaginationTraining   int    `json:"paginationTraining"`
 		} `json:"data"`
 	}
 	get := func(path string, cookies []*http.Cookie) (int, settingsPayload) {
@@ -104,7 +111,11 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	status, payload := get("/api/v1/settings", nil)
 	if status != http.StatusOK || payload.Data.Bulletin != "" || payload.Data.SiteName != handler.DefaultSiteName ||
 		payload.Data.NavLogo != handler.DefaultNavLogo || !payload.Data.EnableScratchpad ||
-		payload.Data.GravatarURL != handler.DefaultGravatarURL || payload.Data.HomepageYAML == "" {
+		payload.Data.GravatarURL != handler.DefaultGravatarURL || payload.Data.HomepageYAML == "" ||
+		payload.Data.PaginationProblem != 100 || payload.Data.PaginationContest != 20 ||
+		payload.Data.PaginationDiscussion != 50 || payload.Data.PaginationRecord != 100 ||
+		payload.Data.PaginationRanking != 100 || payload.Data.PaginationSolution != 20 ||
+		payload.Data.PaginationTraining != 10 {
 		t.Fatalf("initial public settings = %d %+v", status, payload.Data)
 	}
 
@@ -138,7 +149,13 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status := put(`{"gravatarUrl":"data:text/html,bad"}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid gravatar url = %d", status)
 	}
-	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About"}`
+	if status := put(`{"paginationProblem":0}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid zero pagination = %d", status)
+	}
+	if status := put(`{"paginationRecord":1001}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid large pagination = %d", status)
+	}
+	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6}`
 	if status := put(updateBody, adminCookies); status != http.StatusOK {
 		t.Fatalf("admin update = %d", status)
 	}
@@ -147,7 +164,11 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status != http.StatusOK || payload.Data.Bulletin != "# 欢迎来到 Test OJ" || payload.Data.SiteName != "Test OJ" ||
 		payload.Data.NavLogo != "/test-logo.png" || payload.Data.FooterExtraHTML != "<b>Test Footer</b>" ||
 		payload.Data.EnableScratchpad || payload.Data.GravatarURL != "https://example.com/avatar/" ||
-		!strings.Contains(payload.Data.HomepageYAML, "contest: 3") || !strings.Contains(payload.Data.AboutMarkdown, "Test About") {
+		!strings.Contains(payload.Data.HomepageYAML, "contest: 3") || !strings.Contains(payload.Data.AboutMarkdown, "Test About") ||
+		payload.Data.PaginationProblem != 37 || payload.Data.PaginationContest != 12 ||
+		payload.Data.PaginationDiscussion != 24 || payload.Data.PaginationRecord != 48 ||
+		payload.Data.PaginationRanking != 60 || payload.Data.PaginationSolution != 18 ||
+		payload.Data.PaginationTraining != 6 {
 		t.Fatalf("public settings after update = %d %+v", status, payload.Data)
 	}
 	status, payload = get("/api/v1/admin/settings", adminCookies)
@@ -160,7 +181,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	}
 	status, payload = get("/api/v1/settings", nil)
 	if status != http.StatusOK || payload.Data.Bulletin != "# 部分更新" || payload.Data.SiteName != "Test OJ" ||
-		payload.Data.NavLogo != "/test-logo.png" || payload.Data.EnableScratchpad {
+		payload.Data.NavLogo != "/test-logo.png" || payload.Data.EnableScratchpad || payload.Data.PaginationProblem != 37 {
 		t.Fatalf("partial update changed unrelated settings = %d %+v", status, payload.Data)
 	}
 }

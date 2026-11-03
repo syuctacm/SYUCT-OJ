@@ -307,8 +307,7 @@ func (h *ProblemHandler) list(c *gin.Context) {
 			uid = session.UserID
 		}
 	}
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	page, limit := parsePaging(c, settingPaginationProblem)
 	var difficulty *int
 	if raw := c.Query("difficulty"); raw != "" {
 		if value, err := strconv.Atoi(raw); err == nil {
@@ -348,8 +347,7 @@ func (h *ProblemHandler) tags(c *gin.Context) {
 }
 
 func (h *ProblemHandler) tagRanking(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	page, limit := parsePaging(c, settingPaginationRanking)
 	result, err := h.repo.TagRanking(c.Request.Context(), c.Param("tag"), page, limit, c.Query("q"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load tag ranking"})

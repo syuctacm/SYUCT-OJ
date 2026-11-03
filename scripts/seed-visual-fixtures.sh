@@ -75,6 +75,13 @@ db.system.insertMany([
   { _id: "ui-default.footer_extra_html", value: "SYUCT ACM Visual Regression" },
   { _id: "ui-default.enableScratchpad", value: false },
   { _id: "hydrooj.homepage", value: "- width: 8\n  contest: 3\n  homework: 3\n  training: 3\n- width: 4\n  discussion_nodes: true\n  problem_search: true\n" },
+  { _id: "pagination.problem", value: 100 },
+  { _id: "pagination.contest", value: 20 },
+  { _id: "pagination.discussion", value: 50 },
+  { _id: "pagination.record", value: 100 },
+  { _id: "pagination.ranking", value: 100 },
+  { _id: "pagination.solution", value: 20 },
+  { _id: "pagination.training", value: 10 },
 ]);
 
 db.document.insertMany([

@@ -21,6 +21,10 @@ import (
 
 func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handler, authHandler *auth.Handler, problemRepo *problem.Repository, submissionHandler *handler.SubmissionHandler, contestRepo *contest.Repository, trainingRepo *training.Repository, discussionRepo *discussion.Repository, userRepo *user.Repository, adminHandler *handler.AdminHandler, sessions *auth.SessionManager) *gin.Engine {
 	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(handler.RequestDatabaseKey, db)
+		c.Next()
+	})
 	router.Use(
 		gin.Logger(),
 		gin.Recovery(),

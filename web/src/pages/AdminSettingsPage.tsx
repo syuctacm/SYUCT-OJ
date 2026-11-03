@@ -23,9 +23,17 @@ const SYSTEM_SETTINGS = [
   { family: 'setting_basic', key: 'aboutMarkdown', type: 'markdown', name: 'About', value: '', flag: 0 },
   { family: 'setting_basic', key: 'enableScratchpad', type: 'boolean', name: 'Enable Scratchpad Mode', value: true, flag: 0 },
   { family: 'setting_basic', key: 'homepageYaml', type: 'textarea', subType: 'yaml', name: 'Homepage Config', value: '', flag: 0 },
+  { family: 'setting_limits', key: 'paginationProblem', type: 'number', name: 'Problems per page', value: 100, flag: 0 },
+  { family: 'setting_limits', key: 'paginationContest', type: 'number', name: 'Contests per page', value: 20, flag: 0 },
+  { family: 'setting_limits', key: 'paginationDiscussion', type: 'number', name: 'Discussions per page', value: 50, flag: 0 },
+  { family: 'setting_limits', key: 'paginationRecord', type: 'number', name: 'Records per page', value: 100, flag: 0 },
+  { family: 'setting_limits', key: 'paginationRanking', type: 'number', name: 'Users per page', value: 100, flag: 0 },
+  { family: 'setting_limits', key: 'paginationSolution', type: 'number', name: 'Solutions per page', value: 20, flag: 0 },
+  { family: 'setting_limits', key: 'paginationTraining', type: 'number', name: 'Trainings per page', value: 10, flag: 0 },
 ]
 
 const STRING_KEYS = ['siteName', 'navLogo', 'gravatarUrl', 'footerExtraHtml', 'bulletin', 'aboutMarkdown', 'homepageYaml'] as const
+const NUMBER_KEYS = ['paginationProblem', 'paginationContest', 'paginationDiscussion', 'paginationRecord', 'paginationRanking', 'paginationSolution', 'paginationTraining'] as const
 
 export function AdminSettingsPage() {
   const { user } = useAuth()
@@ -56,6 +64,14 @@ export function AdminSettingsPage() {
     const data = new FormData(event.target as HTMLFormElement)
     const payload: Partial<PublicSettings> = {}
     for (const key of STRING_KEYS) payload[key] = String(data.get(key) ?? '')
+    for (const key of NUMBER_KEYS) {
+      const value = Number(data.get(key))
+      if (!Number.isInteger(value) || value < 1 || value > 1000) {
+        setError('分页大小必须是 1 到 1000 之间的整数')
+        return
+      }
+      payload[key] = value
+    }
     payload.enableScratchpad = data.has('enableScratchpad')
     setSaved('')
     setError('')

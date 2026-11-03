@@ -126,8 +126,7 @@ func (h *SubmissionHandler) list(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	page, limit := parsePaging(c, settingPaginationRecord)
 	value := strings.TrimSpace(c.Query("uidOrName"))
 	var filterUID int64
 	if value != "" {

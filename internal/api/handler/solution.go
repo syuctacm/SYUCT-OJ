@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -45,8 +44,7 @@ func (h *SolutionHandler) list(c *gin.Context) {
 		return
 	}
 	uid, _ := h.currentUserID(c)
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	page, limit := parsePaging(c, settingPaginationSolution)
 	items, total, err := h.repo.ListSolutions(c.Request.Context(), pdoc.DocID, page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load solutions"})

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -24,6 +25,14 @@ const (
 	settingGravatarURL     = "avatar.gravatar_url"
 	settingHomepage        = "hydrooj.homepage"
 	settingAbout           = "ui-default.about"
+
+	settingPaginationProblem    = "pagination.problem"
+	settingPaginationContest    = "pagination.contest"
+	settingPaginationDiscussion = "pagination.discussion"
+	settingPaginationRecord     = "pagination.record"
+	settingPaginationRanking    = "pagination.ranking"
+	settingPaginationSolution   = "pagination.solution"
+	settingPaginationTraining   = "pagination.training"
 )
 
 const DefaultSiteName = "SYUCT ACM OJ"
@@ -63,17 +72,27 @@ const DefaultAboutMarkdown = `# about 关于 {{ name }}
 var siteSettingKeys = []string{
 	settingBulletin, settingServerName, settingNavLogo, settingFooterExtraHTML,
 	settingScratchpad, settingGravatarURL, settingHomepage, settingAbout,
+	settingPaginationProblem, settingPaginationContest, settingPaginationDiscussion,
+	settingPaginationRecord, settingPaginationRanking, settingPaginationSolution,
+	settingPaginationTraining,
 }
 
 type SiteSettings struct {
-	Bulletin         string `json:"bulletin"`
-	SiteName         string `json:"siteName"`
-	NavLogo          string `json:"navLogo"`
-	FooterExtraHTML  string `json:"footerExtraHtml"`
-	EnableScratchpad bool   `json:"enableScratchpad"`
-	GravatarURL      string `json:"gravatarUrl"`
-	HomepageYAML     string `json:"homepageYaml"`
-	AboutMarkdown    string `json:"aboutMarkdown"`
+	Bulletin             string `json:"bulletin"`
+	SiteName             string `json:"siteName"`
+	NavLogo              string `json:"navLogo"`
+	FooterExtraHTML      string `json:"footerExtraHtml"`
+	EnableScratchpad     bool   `json:"enableScratchpad"`
+	GravatarURL          string `json:"gravatarUrl"`
+	HomepageYAML         string `json:"homepageYaml"`
+	AboutMarkdown        string `json:"aboutMarkdown"`
+	PaginationProblem    int    `json:"paginationProblem"`
+	PaginationContest    int    `json:"paginationContest"`
+	PaginationDiscussion int    `json:"paginationDiscussion"`
+	PaginationRecord     int    `json:"paginationRecord"`
+	PaginationRanking    int    `json:"paginationRanking"`
+	PaginationSolution   int    `json:"paginationSolution"`
+	PaginationTraining   int    `json:"paginationTraining"`
 }
 
 func DefaultSiteSettings() SiteSettings {
@@ -81,7 +100,10 @@ func DefaultSiteSettings() SiteSettings {
 		SiteName: DefaultSiteName, NavLogo: DefaultNavLogo,
 		FooterExtraHTML: DefaultFooterExtraHTML, EnableScratchpad: true,
 		GravatarURL: DefaultGravatarURL, HomepageYAML: DefaultHomepageYAML,
-		AboutMarkdown: DefaultAboutMarkdown,
+		AboutMarkdown:     DefaultAboutMarkdown,
+		PaginationProblem: 100, PaginationContest: 20, PaginationDiscussion: 50,
+		PaginationRecord: 100, PaginationRanking: 100, PaginationSolution: 20,
+		PaginationTraining: 10,
 	}
 }
 
@@ -168,6 +190,52 @@ func setSiteSettingValue(values *SiteSettings, key string, value any) {
 		if isText {
 			values.AboutMarkdown = text
 		}
+	case settingPaginationProblem:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.PaginationProblem = number
+		}
+	case settingPaginationContest:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.PaginationContest = number
+		}
+	case settingPaginationDiscussion:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.PaginationDiscussion = number
+		}
+	case settingPaginationRecord:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.PaginationRecord = number
+		}
+	case settingPaginationRanking:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.PaginationRanking = number
+		}
+	case settingPaginationSolution:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.PaginationSolution = number
+		}
+	case settingPaginationTraining:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.PaginationTraining = number
+		}
+	}
+}
+
+func anyInt(value any) (int, bool) {
+	switch number := value.(type) {
+	case int:
+		return number, true
+	case int32:
+		return int(number), true
+	case int64:
+		return int(number), true
+	case float64:
+		if number != math.Trunc(number) || number < math.MinInt || number > math.MaxInt {
+			return 0, false
+		}
+		return int(number), true
+	default:
+		return 0, false
 	}
 }
 
@@ -205,6 +273,16 @@ func siteSettingUpdates(input SiteSettingsInput) map[string]any {
 	if input.AboutMarkdown != nil {
 		updates[settingAbout] = *input.AboutMarkdown
 	}
+	for key, value := range map[string]*int{
+		settingPaginationProblem: input.PaginationProblem, settingPaginationContest: input.PaginationContest,
+		settingPaginationDiscussion: input.PaginationDiscussion, settingPaginationRecord: input.PaginationRecord,
+		settingPaginationRanking: input.PaginationRanking, settingPaginationSolution: input.PaginationSolution,
+		settingPaginationTraining: input.PaginationTraining,
+	} {
+		if value != nil {
+			updates[key] = *value
+		}
+	}
 	return updates
 }
 
@@ -219,14 +297,21 @@ func writeSiteSettings(ctx context.Context, db *mongo.Database, updates map[stri
 }
 
 type SiteSettingsInput struct {
-	Bulletin         *string `json:"bulletin"`
-	SiteName         *string `json:"siteName"`
-	NavLogo          *string `json:"navLogo"`
-	FooterExtraHTML  *string `json:"footerExtraHtml"`
-	EnableScratchpad *bool   `json:"enableScratchpad"`
-	GravatarURL      *string `json:"gravatarUrl"`
-	HomepageYAML     *string `json:"homepageYaml"`
-	AboutMarkdown    *string `json:"aboutMarkdown"`
+	Bulletin             *string `json:"bulletin"`
+	SiteName             *string `json:"siteName"`
+	NavLogo              *string `json:"navLogo"`
+	FooterExtraHTML      *string `json:"footerExtraHtml"`
+	EnableScratchpad     *bool   `json:"enableScratchpad"`
+	GravatarURL          *string `json:"gravatarUrl"`
+	HomepageYAML         *string `json:"homepageYaml"`
+	AboutMarkdown        *string `json:"aboutMarkdown"`
+	PaginationProblem    *int    `json:"paginationProblem"`
+	PaginationContest    *int    `json:"paginationContest"`
+	PaginationDiscussion *int    `json:"paginationDiscussion"`
+	PaginationRecord     *int    `json:"paginationRecord"`
+	PaginationRanking    *int    `json:"paginationRanking"`
+	PaginationSolution   *int    `json:"paginationSolution"`
+	PaginationTraining   *int    `json:"paginationTraining"`
 }
 
 func validHomepageYAML(value string) bool {
@@ -289,6 +374,19 @@ func validateSiteSettings(input SiteSettingsInput) error {
 	}
 	if input.HomepageYAML != nil && !validHomepageYAML(*input.HomepageYAML) {
 		return fmt.Errorf("invalid homepage yaml")
+	}
+	for _, item := range []struct {
+		value *int
+		label string
+	}{
+		{input.PaginationProblem, "pagination problem"}, {input.PaginationContest, "pagination contest"},
+		{input.PaginationDiscussion, "pagination discussion"}, {input.PaginationRecord, "pagination record"},
+		{input.PaginationRanking, "pagination ranking"}, {input.PaginationSolution, "pagination solution"},
+		{input.PaginationTraining, "pagination training"},
+	} {
+		if item.value != nil && (*item.value < 1 || *item.value > 1000) {
+			return fmt.Errorf("%s must be between 1 and 1000", item.label)
+		}
 	}
 	for _, item := range []struct {
 		value *string
