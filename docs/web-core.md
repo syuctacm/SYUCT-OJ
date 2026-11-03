@@ -110,17 +110,42 @@ VITE_API_PROXY=http://127.0.0.1:18080 pnpm dev
 
 ## 截图回归
 
-`scripts/visual-regression.sh` 在固定 `1280x900` viewport、浅色主题、reduced-motion 和 localhost 约束下截取公开稳定页面，并用 ImageMagick AE 指标与 `web/visual-baselines/` 比较。
+`scripts/visual-regression.sh` 在固定 viewport、浅色主题、reduced-motion 和 localhost 约束下截取页面，并用 ImageMagick AE 指标与 `web/visual-baselines/` 比较。
 
-脚本不会用固定 `sleep` 猜测页面加载完成，而是等待 `document.readyState`、Hydro Page Loader 隐藏、`.main` 不再显示加载占位、section 动画结束且字体加载完成。比较前会校验图片宽高；AE 指标只读取差异像素数，不会把百分比拼进数字。首页会隐藏第三方一言区块，避免网络内容污染基线。
+脚本不会用固定 `sleep` 猜测页面加载完成，而是等待 `document.readyState`、Hydro Page Loader 隐藏、`.main` 不再显示加载占位、section 动画结束、字体和图片加载完成。比较前会校验图片宽高；AE 指标只读取差异像素数，不会把百分比拼进数字。首页会移除第三方一言区块，相对时间会替换为固定绝对时间，活动会话时间和 IP 会做测试态归一化。
 
 ```bash
 ./scripts/visual-regression.sh --self-test
-BASE_URL=http://localhost:13009 ./scripts/visual-regression.sh
-UPDATE_BASELINES=1 BASE_URL=http://localhost:13009 ./scripts/visual-regression.sh
+VISUAL_AUTH_USERNAME=visual_admin VISUAL_AUTH_PASSWORD=secret \
+  BASE_URL=http://localhost:13009 ./scripts/visual-regression.sh
+UPDATE_BASELINES=1 VISUAL_AUTH_USERNAME=visual_admin VISUAL_AUTH_PASSWORD=secret \
+  BASE_URL=http://localhost:13009 ./scripts/visual-regression.sh
 ```
 
-脚本拒绝非 localhost 地址。基线覆盖首页、题库、比赛、作业、训练、讨论、排行榜、About 和登录页；动态登录后页面继续由现有 Playwright 功能回归覆盖。
+脚本拒绝非 localhost 地址。提供固定账号时，基线覆盖：
+
+- 9 个匿名公开页
+- 14 个登录态核心页和详情页
+- 6 个 390px 移动端核心页，并断言页面没有横向溢出
+
+### 隔离 Docker 回归
+
+推荐通过一条命令运行固定数据截图回归：
+
+```bash
+./scripts/visual-regression-docker.sh
+UPDATE_BASELINES=1 ./scripts/visual-regression-docker.sh
+KEEP=1 ./scripts/visual-regression-docker.sh
+```
+
+`deploy/compose.visual.yaml` 会启动独立的本地 Mongo、Go API 和 Nginx Web，`scripts/seed-visual-fixtures.sh` 会清空并重建专用 `syuct_oj_visual` 数据库，灌入固定用户、题目、比赛、作业、训练、讨论和记录。固定账号为：
+
+```text
+visual_admin / secret  (管理员)
+visual_user  / secret  (普通用户)
+```
+
+测试结束后默认删除容器、网络和临时数据库；`KEEP=1` 仅用于本地排查。脚本拒绝非 localhost URL 和非 `syuct_oj_visual` 数据库，不会读取 `.env.prod` 或连接生产环境。
 
 ### 隔离 Docker 回归
 

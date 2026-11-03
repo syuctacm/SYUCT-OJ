@@ -1047,17 +1047,45 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 - 新增 `deploy/compose.visual.yaml`，独立启动本地 Mongo、Go API 和 Nginx Web
 - 新增 `scripts/seed-visual-fixtures.sh`，只重建专用 `syuct_oj_visual` 数据库
-- 固定合成用户、题目、比赛、作业、训练、讨论、记录和站点设置；用户头像使用本地 `/logo.png`
+- 固定合成用户、题目、比赛、作业、训练、讨论、记录和站点设置；用户头像使用本地 `/visual-avatar.svg`
 - 新增 `scripts/visual-regression-docker.sh`，一条命令完成构建、健康检查、灌数、截图和清理
 - 默认拒绝非 localhost URL、非 `syuct_oj_visual` 数据库，测试后删除容器、网络和临时数据
-- 重新生成公开页面基线，页面不再依赖开发 Mongo 当前数据或 Gravatar 第三方图片
+- 重新生成公开、登录态和移动端基线，页面不再依赖开发 Mongo 当前数据或 Gravatar 第三方图片
 
 验证：
 
-- `./scripts/visual-regression-docker.sh` 连续运行两次，9 个公开页面全部为 0 differing pixels
+- `./scripts/visual-regression-docker.sh` 连续运行两次，29 个页面全部为 0 differing pixels
 - `discuss` 的第三方头像差异已消除
 - `syuct_oj` 开发数据库未修改
 - 容器、网络和 `syuct_oj_visual` 数据在测试后清理
+
+## 6.60 登录态、详情页与移动端截图回归（2026-11-03）
+
+- 固定 Docker fixtures 提供可登录的 `visual_admin / secret` 和 `visual_user / secret`
+- 新增 14 个登录态桌面页面：首页、题目详情、比赛详情/榜单、作业详情、训练详情、讨论详情、记录列表/详情、用户主页、后台、用户管理、账户设置和安全设置
+- 新增 6 个 390px 移动端页面：首页、题库、题目详情、比赛详情、记录列表和后台
+- 移动端截图前断言 `document.documentElement.scrollWidth <= window.innerWidth + 1`
+- 截图前将相对时间替换为固定绝对时间，并归一化活动会话时间和 IP，避免动态文本造成误报
+- 固定几何 SVG 头像替代复杂第三方图片缩略，消除小尺寸抗锯齿差异
+
+验证：
+
+- 本地隔离 Docker 连续运行两次，29/29 页面为 0 differing pixels
+- 所有固定账号登录、详情页数据加载和后台权限页面均渲染成功
+- 390px 页面无横向溢出
+
+## 6.61 已结束比赛 NProgress 修复（2026-11-03）
+
+- 只有进行中的比赛才创建 `.contest-timer` 并启动 NProgress
+- 未开始和已结束比赛不再每秒调用 `NProgress.set(1)`，不再周期性出现顶部进度条
+- 比赛在页面打开期间结束时清理 interval、timer 和 NProgress
+- 离开比赛页面继续保持原有清理行为
+
+验证：
+
+- 已结束比赛详情和榜单连续截图为 0 差异，DOM 中没有 `.contest-timer` 或 `#nprogress`
+- 进行中比赛仍显示倒计时和进度条
+- 本地 Docker + Playwright 验证，不修改判题机或生产环境
 
 ## 7. 当前已知差异
 

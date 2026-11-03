@@ -62,4 +62,6 @@ BASE_URL="$BASE_URL" CURRENT_DIR="${CURRENT_DIR:-.temp/visual-current-docker}" \
   BASELINE_DIR="${BASELINE_DIR:-web/visual-baselines}" \
   UPDATE_BASELINES="${UPDATE_BASELINES:-0}" \
   MAX_DIFF_PIXELS="${MAX_DIFF_PIXELS:-5000}" \
+  VISUAL_AUTH_USERNAME="${VISUAL_AUTH_USERNAME:-visual_admin}" \
+  VISUAL_AUTH_PASSWORD="${VISUAL_AUTH_PASSWORD:-secret}" \
   ./scripts/visual-regression.sh
