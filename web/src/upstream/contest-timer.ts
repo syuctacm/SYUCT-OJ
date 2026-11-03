@@ -30,6 +30,10 @@ export function useHydroContestTimer(contest: ContestTimerInput | null) {
     const endAt = new Date(contest.status?.endAt ?? contest.endAt).getTime()
     if (!Number.isFinite(beginAt) || !Number.isFinite(endAt) || endAt <= beginAt) return
 
+    // Match upstream: the progress bar belongs to a live contest. Upcoming and
+    // finished contests must not create a periodic NProgress element.
+    if (Date.now() < beginAt || Date.now() >= endAt) return
+
     const timer = document.createElement('pre')
     timer.className = 'contest-timer'
     timer.style.display = 'none'
@@ -38,20 +42,29 @@ export function useHydroContestTimer(contest: ContestTimerInput | null) {
     NProgress.configure({ trickle: false, showSpinner: false, minimum: 0 })
     NProgress.start()
 
+    let interval = 0
+    let finished = false
+    const finish = () => {
+      if (finished) return
+      finished = true
+      window.clearInterval(interval)
+      timer.style.display = 'none'
+      NProgress.done(true)
+      NProgress.remove()
+    }
     const update = () => {
       const now = Date.now()
-      if (beginAt <= now && now <= endAt) {
-        NProgress.set((now - beginAt) / (endAt - beginAt))
-        timer.style.display = ''
-        timer.textContent = formatSeconds(Math.floor((endAt - now) / 1000))
-      } else {
-        NProgress.set(now > endAt ? 1 : 0)
-        timer.style.display = 'none'
+      if (now < beginAt || now >= endAt) {
+        finish()
+        return
       }
+      NProgress.set((now - beginAt) / (endAt - beginAt))
+      timer.style.display = ''
+      timer.textContent = formatSeconds(Math.floor((endAt - now) / 1000))
     }
 
     update()
-    const interval = window.setInterval(update, 1000)
+    if (!finished) interval = window.setInterval(update, 1000)
     return () => {
       window.clearInterval(interval)
       timer.remove()
