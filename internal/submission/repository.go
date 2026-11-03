@@ -99,6 +99,7 @@ type Repository struct {
 	records      *mongo.Collection
 	tasks        *mongo.Collection
 	users        *mongo.Collection
+	vusers       *mongo.Collection
 	problems     *problem.Repository
 	store        *judge.FileStore
 	acceptedHook AcceptedHook
@@ -110,6 +111,7 @@ func NewRepository(db *mongo.Database, problems *problem.Repository) *Repository
 		records:  db.Collection("record"),
 		tasks:    db.Collection("task"),
 		users:    db.Collection("user"),
+		vusers:   db.Collection("vuser"),
 		problems: problems,
 	}
 }
@@ -572,7 +574,7 @@ func (r *Repository) CancelRecord(ctx context.Context, rid string) (*Record, err
 func (r *Repository) List(ctx context.Context, opts ListFilter) (*ListResult, error) {
 	opts = normalizeListFilter(opts)
 	filter := bson.M{"domainId": "system", "type": bson.M{"$nin": []string{"generate", "pretest"}}}
-	if opts.UID > 0 {
+	if opts.UID != 0 {
 		filter["uid"] = opts.UID
 	}
 	if opts.PID != "" {
@@ -660,14 +662,37 @@ func (r *Repository) enrich(ctx context.Context, items []Record) error {
 	for uid := range uidSet {
 		uids = append(uids, uid)
 	}
-	userCursor, err := r.users.Find(ctx, bson.M{"_id": bson.M{"$in": uids}}, options.Find().SetProjection(bson.M{"uname": 1, "displayName": 1}))
-	if err != nil {
-		return err
-	}
-	defer userCursor.Close(ctx)
 	var users []UserInfo
-	if err := userCursor.All(ctx, &users); err != nil {
-		return err
+	userIDs := make([]int64, 0, len(uids))
+	teamIDs := make([]int64, 0, len(uids))
+	for _, uid := range uids {
+		if uid > 0 {
+			userIDs = append(userIDs, uid)
+		} else if uid < 0 {
+			teamIDs = append(teamIDs, uid)
+		}
+	}
+	if len(userIDs) > 0 {
+		userCursor, err := r.users.Find(ctx, bson.M{"_id": bson.M{"$in": userIDs}}, options.Find().SetProjection(bson.M{"uname": 1, "displayName": 1}))
+		if err != nil {
+			return err
+		}
+		if err := userCursor.All(ctx, &users); err != nil {
+			_ = userCursor.Close(ctx)
+			return err
+		}
+		_ = userCursor.Close(ctx)
+	}
+	if len(teamIDs) > 0 {
+		teamCursor, err := r.vusers.Find(ctx, bson.M{"_id": bson.M{"$in": teamIDs}}, options.Find().SetProjection(bson.M{"uname": 1, "displayName": 1}))
+		if err != nil {
+			return err
+		}
+		if err := teamCursor.All(ctx, &users); err != nil {
+			_ = teamCursor.Close(ctx)
+			return err
+		}
+		_ = teamCursor.Close(ctx)
 	}
 	userByID := make(map[int64]UserInfo, len(users))
 	for _, user := range users {
@@ -868,7 +893,7 @@ func (r *Repository) ApplyJudgeResult(ctx context.Context, payload map[string]an
 		}
 		if err := r.records.FindOne(ctx, bson.M{"_id": oid}, options.FindOne().
 			SetProjection(bson.M{"uid": 1, "pid": 1, "contest": 1})).Decode(&record); err == nil {
-			if record.Contest != nil && record.UID > 0 && record.PID > 0 {
+			if record.Contest != nil && record.UID != 0 && record.PID > 0 {
 				hook(ctx, *record.Contest, record.UID, record.PID)
 			}
 		}

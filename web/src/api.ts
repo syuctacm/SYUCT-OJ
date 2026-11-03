@@ -470,6 +470,7 @@ export type Submission = {
   }
   files?: Record<string, string>
   hackTarget?: string
+  contest?: string
   submitter?: {
     id: number
     username: string
