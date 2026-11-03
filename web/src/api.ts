@@ -79,6 +79,13 @@ export type PublicSettings = {
   paginationRanking: number
   paginationSolution: number
   paginationTraining: number
+  limitUserFiles: number
+  limitUserFileSize: number
+  limitContestFiles: number
+  limitContestFileSize: number
+  limitProblemFiles: number
+  limitProblemFileSize: number
+  limitCodeLength: number
 }
 
 export async function getPublicSettings(): Promise<PublicSettings> {

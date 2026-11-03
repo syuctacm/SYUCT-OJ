@@ -58,6 +58,10 @@ func TestUserFilesIntegration(t *testing.T) {
 	sessions := auth.NewSessionManager(time.Hour)
 	authHandler := auth.NewHandler(userRepo, sessions)
 	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(handler.RequestDatabaseKey, db)
+		c.Next()
+	})
 	authHandler.RegisterRoutes(router.Group("/"))
 	handler.NewUserFileHandler(userRepo, store, sessions).RegisterRoutes(router.Group("/"))
 	server := httptest.NewServer(router)
@@ -107,6 +111,27 @@ func TestUserFilesIntegration(t *testing.T) {
 	}
 	if data, err := os.ReadFile(filepath.Join(root, "user", "7", "note.txt")); err != nil || string(data) != "hello" {
 		t.Fatalf("stored file = %q err=%v", data, err)
+	}
+	if _, err := db.Collection("system").InsertMany(ctx, []any{
+		bson.M{"_id": "limit.user_files", "value": 100},
+		bson.M{"_id": "limit.user_files_size", "value": 3},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if status, body := upload("large.txt", "hello", cookies); status != http.StatusBadRequest {
+		t.Fatalf("configured file size limit = %d: %s", status, body)
+	}
+	if _, err := db.Collection("system").UpdateOne(ctx, bson.M{"_id": "limit.user_files_size"}, bson.M{"$set": bson.M{"value": 128 << 20}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Collection("system").UpdateOne(ctx, bson.M{"_id": "limit.user_files"}, bson.M{"$set": bson.M{"value": 1}}); err != nil {
+		t.Fatal(err)
+	}
+	if status, body := upload("note2.txt", "x", cookies); status != http.StatusBadRequest {
+		t.Fatalf("configured file count limit = %d: %s", status, body)
+	}
+	if _, err := db.Collection("system").UpdateOne(ctx, bson.M{"_id": "limit.user_files"}, bson.M{"$set": bson.M{"value": 100}}); err != nil {
+		t.Fatal(err)
 	}
 	if status, body := upload("note.txt", "hello again", cookies); status != http.StatusConflict {
 		t.Fatalf("duplicate upload = %d: %s", status, body)

@@ -21,8 +21,6 @@ import (
 )
 
 const (
-	maxActivityFiles     = 100
-	maxActivityFileSize  = 256 << 20
 	maxActivityMultipart = 32 << 20
 
 	fileTypePublic  = "public"
@@ -124,7 +122,9 @@ func (h *ActivityFileHandler) upload(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "file storage is unavailable"})
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxActivityFileSize)
+	fileLimit := configuredLimitBytes(c, settingLimitContestFileSize, defaultLimitContestFileSize)
+	countLimit := configuredLimitInt(c, settingLimitContestFiles, defaultLimitContestFiles)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, fileLimit)
 	if err := c.Request.ParseMultipartForm(maxActivityMultipart); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid multipart upload"})
 		return
@@ -142,8 +142,8 @@ func (h *ActivityFileHandler) upload(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "files not found"})
 		return
 	}
-	if len(existing)+len(headers) > maxActivityFiles {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", maxActivityFiles)})
+	if len(existing)+len(headers) > countLimit {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", countLimit)})
 		return
 	}
 	var total int64
@@ -153,7 +153,7 @@ func (h *ActivityFileHandler) upload(c *gin.Context) {
 	for _, header := range headers {
 		total += header.Size
 	}
-	if total > maxActivityFileSize {
+	if total > fileLimit {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "files are too large"})
 		return
 	}

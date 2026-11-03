@@ -31,10 +31,19 @@ const SYSTEM_SETTINGS = [
   { family: 'setting_limits', key: 'paginationRanking', type: 'number', name: 'Users per page', value: 100, flag: 0 },
   { family: 'setting_limits', key: 'paginationSolution', type: 'number', name: 'Solutions per page', value: 20, flag: 0 },
   { family: 'setting_limits', key: 'paginationTraining', type: 'number', name: 'Trainings per page', value: 10, flag: 0 },
+  { family: 'setting_limits', key: 'limitUserFiles', type: 'number', name: 'Max user files', value: 100, flag: 0 },
+  { family: 'setting_limits', key: 'limitUserFileSize', type: 'number', name: 'Max total user file size (bytes)', value: 134217728, flag: 0 },
+  { family: 'setting_limits', key: 'limitContestFiles', type: 'number', name: 'Max contest/training files', value: 100, flag: 0 },
+  { family: 'setting_limits', key: 'limitContestFileSize', type: 'number', name: 'Max total contest/training file size (bytes)', value: 134217728, flag: 0 },
+  { family: 'setting_limits', key: 'limitProblemFiles', type: 'number', name: 'Max problem files', value: 100, flag: 0 },
+  { family: 'setting_limits', key: 'limitProblemFileSize', type: 'number', name: 'Max total problem file size (bytes)', value: 268435456, flag: 0 },
+  { family: 'setting_limits', key: 'limitCodeLength', type: 'number', name: 'Max code length (bytes)', value: 131072, flag: 0 },
 ]
 
 const STRING_KEYS = ['siteName', 'navLogo', 'gravatarUrl', 'footerExtraHtml', 'bulletin', 'aboutMarkdown', 'homepageYaml', 'languageYaml'] as const
-const NUMBER_KEYS = ['paginationProblem', 'paginationContest', 'paginationDiscussion', 'paginationRecord', 'paginationRanking', 'paginationSolution', 'paginationTraining'] as const
+const PAGINATION_KEYS = ['paginationProblem', 'paginationContest', 'paginationDiscussion', 'paginationRecord', 'paginationRanking', 'paginationSolution', 'paginationTraining'] as const
+const FILE_COUNT_KEYS = ['limitUserFiles', 'limitContestFiles', 'limitProblemFiles'] as const
+const SIZE_KEYS = ['limitUserFileSize', 'limitContestFileSize', 'limitProblemFileSize', 'limitCodeLength'] as const
 
 export function AdminSettingsPage() {
   const { user } = useAuth()
@@ -65,10 +74,26 @@ export function AdminSettingsPage() {
     const data = new FormData(event.target as HTMLFormElement)
     const payload: Partial<PublicSettings> = {}
     for (const key of STRING_KEYS) payload[key] = String(data.get(key) ?? '')
-    for (const key of NUMBER_KEYS) {
+    for (const key of PAGINATION_KEYS) {
       const value = Number(data.get(key))
       if (!Number.isInteger(value) || value < 1 || value > 1000) {
         setError('分页大小必须是 1 到 1000 之间的整数')
+        return
+      }
+      payload[key] = value
+    }
+    for (const key of FILE_COUNT_KEYS) {
+      const value = Number(data.get(key))
+      if (!Number.isInteger(value) || value < 1 || value > 10000) {
+        setError('文件数量限制必须是 1 到 10000 之间的整数')
+        return
+      }
+      payload[key] = value
+    }
+    for (const key of SIZE_KEYS) {
+      const value = Number(data.get(key))
+      if (!Number.isSafeInteger(value) || value < 1 || value > 10 * 1024 * 1024 * 1024) {
+        setError('大小限制必须是有效的字节数，且不超过 10 GiB')
         return
       }
       payload[key] = value

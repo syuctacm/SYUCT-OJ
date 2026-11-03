@@ -79,6 +79,10 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "pid, lang and code are required"})
 		return
 	}
+	if int64(len(request.Code)) > configuredLimitBytes(c, settingLimitCodeLength, defaultLimitCodeLength) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "code is too long"})
+		return
+	}
 	recordUID := uid
 	if request.ContestID != "" && h.contests != nil {
 		item, err := h.contests.Get(c.Request.Context(), request.ContestID)

@@ -18,13 +18,7 @@ import (
 	"github.com/syuctacm/syuct-oj/internal/judge"
 )
 
-// Defaults of the upstream `limit.user_files` and `limit.user_files_size`
-// settings.
-const (
-	maxUserFiles     = 100
-	maxUserFileSize  = 128 << 20
-	maxUserMultipart = 32 << 20
-)
+const maxUserMultipart = 32 << 20
 
 type userFileRepository interface {
 	Files(context.Context, int64) ([]filemeta.File, error)
@@ -74,7 +68,9 @@ func (h *UserFileHandler) upload(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "file storage is unavailable"})
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUserFileSize)
+	fileLimit := configuredLimitBytes(c, settingLimitUserFileSize, defaultLimitUserFileSize)
+	countLimit := configuredLimitInt(c, settingLimitUserFiles, defaultLimitUserFiles)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, fileLimit)
 	if err := c.Request.ParseMultipartForm(maxUserMultipart); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid multipart upload"})
 		return
@@ -92,8 +88,8 @@ func (h *UserFileHandler) upload(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load files"})
 		return
 	}
-	if len(existing)+len(headers) > maxUserFiles {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", maxUserFiles)})
+	if len(existing)+len(headers) > countLimit {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", countLimit)})
 		return
 	}
 	var total int64
@@ -105,7 +101,7 @@ func (h *UserFileHandler) upload(c *gin.Context) {
 	for _, header := range headers {
 		total += header.Size
 	}
-	if total > maxUserFileSize {
+	if total > fileLimit {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "files are too large"})
 		return
 	}
