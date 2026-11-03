@@ -5,6 +5,7 @@ import $ from 'jquery'
 import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { getOAuthProviders, type OAuthProvider } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { loginPath } from '../login-redirect.ts'
 import { buildLayoutUrl, layoutChromeContext } from '../upstream/layout.ts'
@@ -38,6 +39,7 @@ export function SignInDialog() {
   const [error, setError] = useState('')
   const [tfaRequired, setTfaRequired] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [loginMethods, setLoginMethods] = useState<OAuthProvider[]>([])
   const rootRef = useRef<HTMLDivElement>(null)
   const closingRef = useRef(false)
   const previousFocusRef = useRef<HTMLElement | null>(null)
@@ -45,21 +47,34 @@ export function SignInDialog() {
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
   currentLocation.current = location
 
+  useEffect(() => {
+    getOAuthProviders().then(setLoginMethods).catch(() => setLoginMethods([]))
+  }, [])
+
   const context = useMemo(() => {
     const base = layoutChromeContext(null, 'login')
     return {
       ...base,
-      loginMethods: [],
+      loginMethods,
       handler: {
         ...base.handler,
-        loginMethods: [],
+        loginMethods,
       },
     }
+  }, [loginMethods])
+  const oauthUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
+    if (name === 'user_oauth') {
+      const query = (args.query ?? {}) as Record<string, unknown>
+      const params = new URLSearchParams()
+      if (query.redirect) params.set('redirect', String(query.redirect))
+      return `/api/v1/auth/oauth/${encodeURIComponent(String(args.type ?? ''))}/login${params.toString() ? `?${params.toString()}` : ''}`
+    }
+    return buildLayoutUrl(name, args)
   }, [])
   const html = useMemo(() => renderHydroTemplate('partials/login_dialog.html', {
     context,
-    url: buildLayoutUrl,
-  }), [context])
+    url: oauthUrl,
+  }), [context, oauthUrl])
 
   const show = useCallback(() => {
     if (isMobile()) {

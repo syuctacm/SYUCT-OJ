@@ -14,30 +14,40 @@ type CountdownDate struct {
 }
 
 type Config struct {
-	Port            string
-	MongoURI        string
-	MongoDatabase   string
-	CORSOrigins     []string
-	JudgeUsername   string
-	JudgePassword   string
-	JudgeFileRoot   string
-	JudgeTaskLease  time.Duration
-	SessionTTL      time.Duration
-	LoginRateLimit  int
-	LoginRateWindow time.Duration
-	CookieSecure    bool
-	MailHost        string
-	MailPort        int
-	MailUsername    string
-	MailPassword    string
-	MailFrom        string
-	CountdownTitle  string
-	CountdownMax    int
-	CountdownDates  []CountdownDate
-	OnsiteIPLogin   bool
-	WebAuthnRPID    string
-	WebAuthnOrigins []string
-	WebAuthnName    string
+	Port                    string
+	MongoURI                string
+	MongoDatabase           string
+	CORSOrigins             []string
+	JudgeUsername           string
+	JudgePassword           string
+	JudgeFileRoot           string
+	JudgeTaskLease          time.Duration
+	SessionTTL              time.Duration
+	LoginRateLimit          int
+	LoginRateWindow         time.Duration
+	CookieSecure            bool
+	MailHost                string
+	MailPort                int
+	MailUsername            string
+	MailPassword            string
+	MailFrom                string
+	CountdownTitle          string
+	CountdownMax            int
+	CountdownDates          []CountdownDate
+	OnsiteIPLogin           bool
+	WebAuthnRPID            string
+	WebAuthnOrigins         []string
+	WebAuthnName            string
+	OAuthCallbackBaseURL    string
+	OAuthGitHubClientID     string
+	OAuthGitHubClientSecret string
+	OAuthGitHubAuthorizeURL string
+	OAuthGitHubTokenURL     string
+	OAuthGitHubUserURL      string
+	OAuthGitHubEmailsURL    string
+	OAuthGitHubScope        string
+	OAuthGitHubCanRegister  bool
+	OAuthGitHubName         string
 }
 
 func Load() Config {
@@ -49,30 +59,40 @@ func Load() Config {
 		origins[i] = strings.TrimSpace(origins[i])
 	}
 	return Config{
-		Port:            port,
-		MongoURI:        mongoURI,
-		MongoDatabase:   mongoDatabase,
-		CORSOrigins:     origins,
-		JudgeUsername:   env("JUDGE_USERNAME", "judge"),
-		JudgePassword:   env("JUDGE_PASSWORD", "judge_dev_password"),
-		JudgeFileRoot:   env("JUDGE_FILE_ROOT", "./data/judge-files"),
-		JudgeTaskLease:  durationEnv("JUDGE_TASK_LEASE", 2*time.Minute),
-		SessionTTL:      durationEnv("SESSION_TTL", 24*time.Hour),
-		LoginRateLimit:  intEnv("LOGIN_RATE_LIMIT", 10),
-		LoginRateWindow: durationEnv("LOGIN_RATE_WINDOW", time.Minute),
-		CookieSecure:    boolEnv("COOKIE_SECURE", false),
-		MailHost:        env("MAIL_HOST", ""),
-		MailPort:        intEnv("MAIL_PORT", 587),
-		MailUsername:    env("MAIL_USERNAME", ""),
-		MailPassword:    env("MAIL_PASSWORD", ""),
-		MailFrom:        env("MAIL_FROM", ""),
-		CountdownTitle:  env("COUNTDOWN_TITLE", "倒计时"),
-		CountdownMax:    intEnv("COUNTDOWN_MAX", 5),
-		CountdownDates:  countdownDatesEnv("COUNTDOWN_DATES"),
-		OnsiteIPLogin:   boolEnv("ONSITE_IP_LOGIN", false),
-		WebAuthnRPID:    env("WEBAUTHN_RPID", "localhost"),
-		WebAuthnOrigins: splitEnv("WEBAUTHN_ORIGINS", "http://localhost:5173,http://localhost:5174"),
-		WebAuthnName:    env("WEBAUTHN_DISPLAY_NAME", "SYUCT OJ"),
+		Port:                    port,
+		MongoURI:                mongoURI,
+		MongoDatabase:           mongoDatabase,
+		CORSOrigins:             origins,
+		JudgeUsername:           env("JUDGE_USERNAME", "judge"),
+		JudgePassword:           env("JUDGE_PASSWORD", "judge_dev_password"),
+		JudgeFileRoot:           env("JUDGE_FILE_ROOT", "./data/judge-files"),
+		JudgeTaskLease:          durationEnv("JUDGE_TASK_LEASE", 2*time.Minute),
+		SessionTTL:              durationEnv("SESSION_TTL", 24*time.Hour),
+		LoginRateLimit:          intEnv("LOGIN_RATE_LIMIT", 10),
+		LoginRateWindow:         durationEnv("LOGIN_RATE_WINDOW", time.Minute),
+		CookieSecure:            boolEnv("COOKIE_SECURE", false),
+		MailHost:                env("MAIL_HOST", ""),
+		MailPort:                intEnv("MAIL_PORT", 587),
+		MailUsername:            env("MAIL_USERNAME", ""),
+		MailPassword:            env("MAIL_PASSWORD", ""),
+		MailFrom:                env("MAIL_FROM", ""),
+		CountdownTitle:          env("COUNTDOWN_TITLE", "倒计时"),
+		CountdownMax:            intEnv("COUNTDOWN_MAX", 5),
+		CountdownDates:          countdownDatesEnv("COUNTDOWN_DATES"),
+		OnsiteIPLogin:           boolEnv("ONSITE_IP_LOGIN", false),
+		WebAuthnRPID:            env("WEBAUTHN_RPID", "localhost"),
+		WebAuthnOrigins:         splitEnv("WEBAUTHN_ORIGINS", "http://localhost:5173,http://localhost:5174"),
+		WebAuthnName:            env("WEBAUTHN_DISPLAY_NAME", "SYUCT OJ"),
+		OAuthCallbackBaseURL:    env("OAUTH_CALLBACK_BASE_URL", ""),
+		OAuthGitHubClientID:     env("OAUTH_GITHUB_CLIENT_ID", ""),
+		OAuthGitHubClientSecret: env("OAUTH_GITHUB_CLIENT_SECRET", ""),
+		OAuthGitHubAuthorizeURL: env("OAUTH_GITHUB_AUTHORIZE_URL", "https://github.com/login/oauth/authorize"),
+		OAuthGitHubTokenURL:     env("OAUTH_GITHUB_TOKEN_URL", "https://github.com/login/oauth/access_token"),
+		OAuthGitHubUserURL:      env("OAUTH_GITHUB_USER_URL", "https://api.github.com/user"),
+		OAuthGitHubEmailsURL:    env("OAUTH_GITHUB_EMAILS_URL", "https://api.github.com/user/emails"),
+		OAuthGitHubScope:        env("OAUTH_GITHUB_SCOPE", "read:user user:email"),
+		OAuthGitHubCanRegister:  boolEnv("OAUTH_GITHUB_CAN_REGISTER", true),
+		OAuthGitHubName:         env("OAUTH_GITHUB_NAME", "GitHub"),
 	}
 }
 

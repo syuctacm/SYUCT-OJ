@@ -173,6 +173,8 @@ go run ./cmd/migrate --sources=contest2025,select2025 --dry-run --report=/tmp/do
 - `POST /api/v1/auth/login`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/oauth/providers`
+- `GET /api/v1/auth/oauth/:provider/login`
 
 密码校验兼容 Hydro 的 PBKDF2 格式，详见 [docs/auth.md](./docs/auth.md)。Session 持久化在 MongoDB，API 重启后仍然有效。
 

@@ -34,10 +34,13 @@ var (
 )
 
 type RegisterInput struct {
-	Mail     string
-	Username string
-	Password string
-	IP       string
+	Mail        string
+	Username    string
+	Password    string
+	IP          string
+	DisplayName string
+	Avatar      string
+	Bio         string
 }
 
 func randomToken(size int) (string, error) {
@@ -109,13 +112,23 @@ func (r *Repository) Create(ctx context.Context, input RegisterInput) (*User, er
 	if err != nil {
 		return nil, err
 	}
+	avatar := strings.TrimSpace(input.Avatar)
+	if avatar == "" {
+		avatar = "gravatar:" + mail
+	}
 	document := bson.M{
 		"_id": uid, "mail": mail, "mailLower": strings.ToLower(mail),
 		"uname": username, "unameLower": strings.ToLower(username),
 		"salt": salt, "hash": HashPassword(input.Password, salt), "hashType": "hydro",
 		"regat": now, "loginat": now,
 		"ip": []string{input.IP}, "loginip": input.IP,
-		"priv": defaultPriv, "avatar": "gravatar:" + mail,
+		"priv": defaultPriv, "avatar": avatar,
+	}
+	if input.DisplayName != "" {
+		document["displayName"] = input.DisplayName
+	}
+	if input.Bio != "" {
+		document["bio"] = input.Bio
 	}
 	if _, err := r.collection.InsertOne(ctx, document); err != nil {
 		return nil, err

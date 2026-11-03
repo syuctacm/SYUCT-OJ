@@ -1,7 +1,8 @@
 // Page markup is rendered from the pinned Hydro ui-default template. Keep this
 // file limited to the login request and error state.
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { getOAuthProviders, type OAuthProvider } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { safeLoginRedirect } from '../login-redirect.ts'
@@ -11,19 +12,31 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const redirect = safeLoginRedirect(searchParams.get('redirect'))
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => searchParams.get('oauth_error') ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [tfaRequired, setTfaRequired] = useState(false)
+  const [loginMethods, setLoginMethods] = useState<OAuthProvider[]>([])
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
   const passkeyRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    getOAuthProviders().then(setLoginMethods).catch(() => setLoginMethods([]))
+  }, [])
+
   const context = useMemo(() => ({
     model: { system: { get: (key: string) => key === 'server.login' } },
-    loginMethods: [],
-    handler: { loginMethods: [] },
-  }), [])
-  const loginUrl = useCallback((name: string) => (
-    name === 'user_lostpass' ? '/lostpass' : name === 'user_oauth' ? '/login' : '/'
-  ), [])
+    loginMethods,
+    handler: { loginMethods },
+  }), [loginMethods])
+  const loginUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
+    if (name === 'user_lostpass') return '/lostpass'
+    if (name === 'user_oauth') {
+      const query = (args.query ?? {}) as Record<string, unknown>
+      const params = new URLSearchParams()
+      if (query.redirect) params.set('redirect', String(query.redirect))
+      return `/api/v1/auth/oauth/${encodeURIComponent(String(args.type ?? ''))}/login${params.toString() ? `?${params.toString()}` : ''}`
+    }
+    return '/'
+  }, [])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const form = root.querySelector('form')
