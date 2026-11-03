@@ -69,6 +69,9 @@ func (h *SubmissionHandler) create(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	if !enforceRateLimit(c, uid, "submission", settingLimitSubmission, settingLimitSubmissionUser, 60, 15) {
+		return
+	}
 	var request struct {
 		PID       string `json:"pid"`
 		Lang      string `json:"lang"`

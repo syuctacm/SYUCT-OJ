@@ -48,6 +48,10 @@ export const DEFAULT_SITE_SETTINGS: PublicSettings = {
   limitProblemFiles: 100,
   limitProblemFileSize: 256 * 1024 * 1024,
   limitCodeLength: 128 * 1024,
+  limitSubmission: 60,
+  limitSubmissionUser: 15,
+  limitPretest: 60,
+  limitByUser: false,
 }
 
 let currentSiteName = DEFAULT_SITE_SETTINGS.siteName

@@ -90,6 +90,10 @@ db.system.insertMany([
   { _id: "limit.problem_files_max", value: 100 },
   { _id: "limit.problem_files_max_size", value: 268435456 },
   { _id: "limit.codelength", value: 131072 },
+  { _id: "limit.submission", value: 60 },
+  { _id: "limit.submission_user", value: 15 },
+  { _id: "limit.pretest", value: 60 },
+  { _id: "limit.by_user", value: false },
 ]);
 
 db.document.insertMany([

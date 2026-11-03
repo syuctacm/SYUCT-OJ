@@ -86,6 +86,10 @@ export type PublicSettings = {
   limitProblemFiles: number
   limitProblemFileSize: number
   limitCodeLength: number
+  limitSubmission: number
+  limitSubmissionUser: number
+  limitPretest: number
+  limitByUser: boolean
 }
 
 export async function getPublicSettings(): Promise<PublicSettings> {

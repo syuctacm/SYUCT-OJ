@@ -38,12 +38,17 @@ const SYSTEM_SETTINGS = [
   { family: 'setting_limits', key: 'limitProblemFiles', type: 'number', name: 'Max problem files', value: 100, flag: 0 },
   { family: 'setting_limits', key: 'limitProblemFileSize', type: 'number', name: 'Max total problem file size (bytes)', value: 268435456, flag: 0 },
   { family: 'setting_limits', key: 'limitCodeLength', type: 'number', name: 'Max code length (bytes)', value: 131072, flag: 0 },
+  { family: 'setting_limits', key: 'limitSubmission', type: 'number', name: 'Max submissions per minute (IP)', value: 60, flag: 0 },
+  { family: 'setting_limits', key: 'limitSubmissionUser', type: 'number', name: 'Max submissions per minute (user)', value: 15, flag: 0 },
+  { family: 'setting_limits', key: 'limitPretest', type: 'number', name: 'Max pretests per minute', value: 60, flag: 0 },
+  { family: 'setting_limits', key: 'limitByUser', type: 'boolean', name: 'Use per-user rate limits', value: false, flag: 0 },
 ]
 
 const STRING_KEYS = ['siteName', 'navLogo', 'gravatarUrl', 'footerExtraHtml', 'bulletin', 'aboutMarkdown', 'homepageYaml', 'languageYaml'] as const
 const PAGINATION_KEYS = ['paginationProblem', 'paginationContest', 'paginationDiscussion', 'paginationRecord', 'paginationRanking', 'paginationSolution', 'paginationTraining'] as const
 const FILE_COUNT_KEYS = ['limitUserFiles', 'limitContestFiles', 'limitProblemFiles'] as const
 const SIZE_KEYS = ['limitUserFileSize', 'limitContestFileSize', 'limitProblemFileSize', 'limitCodeLength'] as const
+const RATE_KEYS = ['limitSubmission', 'limitSubmissionUser', 'limitPretest'] as const
 
 export function AdminSettingsPage() {
   const { user } = useAuth()
@@ -98,7 +103,16 @@ export function AdminSettingsPage() {
       }
       payload[key] = value
     }
+    for (const key of RATE_KEYS) {
+      const value = Number(data.get(key))
+      if (!Number.isInteger(value) || value < 1 || value > 10000) {
+        setError('频率限制必须是 1 到 10000 之间的整数')
+        return
+      }
+      payload[key] = value
+    }
     payload.enableScratchpad = data.has('enableScratchpad')
+    payload.limitByUser = data.has('limitByUser')
     setSaved('')
     setError('')
     try {

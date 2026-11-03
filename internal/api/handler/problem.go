@@ -495,6 +495,9 @@ func (h *ProblemHandler) pretest(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	if !enforceRateLimit(c, uid, "pretest", settingLimitPretest, settingLimitPretest, 60, 60) {
+		return
+	}
 	var request struct {
 		Lang  string   `json:"lang"`
 		Code  string   `json:"code"`

@@ -36,6 +36,10 @@ const (
 	settingLimitProblemFiles    = "limit.problem_files_max"
 	settingLimitProblemFileSize = "limit.problem_files_max_size"
 	settingLimitCodeLength      = "limit.codelength"
+	settingLimitSubmission      = "limit.submission"
+	settingLimitSubmissionUser  = "limit.submission_user"
+	settingLimitPretest         = "limit.pretest"
+	settingLimitByUser          = "limit.by_user"
 
 	settingPaginationProblem    = "pagination.problem"
 	settingPaginationContest    = "pagination.contest"
@@ -88,7 +92,8 @@ var siteSettingKeys = []string{
 	settingPaginationTraining,
 	settingLimitUserFiles, settingLimitUserFileSize, settingLimitContestFiles,
 	settingLimitContestFileSize, settingLimitProblemFiles, settingLimitProblemFileSize,
-	settingLimitCodeLength,
+	settingLimitCodeLength, settingLimitSubmission, settingLimitSubmissionUser,
+	settingLimitPretest, settingLimitByUser,
 }
 
 type SiteSettings struct {
@@ -115,6 +120,10 @@ type SiteSettings struct {
 	LimitProblemFiles    int    `json:"limitProblemFiles"`
 	LimitProblemFileSize int64  `json:"limitProblemFileSize"`
 	LimitCodeLength      int64  `json:"limitCodeLength"`
+	LimitSubmission      int    `json:"limitSubmission"`
+	LimitSubmissionUser  int    `json:"limitSubmissionUser"`
+	LimitPretest         int    `json:"limitPretest"`
+	LimitByUser          bool   `json:"limitByUser"`
 }
 
 func DefaultSiteSettings() SiteSettings {
@@ -131,6 +140,7 @@ func DefaultSiteSettings() SiteSettings {
 		LimitContestFiles: 100, LimitContestFileSize: 128 << 20,
 		LimitProblemFiles: 100, LimitProblemFileSize: 256 << 20,
 		LimitCodeLength: 128 << 10,
+		LimitSubmission: 60, LimitSubmissionUser: 15, LimitPretest: 60,
 	}
 }
 
@@ -281,6 +291,22 @@ func setSiteSettingValue(values *SiteSettings, key string, value any) {
 		if number, ok := anyInt64(value); ok && number > 0 {
 			values.LimitCodeLength = number
 		}
+	case settingLimitSubmission:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.LimitSubmission = number
+		}
+	case settingLimitSubmissionUser:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.LimitSubmissionUser = number
+		}
+	case settingLimitPretest:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.LimitPretest = number
+		}
+	case settingLimitByUser:
+		if boolean, ok := anyBool(value); ok {
+			values.LimitByUser = boolean
+		}
 	}
 }
 
@@ -346,12 +372,17 @@ func siteSettingUpdates(input SiteSettingsInput) map[string]any {
 	if input.LanguageYAML != nil {
 		updates[settingLanguages] = *input.LanguageYAML
 	}
+	if input.LimitByUser != nil {
+		updates[settingLimitByUser] = *input.LimitByUser
+	}
 	for key, value := range map[string]*int{
 		settingPaginationProblem: input.PaginationProblem, settingPaginationContest: input.PaginationContest,
 		settingPaginationDiscussion: input.PaginationDiscussion, settingPaginationRecord: input.PaginationRecord,
 		settingPaginationRanking: input.PaginationRanking, settingPaginationSolution: input.PaginationSolution,
 		settingPaginationTraining: input.PaginationTraining, settingLimitUserFiles: input.LimitUserFiles,
 		settingLimitContestFiles: input.LimitContestFiles, settingLimitProblemFiles: input.LimitProblemFiles,
+		settingLimitSubmission: input.LimitSubmission, settingLimitSubmissionUser: input.LimitSubmissionUser,
+		settingLimitPretest: input.LimitPretest,
 	} {
 		if value != nil {
 			updates[key] = *value
@@ -402,6 +433,10 @@ type SiteSettingsInput struct {
 	LimitProblemFiles    *int    `json:"limitProblemFiles"`
 	LimitProblemFileSize *int64  `json:"limitProblemFileSize"`
 	LimitCodeLength      *int64  `json:"limitCodeLength"`
+	LimitSubmission      *int    `json:"limitSubmission"`
+	LimitSubmissionUser  *int    `json:"limitSubmissionUser"`
+	LimitPretest         *int    `json:"limitPretest"`
+	LimitByUser          *bool   `json:"limitByUser"`
 }
 
 func validHomepageYAML(value string) bool {
@@ -479,6 +514,7 @@ func validateSiteSettings(input SiteSettingsInput) error {
 		{input.PaginationRanking, 1000}, {input.PaginationSolution, 1000},
 		{input.PaginationTraining, 1000}, {input.LimitUserFiles, 10000},
 		{input.LimitContestFiles, 10000}, {input.LimitProblemFiles, 10000},
+		{input.LimitSubmission, 10000}, {input.LimitSubmissionUser, 10000}, {input.LimitPretest, 10000},
 	} {
 		if item.value != nil && (*item.value < 1 || *item.value > item.max) {
 			return fmt.Errorf("setting value must be between 1 and %d", item.max)
