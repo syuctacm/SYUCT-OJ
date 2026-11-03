@@ -30,7 +30,7 @@ db.dropDatabase();
 
 const salt = "salt";
 // Hydro salt/hash pair for the local test password "secret".
-const hash = "eae46998928517c506dee34aec1b801edb5d4df14490b63dfa19514f2310fac0";
+const hash = "3fa094211c0cf2ed1d332ab43adc69aab469f0e0f2cae6345c81bb874eef3f9e";
 const at = new Date("2026-11-03T08:00:00.000Z");
 const earlier = new Date("2026-11-03T07:30:00.000Z");
 const contestStart = new Date("2026-10-01T08:00:00.000Z");
@@ -52,13 +52,13 @@ db.user.insertMany([
     _id: NumberLong("1"), uname: "visual_admin", unameLower: "visual_admin",
     mail: "visual_admin@example.com", mailLower: "visual_admin@example.com",
     salt, hash, hashType: "hydro", priv: NumberLong("1"), regat: at, loginat: earlier,
-    avatar: "url:/logo.png", unreadMsg: NumberLong("0"), loginip: "127.0.0.1", tfa: "",
+    avatar: "url:/visual-avatar.svg", unreadMsg: NumberLong("0"), loginip: "127.0.0.1", tfa: "",
   },
   {
     _id: NumberLong("2"), uname: "visual_user", unameLower: "visual_user",
     mail: "visual_user@example.com", mailLower: "visual_user@example.com",
     salt, hash, hashType: "hydro", priv: NumberLong("0"), regat: at, loginat: earlier,
-    avatar: "url:/logo.png", unreadMsg: NumberLong("0"), bio: "用于截图回归的固定测试用户。",
+    avatar: "url:/visual-avatar.svg", unreadMsg: NumberLong("0"), bio: "用于截图回归的固定测试用户。",
     school: "SYUCT", _files: [],
   },
 ]);
