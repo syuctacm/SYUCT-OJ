@@ -1029,6 +1029,20 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地 Docker 生产形态 Web/API 上生成 9 张基线
 - 连续执行两次截图回归均为 0 differing pixels
 
+## 6.58 截图回归执行器加固（2026-11-03）
+
+- ImageMagick AE 指标现在只解析差异像素数，不再把括号内的比例拼接到计数中
+- 比较前强制校验基线尺寸；尺寸变化直接失败，不生成误导性的像素差异
+- 截图前等待 Page Loader 隐藏、加载占位消失、section 动画结束、字体加载完成和 DOM 完整
+- 固定浅色主题、`Asia/Shanghai` 时区、中文 locale 和 reduced-motion
+- `--self-test` 用合成图片验证相同图、不同图、错误指标和尺寸不一致四条路径
+
+验证：
+
+- `./scripts/visual-regression.sh --self-test` 通过
+- 本地隔离 Docker（Mongo + Go API + Nginx 生产构建）首次生成临时基线，第二次 9 个页面全部为 0 differing pixels
+- 全程只监听 localhost，未连接生产环境
+
 ## 7. 当前已知差异
 
 ```text

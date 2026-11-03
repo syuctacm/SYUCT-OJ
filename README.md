@@ -103,6 +103,7 @@ pnpm dev
 go test ./...
 go build ./...
 cd web && pnpm build
+./scripts/visual-regression.sh --self-test
 BASE_URL=http://localhost:5173 ./scripts/visual-regression.sh
 ```
 
