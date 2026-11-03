@@ -263,7 +263,7 @@ func (r *Repository) CreatePretest(ctx context.Context, uid int64, pid, lang, co
 
 // CreateHack queues hydrojudge's native hack mode using another user's
 // accepted code and a user-supplied input.
-func (r *Repository) CreateHack(ctx context.Context, uid int64, pid, targetRID string, input []byte) (*Record, error) {
+func (r *Repository) CreateHack(ctx context.Context, uid int64, pid, targetRID string, input []byte, contestID ...string) (*Record, error) {
 	if r.store == nil {
 		return nil, fmt.Errorf("hack storage is unavailable")
 	}
@@ -297,13 +297,30 @@ func (r *Repository) CreateHack(ctx context.Context, uid int64, pid, targetRID s
 	if target.Type == "hack" || len(target.Files) > 0 {
 		return nil, fmt.Errorf("hack records cannot be hacked")
 	}
-	if target.Contest != nil {
-		return nil, fmt.Errorf("contest hacks are not supported yet")
+	var requestedContest *bson.ObjectID
+	if len(contestID) > 0 && strings.TrimSpace(contestID[0]) != "" {
+		oid, err := bson.ObjectIDFromHex(strings.TrimSpace(contestID[0]))
+		if err != nil {
+			return nil, fmt.Errorf("invalid contest id")
+		}
+		requestedContest = &oid
 	}
-	accepted, err := r.records.CountDocuments(ctx, bson.M{
+	if target.Contest == nil && requestedContest != nil {
+		return nil, fmt.Errorf("target submission does not belong to this contest")
+	}
+	if target.Contest != nil && (requestedContest == nil || *target.Contest != *requestedContest) {
+		return nil, fmt.Errorf("target submission belongs to another contest")
+	}
+	acceptedFilter := bson.M{
 		"domainId": "system", "uid": uid, "pid": pdoc.DocID, "status": StatusAccepted,
 		"type": bson.M{"$nin": []string{"hack", "generate", "pretest"}},
-	})
+	}
+	if requestedContest != nil {
+		acceptedFilter["contest"] = *requestedContest
+	} else {
+		acceptedFilter["$or"] = []bson.M{{"contest": bson.M{"$exists": false}}, {"contest": nil}}
+	}
+	accepted, err := r.records.CountDocuments(ctx, acceptedFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -335,6 +352,9 @@ func (r *Repository) CreateHack(ctx context.Context, uid int64, pid, targetRID s
 		"judger": nil, "judgeAt": nil, "rejudged": false,
 		"source": fmt.Sprintf("system/%d", pdoc.DocID), "createdAt": now,
 	}
+	if requestedContest != nil {
+		record["contest"] = *requestedContest
+	}
 	if _, err := r.records.InsertOne(ctx, record); err != nil {
 		return nil, err
 	}
@@ -344,7 +364,7 @@ func (r *Repository) CreateHack(ctx context.Context, uid int64, pid, targetRID s
 			_, _ = r.records.DeleteOne(ctx, bson.M{"_id": rid})
 		}
 	}()
-	task, err := buildJudgeTask(pdoc, rid, uid, target.Lang, target.Code, nil)
+	task, err := buildJudgeTask(pdoc, rid, uid, target.Lang, target.Code, requestedContest)
 	if err != nil {
 		return nil, err
 	}
@@ -969,7 +989,7 @@ func (r *Repository) applySuccessfulHack(ctx context.Context, hackRID bson.Objec
 		return err
 	}
 	pdoc.Config = configText
-	return r.queueHackRejudge(ctx, pdoc, inputName)
+	return r.queueHackRejudge(ctx, pdoc, inputName, hack.Contest)
 }
 
 func appendHackCase(value any, inputName string) (string, error) {
@@ -1022,14 +1042,15 @@ func appendHackCase(value any, inputName string) (string, error) {
 	return string(encodedConfig), nil
 }
 
-func (r *Repository) queueHackRejudge(ctx context.Context, pdoc *problem.Problem, inputName string) error {
+func (r *Repository) queueHackRejudge(ctx context.Context, pdoc *problem.Problem, inputName string, contestID ...*bson.ObjectID) error {
 	filter := bson.M{
 		"domainId": "system", "pid": pdoc.DocID, "status": StatusAccepted,
 		"type": bson.M{"$nin": []string{"hack", "generate", "pretest"}},
-		"$or": []bson.M{
-			{"contest": bson.M{"$exists": false}},
-			{"contest": nil},
-		},
+	}
+	if len(contestID) > 0 && contestID[0] != nil {
+		filter["contest"] = *contestID[0]
+	} else {
+		filter["$or"] = []bson.M{{"contest": bson.M{"$exists": false}}, {"contest": nil}}
 	}
 	var records []struct {
 		ID      bson.ObjectID  `bson:"_id"`

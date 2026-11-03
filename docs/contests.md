@@ -81,6 +81,7 @@
 后端按比赛 `rule` 计算：
 
 - `acm`：每题首次 AC 的时间加 20 分钟错误罚时；CE、系统错误和取消记录不计罚时
+- `codeforces`：使用 XCPC 计分，并允许比赛进行中的同场 Hack
 - `oi` / `ioi`：每题取最高分，按比赛题目分值加权求和
 - `strictioi`：按 subtask 取历史最高分后合并
 - `homework`：取每题最新提交，按 `penaltySince` 和 `penaltyRules` 计算延期系数

@@ -669,7 +669,7 @@ func (r *Repository) validateEdit(ctx context.Context, input EditInput) error {
 
 func validRule(rule string) bool {
 	switch rule {
-	case "acm", "oi", "ioi", "strictioi", "ledo", "homework":
+	case "acm", "codeforces", "oi", "ioi", "strictioi", "ledo", "homework":
 		return true
 	default:
 		return false
