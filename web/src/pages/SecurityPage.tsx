@@ -6,8 +6,9 @@ import { startRegistration } from '@simplewebauthn/browser'
 import { useNavigate } from 'react-router-dom'
 import {
   beginPasskeyRegistration, changePassword, deletePasskey, disableTFA, enableTFA, finishPasskeyRegistration,
-  getPasskeys, getSecuritySessions, requestEmailChange, revokeAllSecuritySessions, revokeSecuritySession,
-  setupTFA, type Passkey, type SecuritySession, type TFASetup,
+  getOAuthLinks, getOAuthProviders, getPasskeys, getSecuritySessions, requestEmailChange, revokeAllSecuritySessions,
+  revokeSecuritySession, setupTFA, unlinkOAuth,
+  type OAuthLink, type OAuthProvider, type Passkey, type SecuritySession, type TFASetup,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { Dialog } from '../components/Dialog.tsx'
@@ -46,6 +47,8 @@ export function SecurityPage() {
   const navigate = useNavigate()
   const [sessions, setSessions] = useState<SecuritySession[]>([])
   const [authenticators, setAuthenticators] = useState<Passkey[]>([])
+  const [oauthLinks, setOAuthLinks] = useState<OAuthLink[]>([])
+  const [loginMethods, setLoginMethods] = useState<OAuthProvider[]>([])
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
@@ -82,6 +85,12 @@ export function SecurityPage() {
     getPasskeys()
       .then(setAuthenticators)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Passkey 加载失败'))
+    getOAuthLinks()
+      .then(setOAuthLinks)
+      .catch(() => setOAuthLinks([]))
+    getOAuthProviders()
+      .then(setLoginMethods)
+      .catch(() => setLoginMethods([]))
   }, [reloadKey, user])
 
   const context = useCallback(() => ({
@@ -96,8 +105,8 @@ export function SecurityPage() {
       updateUaInfo: parseUserAgent(session.ua),
     })),
     sudoUid: null,
-    relations: [],
-    loginMethods: [],
+    relations: oauthLinks,
+    loginMethods,
     authenticators: authenticators.map((authenticator) => ({
       name: authenticator.name,
       authenticatorAttachment: authenticator.attachment === 'platform' ? 'platform' : 'cross-platform',
@@ -125,11 +134,12 @@ export function SecurityPage() {
     },
     PRIV: { PRIV_CREATE_FILE: 1 },
     avatarUrl,
-  }), [authenticators, sessions, user])
+  }), [authenticators, loginMethods, oauthLinks, sessions, user])
 
   async function handleSubmit(event: SubmitEvent) {
-    const form = event.target as HTMLFormElement
-    if (!(form instanceof HTMLFormElement)) return
+    const target = event.target
+    const form = target instanceof HTMLFormElement ? target : (target as Element | null)?.closest('form')
+    if (!form) return
     event.preventDefault()
     const data = new FormData(form)
     const operation = String(data.get('operation') ?? '')
@@ -187,6 +197,23 @@ export function SecurityPage() {
         setReloadKey((key) => key + 1)
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : '删除 Passkey 失败')
+      }
+      return
+    }
+    if (operation === 'link_account') {
+      const platform = String(data.get('platform') ?? '')
+      if (platform) window.location.assign(`/api/v1/auth/oauth/${encodeURIComponent(platform)}/login?bind=1`)
+      return
+    }
+    if (operation === 'unlink_account') {
+      const platform = String(data.get('platform') ?? '')
+      if (!platform) return
+      try {
+        await unlinkOAuth(platform)
+        setNotice('OAuth 账号已解绑')
+        setReloadKey((key) => key + 1)
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : '解绑 OAuth 账号失败')
       }
     }
   }
@@ -300,11 +327,32 @@ export function SecurityPage() {
     const onAuthEnable = () => authSetupRef.current()
     authEnable?.addEventListener('click', onAuthEnable)
     if (authEnable) cleanups.push(() => authEnable.removeEventListener('click', onAuthEnable))
-    for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
-      const onSubmit = (event: SubmitEvent) => submitRef.current(event)
-      form.addEventListener('submit', onSubmit)
-      cleanups.push(() => form.removeEventListener('submit', onSubmit))
-    }
+    root.querySelectorAll<HTMLButtonElement>('button[name="platform"]').forEach((button) => {
+      const onPlatform = (event: Event) => {
+        event.preventDefault()
+        const form = button.closest('form')
+        const operation = String(form ? new FormData(form).get('operation') : '')
+        const platform = button.value
+        if (!platform) return
+        if (operation === 'link_account') {
+          window.location.assign(`/api/v1/auth/oauth/${encodeURIComponent(platform)}/login?bind=1`)
+          return
+        }
+        if (operation === 'unlink_account') {
+          void unlinkOAuth(platform)
+            .then(() => {
+              setNotice('OAuth 账号已解绑')
+              setReloadKey((key) => key + 1)
+            })
+            .catch((err: unknown) => setError(err instanceof Error ? err.message : '解绑 OAuth 账号失败'))
+        }
+      }
+      button.addEventListener('click', onPlatform)
+      cleanups.push(() => button.removeEventListener('click', onPlatform))
+    })
+    const onSubmit = (event: Event) => submitRef.current(event as SubmitEvent)
+    root.addEventListener('submit', onSubmit)
+    cleanups.push(() => root.removeEventListener('submit', onSubmit))
     return () => cleanups.forEach((cleanup) => cleanup())
   }, [])
 

@@ -281,6 +281,11 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     typeof: (value: unknown) => typeof value,
     eval: (code: string) => {
       if (code.replace(/\s/g, '') === 'rdoc=>rdoc._id.toString()') return (rdoc: { _id: unknown }) => String(rdoc._id)
+      const equality = code.match(/^\s*r\s*=>\s*r\.([A-Za-z_$][\w$]*)\s*===\s*['"]([^'"]+)['"]\s*$/)
+      if (equality) {
+        const [, key, expected] = equality
+        return (value: Record<string, unknown>) => String(value[key] ?? '') === expected
+      }
       return () => undefined
     },
     set: (target: RenderContext, keyOrValues: string | RenderContext, value?: unknown) => {

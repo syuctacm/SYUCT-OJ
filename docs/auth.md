@@ -12,6 +12,11 @@
 | POST | `/api/v1/auth/register` | 提交注册邮箱，返回注册 token |
 | GET | `/api/v1/auth/register/:code` | 校验 token 并返回绑定邮箱 |
 | POST | `/api/v1/auth/register/:code` | 设置用户名/密码，创建账号并自动登录 |
+| GET | `/api/v1/auth/oauth/providers` | 列出启用的 OAuth provider |
+| GET | `/api/v1/auth/oauth/:provider/login` | 开始 OAuth 登录或绑定 |
+| GET | `/api/v1/auth/oauth/:provider/callback` | OAuth 回调并签发 Session |
+| GET | `/api/v1/user/security/oauth` | 当前用户已绑定的 OAuth 账号 |
+| DELETE | `/api/v1/user/security/oauth/:provider` | 解绑 OAuth 账号 |
 
 登录成功设置 HttpOnly `sid` Cookie；判题机登录仍使用独立的 `/login` 兼容接口。
 
@@ -66,7 +71,29 @@ Go 实现位于 `internal/user/password.go`。
 
 ## 前端
 
-登录页由 `HydroTemplate` 直接渲染 Hydro `ui-default` 的 `user_login.html`，继续使用 `layout--immersive`、`.immersive--content`、`.inverse` 表单样式和原版背景资源。React 只负责登录请求和错误状态；服务端返回 2FA required 时，页面会在原表单中插入 6 位验证码输入框。支持 HTTPS/localhost 时，原表单下方会显示“使用 Passkey 登录”按钮。暂不支持找回密码和 OAuth，因此对应入口会从原模板中移除。
+登录页由 `HydroTemplate` 直接渲染 Hydro `ui-default` 的 `user_login.html`，继续使用 `layout--immersive`、`.immersive--content`、`.inverse` 表单样式和原版背景资源。React 只负责登录请求和错误状态；服务端返回 2FA required 时，页面会在原表单中插入 6 位验证码输入框。支持 HTTPS/localhost 时，原表单下方会显示“使用 Passkey 登录”按钮；配置 OAuth 后，原模板的 provider 按钮会自动出现。
+
+## OAuth
+
+第一阶段实现 GitHub OAuth，并保持 `oauth` 集合与 Hydro 兼容：
+
+- `oauth { platform, id, uid }` 保存外部身份与站内账号的绑定关系
+- state 保存 10 分钟、一次性消费，并绑定 HttpOnly `oauth_state` Cookie，防止登录 CSRF 和回调重放
+- 已绑定身份直接登录
+- 未绑定但邮箱匹配现有用户时自动绑定并登录
+- 未找到账号且 `OAUTH_GITHUB_CAN_REGISTER=1` 时自动创建站内账号
+- `/home/security` 支持 OAuth 绑定和解绑；所有 OAuth 登录都复用现有 `sid` Session、`loginat` 和 `loginip`
+
+配置项：
+
+```text
+OAUTH_CALLBACK_BASE_URL=https://oj.example.com
+OAUTH_GITHUB_CLIENT_ID=...
+OAUTH_GITHUB_CLIENT_SECRET=...
+OAUTH_GITHUB_CAN_REGISTER=1
+```
+
+`OAUTH_GITHUB_AUTHORIZE_URL`、`OAUTH_GITHUB_TOKEN_URL`、`OAUTH_GITHUB_USER_URL`、`OAUTH_GITHUB_EMAILS_URL` 和 `OAUTH_GITHUB_SCOPE` 可在本地 mock provider 或 GitHub Enterprise 中使用；默认值指向 GitHub.com。
 
 ## Session
 
@@ -87,7 +114,7 @@ Go 实现位于 `internal/user/password.go`。
 
 ## 当前限制
 
-- 尚未实现 OAuth。
+  - OAuth 默认关闭；未配置 GitHub client id/secret 时 provider 列表为空。
 - 注册 token 仍直接由接口返回；邮箱修改已支持可选 SMTP 发送确认链接，相关配置见 `.env.example`。
 
 ## 登录交互

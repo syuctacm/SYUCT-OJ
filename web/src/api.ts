@@ -533,6 +533,34 @@ export async function logout(): Promise<void> {
   await request<void>('/api/v1/auth/logout', { method: 'POST' })
 }
 
+export type OAuthProvider = {
+  id: string
+  name: string
+  text: string
+  icon?: string
+  canRegister?: boolean
+}
+
+export type OAuthLink = {
+  platform: string
+  id: string
+  uid: number
+}
+
+export async function getOAuthProviders(): Promise<OAuthProvider[]> {
+  const result = await request<Envelope<OAuthProvider[]>>('/api/v1/auth/oauth/providers')
+  return result.data
+}
+
+export async function getOAuthLinks(): Promise<OAuthLink[]> {
+  const result = await request<Envelope<{ items: OAuthLink[] }>>('/api/v1/user/security/oauth')
+  return result.data.items
+}
+
+export async function unlinkOAuth(provider: string): Promise<void> {
+  await request(`/api/v1/user/security/oauth/${encodeURIComponent(provider)}`, { method: 'DELETE' })
+}
+
 export type WebAuthnLoginOptions = {
   options: { publicKey: PublicKeyCredentialRequestOptionsJSON }
   token: string

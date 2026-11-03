@@ -50,6 +50,9 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	if authHandler != nil {
 		authHandler.RegisterRoutes(router.Group("/"))
 	}
+	if userRepo != nil && sessions != nil {
+		auth.NewOAuthHandler(db, userRepo, sessions, cfg).RegisterRoutes(router.Group("/"))
+	}
 	if problemRepo != nil {
 		var problemStore *judge.FileStore
 		if judgeHandler != nil {
