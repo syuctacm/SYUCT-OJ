@@ -66,8 +66,7 @@ func (h *ProblemHandler) statistics(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "submission statistics are unavailable"})
 		return
 	}
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	page, limit := parsePaging(c, settingPaginationRecord)
 	direction, _ := strconv.Atoi(c.DefaultQuery("direction", "1"))
 	result, err := h.submissions.Statistics(c.Request.Context(), submission.StatisticsFilter{
 		DocID:     pdoc.DocID,

@@ -5,6 +5,8 @@ import type {
   RegistrationResponseJSON,
 } from '@simplewebauthn/browser'
 
+import { getPaginationLimit } from './pagination.ts'
+
 export type User = {
   id: number
   username: string
@@ -69,6 +71,13 @@ export type PublicSettings = {
   gravatarUrl: string
   homepageYaml: string
   aboutMarkdown: string
+  paginationProblem: number
+  paginationContest: number
+  paginationDiscussion: number
+  paginationRecord: number
+  paginationRanking: number
+  paginationSolution: number
+  paginationTraining: number
 }
 
 export async function getPublicSettings(): Promise<PublicSettings> {
@@ -628,7 +637,7 @@ export type ProblemPage = {
 }
 
 export async function getProblems(query = '', page = 1, sort = 'default', tag = ''): Promise<ProblemPage> {
-  const params = new URLSearchParams({ page: String(page), limit: '20' })
+  const params = new URLSearchParams({ page: String(page), limit: String(getPaginationLimit('problem')) })
   if (query.trim()) params.set('q', query.trim())
   if (sort && sort !== 'default') params.set('sort', sort)
   if (tag) params.set('tag', tag)
@@ -741,7 +750,7 @@ export type SubmissionFilter = {
 export async function getSubmissions(filter: SubmissionFilter = {}): Promise<SubmissionPage> {
   const params = new URLSearchParams({
     page: String(filter.page ?? 1),
-    limit: String(filter.limit ?? 20),
+    limit: String(filter.limit ?? getPaginationLimit('record')),
   })
   for (const key of ['uidOrName', 'pid', 'tid', 'lang', 'status'] as const) {
     const value = filter[key]
@@ -912,7 +921,7 @@ export type ListPage<T> = {
   groups?: string[]
 }
 
-export async function getContests(query = '', rule = '', group = '', page = 1, limit = 20): Promise<ListPage<Contest>> {
+export async function getContests(query = '', rule = '', group = '', page = 1, limit = getPaginationLimit('contest')): Promise<ListPage<Contest>> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })
   if (query.trim()) params.set('q', query.trim())
   if (rule) params.set('rule', rule)
@@ -1239,7 +1248,7 @@ export type TrainingListPage = ListPage<Training> & {
   progress?: Record<string, TrainingProgress>
 }
 
-export async function getTrainings(query = '', page = 1, limit = 20): Promise<TrainingListPage> {
+export async function getTrainings(query = '', page = 1, limit = getPaginationLimit('training')): Promise<TrainingListPage> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })
   if (query.trim()) params.set('q', query.trim())
   const result = await request<Envelope<TrainingListPage>>(`/api/v1/trainings?${params.toString()}`)
@@ -1285,7 +1294,7 @@ export async function updateTraining(tid: string, input: TrainingEditInput): Pro
   return result.data
 }
 
-export async function getHomeworks(query = '', group = '', page = 1, limit = 20): Promise<ListPage<Contest>> {
+export async function getHomeworks(query = '', group = '', page = 1, limit = getPaginationLimit('contest')): Promise<ListPage<Contest>> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })
   if (query.trim()) params.set('q', query.trim())
   if (group) params.set('group', group)
@@ -1428,7 +1437,7 @@ export type DiscussionReply = {
 export async function getDiscussions(filter: { parentType?: number; parentId?: string; page?: number; limit?: number } = {}): Promise<ListPage<Discussion>> {
   const params = new URLSearchParams({
     page: String(filter.page ?? 1),
-    limit: String(filter.limit ?? 20),
+    limit: String(filter.limit ?? getPaginationLimit('discussion')),
   })
   if (filter.parentType) params.set('parentType', String(filter.parentType))
   if (filter.parentId) params.set('parentId', filter.parentId)
@@ -1591,7 +1600,7 @@ export type TagRanking = {
 }
 
 export async function getTagRanking(tag: string, page = 1, query = ''): Promise<TagRanking> {
-  const params = new URLSearchParams({ page: String(page), limit: '20' })
+  const params = new URLSearchParams({ page: String(page), limit: String(getPaginationLimit('ranking')) })
   if (query.trim()) params.set('q', query.trim())
   const result = await request<Envelope<TagRanking>>(`/api/v1/problem-tags/${encodeURIComponent(tag)}/ranking?${params.toString()}`)
   return result.data
@@ -1636,7 +1645,7 @@ export type RankingUser = {
   nAccept: number
 }
 
-export async function getRanking(page = 1, limit = 20): Promise<ListPage<RankingUser>> {
+export async function getRanking(page = 1, limit = getPaginationLimit('ranking')): Promise<ListPage<RankingUser>> {
   const result = await request<Envelope<ListPage<RankingUser>>>(`/api/v1/ranking?page=${page}&limit=${limit}`)
   return result.data
 }
@@ -1818,7 +1827,7 @@ export type ProblemSolutionPage = {
 }
 
 export async function getProblemSolutions(pid: string, page = 1, sid = ''): Promise<ProblemSolutionPage> {
-  const params = new URLSearchParams({ page: String(page) })
+  const params = new URLSearchParams({ page: String(page), limit: String(getPaginationLimit('solution')) })
   if (sid) params.set('sid', sid)
   const result = await request<Envelope<ProblemSolutionPage>>(
     `/api/v1/problems/${encodeURIComponent(pid)}/solutions?${params.toString()}`,

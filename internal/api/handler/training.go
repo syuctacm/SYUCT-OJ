@@ -80,7 +80,7 @@ func (h *TrainingHandler) update(c *gin.Context) {
 }
 
 func (h *TrainingHandler) list(c *gin.Context) {
-	page, limit := parsePaging(c)
+	page, limit := parsePaging(c, settingPaginationTraining)
 	items, total, err := h.repo.ListFiltered(c.Request.Context(), c.Query("q"), page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list trainings"})

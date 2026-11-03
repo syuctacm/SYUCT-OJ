@@ -114,7 +114,7 @@ func (h *DiscussionHandler) RegisterRoutes(router *gin.RouterGroup) {
 
 func (h *DiscussionHandler) list(c *gin.Context) {
 	parentType, _ := strconv.ParseInt(c.Query("parentType"), 10, 64)
-	page, limit := parsePaging(c)
+	page, limit := parsePaging(c, settingPaginationDiscussion)
 	items, total, err := h.repo.ListFiltered(c.Request.Context(), parentType, c.Query("parentId"), page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list discussions"})

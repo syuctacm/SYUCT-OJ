@@ -34,7 +34,7 @@ func (h *HomeworkHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *HomeworkHandler) list(c *gin.Context) {
-	page, limit := parsePaging(c)
+	page, limit := parsePaging(c, settingPaginationContest)
 	uid := int64(0)
 	groups := []string{}
 	privileged := false

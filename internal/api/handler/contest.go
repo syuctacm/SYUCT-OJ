@@ -59,7 +59,7 @@ func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 func (h *ContestHandler) list(c *gin.Context) {
-	page, limit := parsePaging(c)
+	page, limit := parsePaging(c, settingPaginationContest)
 	uid := int64(0)
 	groups := []string{}
 	privileged := false
