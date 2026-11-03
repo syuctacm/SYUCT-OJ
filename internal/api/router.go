@@ -21,6 +21,10 @@ import (
 
 func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handler, authHandler *auth.Handler, problemRepo *problem.Repository, submissionHandler *handler.SubmissionHandler, contestRepo *contest.Repository, trainingRepo *training.Repository, discussionRepo *discussion.Repository, userRepo *user.Repository, adminHandler *handler.AdminHandler, sessions *auth.SessionManager) *gin.Engine {
 	router := gin.New()
+	var activeJudgeHub *judge.Hub
+	if judgeHandler != nil {
+		activeJudgeHub = judgeHandler.Hub()
+	}
 	router.Use(func(c *gin.Context) {
 		c.Set(handler.RequestDatabaseKey, db)
 		c.Next()
@@ -47,7 +51,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	{
 		v1.GET("/health", handler.NewHealthHandler(db).Get)
 		v1.GET("/info", handler.NewInfoHandler().Get)
-		handler.NewStatusHandler(db).RegisterRoutes(router.Group("/"))
+		handler.NewStatusHandler(db, activeJudgeHub).RegisterRoutes(router.Group("/"))
 		handler.NewSettingsHandler(db).RegisterRoutes(router.Group("/"))
 		handler.NewCountdownHandler(cfg.CountdownTitle, cfg.CountdownMax, cfg.CountdownDates).RegisterRoutes(router.Group("/"))
 	}
@@ -63,7 +67,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 			problemStore = judgeHandler.Store()
 		}
 		handler.NewProblemHandler(problemRepo, contestRepo, sessions, userRepo, problemStore, submissionHandler.Repository()).RegisterRoutes(router.Group("/"))
-		handler.NewLanguageHandler(problemRepo, contestRepo).RegisterRoutes(router.Group("/"))
+		handler.NewLanguageHandler(problemRepo, contestRepo, activeJudgeHub).RegisterRoutes(router.Group("/"))
 		handler.NewSolutionHandler(problemRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
 	}
 	if submissionHandler != nil {

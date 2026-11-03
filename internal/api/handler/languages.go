@@ -16,10 +16,22 @@ import (
 type LanguageHandler struct {
 	problems *problem.Repository
 	contests *contest.Repository
+	hub      *judge.Hub
 }
 
-func NewLanguageHandler(problems *problem.Repository, contests *contest.Repository) *LanguageHandler {
-	return &LanguageHandler{problems: problems, contests: contests}
+func NewLanguageHandler(problems *problem.Repository, contests *contest.Repository, hub ...*judge.Hub) *LanguageHandler {
+	h := &LanguageHandler{problems: problems, contests: contests}
+	if len(hub) > 0 {
+		h.hub = hub[0]
+	}
+	return h
+}
+
+func (h *LanguageHandler) languages() map[string]any {
+	if h.hub != nil {
+		return h.hub.Languages()
+	}
+	return judge.DefaultLanguages()
 }
 
 func (h *LanguageHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -29,7 +41,7 @@ func (h *LanguageHandler) RegisterRoutes(router *gin.RouterGroup) {
 
 func (h *LanguageHandler) list(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
-		"items": judge.LanguageOptions(),
+		"items": judge.LanguageOptionsFor(h.languages()),
 	}})
 }
 
@@ -51,7 +63,7 @@ func (h *LanguageHandler) problemLangs(c *gin.Context) {
 		constraints = append(constraints, item.Langs)
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
-		"items": AllowedLanguages(judge.LanguageOptions(), constraints...),
+		"items": AllowedLanguages(judge.LanguageOptionsFor(h.languages()), constraints...),
 	}})
 }
 

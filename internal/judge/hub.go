@@ -123,6 +123,35 @@ func (h *Hub) Enqueue(task any) bool {
 	return false
 }
 
+func (h *Hub) Languages() map[string]any {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	result := make(map[string]any, len(h.languages))
+	for key, value := range h.languages {
+		result[key] = value
+	}
+	return result
+}
+
+// SetLanguages updates the registry and notifies connected judge clients. A
+// failed broadcast is non-fatal: the next connection receives the new table in
+// its initial language message.
+func (h *Hub) SetLanguages(languages map[string]any) {
+	if languages == nil {
+		languages = DefaultLanguages()
+	}
+	h.mu.Lock()
+	h.languages = languages
+	conns := make([]*connection, 0, len(h.conns))
+	for conn := range h.conns {
+		conns = append(conns, conn)
+	}
+	h.mu.Unlock()
+	for _, conn := range conns {
+		_ = conn.writeJSON(map[string]any{"language": languages})
+	}
+}
+
 func (h *Hub) SetResultHandler(handler func(map[string]any) error) {
 	h.mu.Lock()
 	h.resultHandler = handler

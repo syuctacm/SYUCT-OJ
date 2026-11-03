@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -52,7 +53,20 @@ func main() {
 		slog.Error("unable to initialize judge file store", "error", err)
 		os.Exit(1)
 	}
-	hub := judge.NewHub(judge.DefaultLanguages())
+	languages := judge.DefaultLanguages()
+	var languageSetting struct {
+		Value any `bson:"value"`
+	}
+	if err := db.Collection("system").FindOne(ctx, bson.M{"_id": "hydrooj.langs"}).Decode(&languageSetting); err == nil {
+		if raw, ok := languageSetting.Value.(string); ok && strings.TrimSpace(raw) != "" {
+			if parsed, parseErr := judge.ParseLanguages(raw); parseErr == nil {
+				languages = parsed
+			} else {
+				slog.Warn("unable to load hydrooj.langs; using built-in languages", "error", parseErr)
+			}
+		}
+	}
+	hub := judge.NewHub(languages)
 	sessions, err := auth.NewMongoSessionManager(ctx, db, cfg.SessionTTL)
 	if err != nil {
 		slog.Error("unable to initialize session store", "error", err)
@@ -79,6 +93,14 @@ func main() {
 	submissionRepo := submission.NewRepository(db, problemRepo)
 	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions, contestRepo, userRepo)
 	adminHandler := handler.NewAdminHandler(db, userRepo, sessions)
+	adminHandler.SetLanguageUpdater(func(raw string) error {
+		parsed, err := judge.ParseLanguages(raw)
+		if err != nil {
+			return err
+		}
+		hub.SetLanguages(parsed)
+		return nil
+	})
 	submissionRepo.SetAcceptedHook(func(ctx context.Context, contestID bson.ObjectID, uid, pid int64) {
 		_ = contestRepo.AddBalloon(ctx, contestID, uid, pid)
 	})
