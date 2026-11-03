@@ -1151,6 +1151,22 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 视觉回归保持 29/29 页面 0 差异
 - 不连接生产环境
 
+## 6.66 会话过期配置（2026-11-03）
+
+- 后台新增 `session.saved_expire_seconds`（默认 30 天）和 `session.unsaved_expire_seconds`（默认 3 小时）
+- 用户浏览器会话和 judge/未保存会话使用不同 TTL
+- 登录 Cookie 的 Max-Age 使用对应会话 TTL
+- 后台保存后通过 SessionManager 运行时更新
+- 未配置时保留 `SESSION_TTL` 兼容默认，配置值在启动时从 `system` 读取
+
+验证：
+
+- Go 单元测试覆盖 saved/unsaved TTL 和运行时更新
+- Go 集成测试覆盖设置保存、非法值和运行中 TTL 更新
+- 前端 lint/build
+- 本地 Docker 视觉回归保持 29/29 页面 0 差异
+- 不连接生产环境
+
 ## 7. 当前已知差异
 
 ```text
@@ -1165,6 +1181,6 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 ## 8. 尚未迁移的模块
 
-以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括配置 schema 编辑器、会话配置、SMTP/CDN 等部署配置；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括配置 schema 编辑器、SMTP/CDN 等部署配置；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
 
 已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、Hydro 后台脚本/插件任务管理器、SSR。维护任务通过仓库 CLI、迁移脚本和 Docker 脚本执行。

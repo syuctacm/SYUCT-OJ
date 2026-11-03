@@ -90,6 +90,8 @@ export type PublicSettings = {
   limitSubmissionUser: number
   limitPretest: number
   limitByUser: boolean
+  sessionSavedExpireSeconds: number
+  sessionUnsavedExpireSeconds: number
 }
 
 export async function getPublicSettings(): Promise<PublicSettings> {

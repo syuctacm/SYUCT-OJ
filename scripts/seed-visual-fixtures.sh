@@ -94,6 +94,8 @@ db.system.insertMany([
   { _id: "limit.submission_user", value: 15 },
   { _id: "limit.pretest", value: 60 },
   { _id: "limit.by_user", value: false },
+  { _id: "session.saved_expire_seconds", value: 2592000 },
+  { _id: "session.unsaved_expire_seconds", value: 10800 },
 ]);
 
 db.document.insertMany([

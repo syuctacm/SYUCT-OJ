@@ -56,6 +56,7 @@ type SessionManager struct {
 	sessions   map[string]Session
 	collection *mongo.Collection
 	ttl        time.Duration
+	unsavedTTL time.Duration
 	now        func() time.Time
 }
 
@@ -64,9 +65,10 @@ func NewSessionManager(ttl time.Duration) *SessionManager {
 		ttl = 24 * time.Hour
 	}
 	return &SessionManager{
-		sessions: make(map[string]Session),
-		ttl:      ttl,
-		now:      time.Now,
+		sessions:   make(map[string]Session),
+		ttl:        ttl,
+		unsavedTTL: ttl,
+		now:        time.Now,
 	}
 }
 
@@ -89,7 +91,30 @@ func NewMongoSessionManager(ctx context.Context, db *mongo.Database, ttl time.Du
 	return manager, nil
 }
 
+// SetTTLs updates the saved user-session and unsaved/judge-session lifetimes.
+// Zero or negative values keep the current value.
+func (s *SessionManager) SetTTLs(saved, unsaved time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if saved > 0 {
+		s.ttl = saved
+	}
+	if unsaved > 0 {
+		s.unsavedTTL = unsaved
+	}
+}
+
+// TTL returns the TTL used for saved browser user sessions.
 func (s *SessionManager) TTL() time.Duration {
+	return s.TTLFor("user")
+}
+
+func (s *SessionManager) TTLFor(kind string) time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if kind == "judge" {
+		return s.unsavedTTL
+	}
 	return s.ttl
 }
 
@@ -119,10 +144,11 @@ func (s *SessionManager) IssueForUserMeta(ctx context.Context, uid int64, ua, ip
 	}
 	token := base64.RawURLEncoding.EncodeToString(buf)
 	now := s.now().UTC()
+	sessionTTL := s.TTLFor("user")
 	session := Session{
 		UserID:    uid,
 		Kind:      "user",
-		ExpiresAt: now.Add(s.ttl),
+		ExpiresAt: now.Add(sessionTTL),
 	}
 	if s.collection == nil {
 		s.mu.Lock()
@@ -162,7 +188,7 @@ func (s *SessionManager) ListByUser(ctx context.Context, uid int64) ([]SessionIn
 			}
 			result = append(result, SessionInfo{
 				ID: hashToken(token), UserID: session.UserID, Kind: session.Kind,
-				CreatedAt: session.ExpiresAt.Add(-s.ttl), UpdateAt: session.ExpiresAt.Add(-s.ttl),
+				CreatedAt: session.ExpiresAt.Add(-s.TTLFor("user")), UpdateAt: session.ExpiresAt.Add(-s.TTLFor("user")),
 				ExpiresAt: session.ExpiresAt,
 			})
 		}
@@ -271,7 +297,7 @@ func (s *SessionManager) IssueForContext(ctx context.Context, uid int64, kind st
 	session := Session{
 		UserID:    uid,
 		Kind:      kind,
-		ExpiresAt: now.Add(s.ttl),
+		ExpiresAt: now.Add(s.TTLFor(kind)),
 	}
 	if s.collection == nil {
 		s.mu.Lock()

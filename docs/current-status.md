@@ -19,6 +19,7 @@
 - 后台判题语言表：`hydrooj.langs` YAML、语言继承和运行时 hub 更新
 - 后台文件与代码限制：用户/活动/题目附件数量和大小、提交代码长度
 - 后台提交与自测频率限制，支持按 IP 或用户计数
+- 后台用户/未保存会话过期时间配置，运行时生效
 - 本地 Docker 判题闭环、迁移演练、生产形态 Compose 冒烟脚本
 - 公开页面自动截图回归基线和 ImageMagick 差异检查
 
@@ -44,7 +45,7 @@ TEST_MONGO_URI='mongodb://syuct:syuct_dev_password@127.0.0.1:27017/?authSource=a
 
 ### 功能
 
-- 尚未消费的高级系统配置：配置 schema 编辑器、会话配置、SMTP/CDN 等部署配置
+- 尚未消费的高级系统配置：配置 schema 编辑器、SMTP/CDN 等部署配置
 
 ### 发布验收
 

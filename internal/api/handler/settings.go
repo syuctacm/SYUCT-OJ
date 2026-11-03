@@ -40,6 +40,8 @@ const (
 	settingLimitSubmissionUser  = "limit.submission_user"
 	settingLimitPretest         = "limit.pretest"
 	settingLimitByUser          = "limit.by_user"
+	settingSessionSavedExpire   = "session.saved_expire_seconds"
+	settingSessionUnsavedExpire = "session.unsaved_expire_seconds"
 
 	settingPaginationProblem    = "pagination.problem"
 	settingPaginationContest    = "pagination.contest"
@@ -94,6 +96,7 @@ var siteSettingKeys = []string{
 	settingLimitContestFileSize, settingLimitProblemFiles, settingLimitProblemFileSize,
 	settingLimitCodeLength, settingLimitSubmission, settingLimitSubmissionUser,
 	settingLimitPretest, settingLimitByUser,
+	settingSessionSavedExpire, settingSessionUnsavedExpire,
 }
 
 type SiteSettings struct {
@@ -124,6 +127,8 @@ type SiteSettings struct {
 	LimitSubmissionUser  int    `json:"limitSubmissionUser"`
 	LimitPretest         int    `json:"limitPretest"`
 	LimitByUser          bool   `json:"limitByUser"`
+	SessionSavedExpire   int64  `json:"sessionSavedExpireSeconds"`
+	SessionUnsavedExpire int64  `json:"sessionUnsavedExpireSeconds"`
 }
 
 func DefaultSiteSettings() SiteSettings {
@@ -141,6 +146,7 @@ func DefaultSiteSettings() SiteSettings {
 		LimitProblemFiles: 100, LimitProblemFileSize: 256 << 20,
 		LimitCodeLength: 128 << 10,
 		LimitSubmission: 60, LimitSubmissionUser: 15, LimitPretest: 60,
+		SessionSavedExpire: 30 * 24 * 60 * 60, SessionUnsavedExpire: 3 * 60 * 60,
 	}
 }
 
@@ -307,6 +313,14 @@ func setSiteSettingValue(values *SiteSettings, key string, value any) {
 		if boolean, ok := anyBool(value); ok {
 			values.LimitByUser = boolean
 		}
+	case settingSessionSavedExpire:
+		if number, ok := anyInt64(value); ok && number > 0 {
+			values.SessionSavedExpire = number
+		}
+	case settingSessionUnsavedExpire:
+		if number, ok := anyInt64(value); ok && number > 0 {
+			values.SessionUnsavedExpire = number
+		}
 	}
 }
 
@@ -375,6 +389,12 @@ func siteSettingUpdates(input SiteSettingsInput) map[string]any {
 	if input.LimitByUser != nil {
 		updates[settingLimitByUser] = *input.LimitByUser
 	}
+	if input.SessionSavedExpire != nil {
+		updates[settingSessionSavedExpire] = *input.SessionSavedExpire
+	}
+	if input.SessionUnsavedExpire != nil {
+		updates[settingSessionUnsavedExpire] = *input.SessionUnsavedExpire
+	}
 	for key, value := range map[string]*int{
 		settingPaginationProblem: input.PaginationProblem, settingPaginationContest: input.PaginationContest,
 		settingPaginationDiscussion: input.PaginationDiscussion, settingPaginationRecord: input.PaginationRecord,
@@ -437,6 +457,8 @@ type SiteSettingsInput struct {
 	LimitSubmissionUser  *int    `json:"limitSubmissionUser"`
 	LimitPretest         *int    `json:"limitPretest"`
 	LimitByUser          *bool   `json:"limitByUser"`
+	SessionSavedExpire   *int64  `json:"sessionSavedExpireSeconds"`
+	SessionUnsavedExpire *int64  `json:"sessionUnsavedExpireSeconds"`
 }
 
 func validHomepageYAML(value string) bool {
@@ -529,6 +551,16 @@ func validateSiteSettings(input SiteSettingsInput) error {
 	} {
 		if item.value != nil && (*item.value < 1 || *item.value > 10<<30) {
 			return fmt.Errorf("%s must be between 1 and %d", item.label, int64(10<<30))
+		}
+	}
+	for _, item := range []struct {
+		value *int64
+		label string
+	}{
+		{input.SessionSavedExpire, "session.saved_expire_seconds"}, {input.SessionUnsavedExpire, "session.unsaved_expire_seconds"},
+	} {
+		if item.value != nil && (*item.value < 60 || *item.value > 365*24*60*60) {
+			return fmt.Errorf("%s must be between 60 and 31536000 seconds", item.label)
 		}
 	}
 	for _, item := range []struct {
