@@ -3,22 +3,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  ApiError, attendContest, earlyEndContest, getContest, getUsersByIDs,
-  type Contest, type UserChoice,
+  ApiError, attendContest, earlyEndContest, getContest, getContestTeams, getUsersByIDs,
+  type Contest, type ContestTeam, type UserChoice,
 } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
 import { ErrorPage } from './ErrorPage.tsx'
-import { promptDialog } from '../components/dialogs.tsx'
+import { contestAttendDialog } from '../components/dialogs.tsx'
 import { CONTEST_PERMS, createContestModel } from '../upstream/contest.ts'
 import { useHydroContestTimer } from '../upstream/contest-timer.ts'
 import { avatarUrl } from '../upstream/avatar.ts'
+import '../legacy/contest-sidebar.styl'
 
 export function ContestDetailPage() {
   const { tid = '' } = useParams()
   const { user } = useAuth()
   const [contest, setContest] = useState<Contest | null>(null)
   const [users, setUsers] = useState<UserChoice[]>([])
+  const [teams, setTeams] = useState<ContestTeam[]>([])
   const [error, setError] = useState('')
   const [errorStatus, setErrorStatus] = useState(0)
   const [attendError, setAttendError] = useState('')
@@ -37,6 +39,16 @@ export function ContestDetailPage() {
         setErrorStatus(err instanceof ApiError ? err.status : 0)
       })
   }, [tid])
+
+  useEffect(() => {
+    if (!user || !contest?.allowTeam) {
+      setTeams([])
+      return
+    }
+    getContestTeams()
+      .then((snapshot) => setTeams(snapshot.mine))
+      .catch(() => setTeams([]))
+  }, [contest?.allowTeam, user])
 
   useEffect(() => {
     if (!contest) return
@@ -101,10 +113,18 @@ export function ContestDetailPage() {
       tdoc,
       tsdoc: {
         attend: Boolean(contest.attended),
+        uid: contest.status?.uid ?? user?.id ?? 0,
+        members: contest.status?.members ?? [],
+        displayName: contest.status?.displayName ?? '',
         startAt: contest.status?.startAt ? new Date(contest.status.startAt) : undefined,
         endAt: contest.status?.endAt ? new Date(contest.status.endAt) : undefined,
       },
       udict,
+      team_vdocs: teams.map((team) => ({
+        _id: team.id,
+        displayName: team.displayName,
+        members: team.members,
+      })),
       // The upstream detail page only lists contest materials, and the API
       // returns them for owners, administrators and participants.
       files: (contest.privateFiles ?? []).map((file) => ({ name: file.name, size: file.size })),
@@ -116,7 +136,7 @@ export function ContestDetailPage() {
       UiContext: {},
       UserContext: user,
     }
-  }, [contest, tdoc, user, users])
+  }, [contest, tdoc, teams, user, users])
 
   const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
     const id = String(args.tid ?? contest?.docId ?? tid)
@@ -126,6 +146,7 @@ export function ContestDetailPage() {
       case 'contest_problemlist': return `/contest/${encodeURIComponent(id)}/problems`
       case 'contest_scoreboard': return `/contest/${encodeURIComponent(id)}/scoreboard`
       case 'contest_edit': return `/contest/${encodeURIComponent(id)}/edit`
+      case 'contest_team': return '/contest/team'
       case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
       case 'record_main': {
         const params = new URLSearchParams()
@@ -159,13 +180,17 @@ export function ContestDetailPage() {
     return () => cleanups.forEach((cleanup) => cleanup())
   }, [])
 
-  async function submitAttend(code: string) {
+  async function submitAttend(code: string, vuid?: number) {
     if (attending) return
     setAttending(true)
     setAttendError('')
     try {
-      await attendContest(tid, code)
+      await attendContest(tid, code, vuid)
       setContest(await getContest(tid))
+      if (user && contest?.allowTeam) {
+        const snapshot = await getContestTeams()
+        setTeams(snapshot.mine)
+      }
     } catch (err) {
       setAttendError(err instanceof Error ? err.message : '报名失败')
     } finally {
@@ -192,13 +217,16 @@ export function ContestDetailPage() {
     }
     if (operation !== 'attend') return
     let code = ''
-    if (form.querySelector('[data-contest-code]')) {
-      const input = await promptDialog('邀请码：')
-      if (input === null) return
-      code = input.trim()
-      if (!code) return
+    let vuid: number | undefined
+    if (form.matches('[data-contest-needs-dialog]')) {
+      const source = form.parentElement?.querySelector<HTMLElement>('.dialog__body--contest-attend')
+        ?? document.querySelector<HTMLElement>('.dialog__body--contest-attend')
+      const result = await contestAttendDialog(source)
+      if (!result) return
+      code = result.code
+      vuid = result.vuid
     }
-    await submitAttend(code)
+    await submitAttend(code, vuid)
   }
   submitRef.current = (event) => void handleSubmit(event)
 

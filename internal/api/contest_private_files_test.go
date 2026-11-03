@@ -74,7 +74,7 @@ func TestContestPrivateFilesIntegration(t *testing.T) {
 	router := gin.New()
 	authHandler.RegisterRoutes(router.Group("/"))
 	handler.NewActivityFileHandler(contestRepo, store, sessions, userRepo, "contest", "contests").RegisterRoutes(router.Group("/"))
-	handler.NewContestHandler(contestRepo, sessions, userRepo).RegisterRoutes(router.Group("/"))
+	handler.NewContestHandler(contestRepo, contest.NewTeamRepository(db), sessions, userRepo).RegisterRoutes(router.Group("/"))
 	server := httptest.NewServer(router)
 	defer server.Close()
 

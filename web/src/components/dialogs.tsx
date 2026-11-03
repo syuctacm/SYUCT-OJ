@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Dialog } from './Dialog.tsx'
+import { notifyError } from './Notification.tsx'
 
 function openDialog<T>(
   render: (resolve: (value: T) => void) => React.ReactNode,
@@ -60,6 +61,103 @@ export function promptDialog(message: string, initialValue = ''): Promise<string
     >
       <PromptContent message={message} initialValue={initialValue} />
     </Dialog>
+  ))
+}
+
+export type ContestAttendResult = {
+  vuid?: number
+  code: string
+}
+
+function ContestAttendContent({ source, onResolve }: {
+  source: HTMLElement
+  onResolve: (value: ContestAttendResult | null) => void
+}) {
+  const hostRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLElement | null>(null)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return
+    const root = source.cloneNode(true) as HTMLElement
+    root.style.display = ''
+    host.append(root)
+    rootRef.current = root
+
+    const modeInput = root.querySelector<HTMLInputElement>('[name="contest_attend_mode"]')
+    const vuidInput = root.querySelector<HTMLSelectElement>('[name="contest_attend_vuid"]')
+    const buttons = root.querySelectorAll<HTMLButtonElement>('[data-contest-attend-mode]')
+    const selectMode = (mode: 'personal' | 'team') => {
+      const button = root.querySelector<HTMLButtonElement>(`[data-contest-attend-mode="${mode}"]`)
+      if (!button || button.disabled) return
+      if (modeInput) modeInput.value = mode
+      buttons.forEach((item) => {
+        item.classList.remove('primary')
+        item.setAttribute('aria-pressed', 'false')
+      })
+      button.classList.add('primary')
+      button.setAttribute('aria-pressed', 'true')
+      if (vuidInput) vuidInput.disabled = mode !== 'team'
+    }
+    const onClick = (event: Event) => {
+      const button = event.currentTarget as HTMLButtonElement
+      selectMode(button.dataset.contestAttendMode === 'team' ? 'team' : 'personal')
+    }
+    buttons.forEach((button) => button.addEventListener('click', onClick))
+    selectMode('personal')
+    setReady(true)
+    root.querySelector<HTMLElement>('[data-autofocus]')?.focus()
+
+    return () => {
+      buttons.forEach((button) => button.removeEventListener('click', onClick))
+      root.remove()
+      rootRef.current = null
+    }
+  }, [source])
+
+  const readResult = (): ContestAttendResult => {
+    const root = rootRef.current
+    const mode = root?.querySelector<HTMLInputElement>('[name="contest_attend_mode"]')?.value ?? 'personal'
+    const vuid = mode === 'team'
+      ? Number(root?.querySelector<HTMLSelectElement>('[name="contest_attend_vuid"]')?.value ?? 0)
+      : 0
+    const code = root?.querySelector<HTMLInputElement>('[name="contest_attend_code"]')?.value?.trim() ?? ''
+    return { ...(vuid ? { vuid } : {}), code }
+  }
+
+  return (
+    <Dialog
+      okLabel="确定"
+      cancelLabel="取消"
+      validate={() => {
+        if (!ready) return false
+        const root = rootRef.current
+        const mode = root?.querySelector<HTMLInputElement>('[name="contest_attend_mode"]')?.value ?? 'personal'
+        const vuid = root?.querySelector<HTMLSelectElement>('[name="contest_attend_vuid"]')?.value
+        if (mode === 'team' && !vuid) {
+          notifyError('请选择团队')
+          return false
+        }
+        const codeInput = root?.querySelector<HTMLInputElement>('[name="contest_attend_code"]')
+        if (codeInput && !codeInput.value.trim()) {
+          notifyError('请输入邀请码')
+          return false
+        }
+        return true
+      }}
+      onOk={() => onResolve(readResult())}
+      onCancel={() => onResolve(null)}
+    >
+      <div ref={hostRef} />
+    </Dialog>
+  )
+}
+
+export function contestAttendDialog(source: HTMLElement | null): Promise<ContestAttendResult | null> {
+  if (!source) return Promise.resolve(null)
+  return openDialog<ContestAttendResult | null>((resolve) => (
+    <ContestAttendContent source={source} onResolve={resolve} />
   ))
 }
 

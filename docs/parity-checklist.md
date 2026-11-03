@@ -947,6 +947,20 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地 Docker Mongo + 生产前端构建完成双用户创建/邀请/接受/重命名/移除全流程
 - Playwright 验证原版团队卡片样式、Hydro 邀请 Dialog、待处理邀请、成员回显和控制台 0 error
 
+## 6.52 组队赛报名（2026-11-03）
+
+- 直接复用上游 `partials/contest_sidebar.html` 的团队参与 Dialog 和 `contest_sidebar.page.styl`
+- 团队报名状态以团队负 UID 写入 `document.status`，保存 `displayName`、`members` 和 `subscribe`
+- 个人报名、其他团队报名和已报名成员会返回冲突；分组比赛校验整个团队成员
+- 比赛详情、比赛列表和题目状态读取会解析当前用户所属团队
+- 团队报名后，任一团队成员刷新比赛详情都会显示已参加
+
+验证：
+
+- Go 集成测试覆盖邀请码、团队报名、报名冲突、团队状态、早退、分组限制
+- 本地隔离 Docker 双用户 Playwright 验证团队 Dialogue、团队选择、报名成功和队友状态同步
+- 生产构建下控制台 0 error，390px 页面无横向溢出
+
 ## 7. 当前已知差异
 
 ```text

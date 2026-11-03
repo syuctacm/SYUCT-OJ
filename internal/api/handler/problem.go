@@ -460,7 +460,11 @@ func (h *ProblemHandler) getContestProblem(c *gin.Context, tid string) {
 	}
 	statuses := map[int64]contest.ProblemStatus{}
 	if uid > 0 {
-		statuses, err = h.contests.UserProblemStatus(c.Request.Context(), uid, item.PIDs)
+		participantID := uid
+		if status != nil {
+			participantID = status.UID
+		}
+		statuses, err = h.contests.UserProblemStatus(c.Request.Context(), participantID, item.PIDs)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest problem status"})
 			return
