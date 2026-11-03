@@ -28,6 +28,7 @@ var (
 	ErrContestEnded                = fmt.Errorf("contest has ended")
 	ErrContestNotLive              = fmt.Errorf("contest is not running")
 	ErrContestNotAttended          = fmt.Errorf("contest has not been attended")
+	ErrContestAlreadyAttended      = fmt.Errorf("contest has already been attended")
 	ErrInvalidInvitationCode       = fmt.Errorf("invalid contest invitation code")
 	ErrClarificationNotFound       = fmt.Errorf("clarification not found")
 	ErrInvalidClarificationSubject = fmt.Errorf("invalid clarification subject")
@@ -95,11 +96,14 @@ type Contest struct {
 
 // AttendeeStatus is the per-user contest status document.
 type AttendeeStatus struct {
-	UID     int64      `bson:"uid" json:"uid"`
-	Attend  int        `bson:"attend,omitempty" json:"attend"`
-	Unrank  bool       `bson:"unrank,omitempty" json:"unrank"`
-	StartAt *time.Time `bson:"startAt,omitempty" json:"startAt,omitempty"`
-	EndAt   *time.Time `bson:"endAt,omitempty" json:"endAt,omitempty"`
+	UID         int64      `bson:"uid" json:"uid"`
+	Attend      int        `bson:"attend,omitempty" json:"attend"`
+	Unrank      bool       `bson:"unrank,omitempty" json:"unrank"`
+	StartAt     *time.Time `bson:"startAt,omitempty" json:"startAt,omitempty"`
+	EndAt       *time.Time `bson:"endAt,omitempty" json:"endAt,omitempty"`
+	Members     []int64    `bson:"members,omitempty" json:"members,omitempty"`
+	DisplayName string     `bson:"displayName,omitempty" json:"displayName,omitempty"`
+	Subscribe   int        `bson:"subscribe,omitempty" json:"subscribe,omitempty"`
 }
 
 type ProblemCell struct {
@@ -167,7 +171,7 @@ func IsDone(item *Contest, status *AttendeeStatus, now time.Time) bool {
 }
 
 func (r *Repository) startIfAttended(ctx context.Context, item *Contest, uid int64) (*AttendeeStatus, error) {
-	status, err := r.Status(ctx, item.DocID.Hex(), uid)
+	status, err := r.statusForUser(ctx, item.DocID.Hex(), uid)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +180,7 @@ func (r *Repository) startIfAttended(ctx context.Context, item *Contest, uid int
 		start := time.Now().UTC()
 		if _, err := r.statuses.UpdateOne(ctx, bson.M{
 			"domainId": DomainSystem, "docType": DocumentTypeContest,
-			"docId": item.DocID, "uid": uid, "attend": 1,
+			"docId": item.DocID, "uid": status.UID, "attend": 1,
 			"startAt": bson.M{"$exists": false},
 		}, bson.M{"$set": bson.M{"startAt": start}}); err != nil {
 			return nil, err
@@ -242,27 +246,17 @@ func (r *Repository) Attended(ctx context.Context, tid string, uid int64) (bool,
 	if uid <= 0 {
 		return false, nil
 	}
-	oid, err := bson.ObjectIDFromHex(tid)
-	if err != nil {
-		return false, ErrNotFound
-	}
-	count, err := r.statuses.CountDocuments(ctx, bson.M{
-		"domainId": DomainSystem,
-		"docType":  DocumentTypeContest,
-		"docId":    oid,
-		"uid":      uid,
-		"attend":   1,
-	})
+	status, err := r.StatusForUser(ctx, tid, uid)
 	if err != nil {
 		return false, err
 	}
-	return count > 0, nil
+	return status != nil && status.Attend == 1, nil
 }
 
 // Status returns one attendee's contest status. A missing status document is
 // not an error; callers use nil to represent a user who has not attended.
 func (r *Repository) Status(ctx context.Context, tid string, uid int64) (*AttendeeStatus, error) {
-	if uid <= 0 {
+	if uid == 0 {
 		return nil, nil
 	}
 	oid, err := bson.ObjectIDFromHex(tid)
@@ -285,6 +279,56 @@ func (r *Repository) Status(ctx context.Context, tid string, uid int64) (*Attend
 	return &status, nil
 }
 
+// TeamStatusForUser returns the attended team status that contains uid.
+func (r *Repository) TeamStatusForUser(ctx context.Context, tid string, uid int64) (*AttendeeStatus, error) {
+	if uid <= 0 {
+		return nil, nil
+	}
+	oid, err := bson.ObjectIDFromHex(tid)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	var status AttendeeStatus
+	err = r.statuses.FindOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    oid,
+		"members":  uid,
+		"attend":   1,
+	}).Decode(&status)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &status, nil
+}
+
+// StatusForUser resolves the participant status used by a user. Personal
+// attendance wins; otherwise a team status containing the user is returned.
+func (r *Repository) StatusForUser(ctx context.Context, tid string, uid int64) (*AttendeeStatus, error) {
+	personal, err := r.Status(ctx, tid, uid)
+	if err != nil {
+		return nil, err
+	}
+	if personal != nil && personal.Attend == 1 {
+		return personal, nil
+	}
+	team, err := r.TeamStatusForUser(ctx, tid, uid)
+	if err != nil {
+		return nil, err
+	}
+	if team != nil {
+		return team, nil
+	}
+	return personal, nil
+}
+
+func (r *Repository) statusForUser(ctx context.Context, tid string, uid int64) (*AttendeeStatus, error) {
+	return r.StatusForUser(ctx, tid, uid)
+}
+
 // AttendContest applies the public attendance rules before recording a user as
 // an attendee. Homework and administrative imports use Attend directly.
 func (r *Repository) AttendContest(ctx context.Context, tid string, uid int64, code string) (bool, error) {
@@ -301,7 +345,89 @@ func (r *Repository) AttendContest(ctx context.Context, tid string, uid int64, c
 	if item.InvitationCode != "" && code != item.InvitationCode {
 		return false, ErrInvalidInvitationCode
 	}
+	teamStatus, err := r.TeamStatusForUser(ctx, tid, uid)
+	if err != nil {
+		return false, err
+	}
+	if teamStatus != nil && teamStatus.Attend == 1 {
+		return false, ErrContestAlreadyAttended
+	}
 	return r.Attend(ctx, tid, uid)
+}
+
+// AttendTeam registers one virtual team as a contest participant. Team members
+// are stored on the status document at attendance time so later roster changes
+// do not rewrite contest history.
+func (r *Repository) AttendTeam(ctx context.Context, tid string, vuid int64, displayName string, members []int64, code string) (bool, error) {
+	item, err := r.Get(ctx, tid)
+	if err != nil {
+		return false, err
+	}
+	if item.Rule == "homework" || !item.AllowTeam {
+		return false, ErrNotFound
+	}
+	if vuid >= 0 || len(members) == 0 {
+		return false, fmt.Errorf("invalid team")
+	}
+	seen := make(map[int64]bool, len(members))
+	cleanMembers := make([]int64, 0, len(members))
+	for _, member := range members {
+		if member <= 0 || seen[member] {
+			return false, fmt.Errorf("invalid team member")
+		}
+		seen[member] = true
+		cleanMembers = append(cleanMembers, member)
+	}
+	if !time.Now().Before(item.EndAt) {
+		return false, ErrContestEnded
+	}
+	if item.InvitationCode != "" && code != item.InvitationCode {
+		return false, ErrInvalidInvitationCode
+	}
+	existing, err := r.Status(ctx, tid, vuid)
+	if err != nil {
+		return false, err
+	}
+	if existing != nil && existing.Attend == 1 {
+		return false, nil
+	}
+	count, err := r.statuses.CountDocuments(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    item.DocID,
+		"attend":   1,
+		"$or": []bson.M{
+			{"uid": bson.M{"$in": cleanMembers}},
+			{"members": bson.M{"$in": cleanMembers}},
+		},
+	})
+	if err != nil {
+		return false, err
+	}
+	if count > 0 {
+		return false, ErrContestAlreadyAttended
+	}
+	result, err := r.statuses.UpdateOne(ctx, bson.M{
+		"domainId": DomainSystem,
+		"docType":  DocumentTypeContest,
+		"docId":    item.DocID,
+		"uid":      vuid,
+	}, bson.M{"$set": bson.M{
+		"attend":      1,
+		"displayName": strings.TrimSpace(displayName),
+		"members":     cleanMembers,
+		"subscribe":   1,
+	}}, options.UpdateOne().SetUpsert(true))
+	if err != nil {
+		return false, err
+	}
+	changed := result.UpsertedCount > 0 || result.ModifiedCount > 0
+	if changed {
+		if _, err := r.coll.UpdateOne(ctx, bson.M{"_id": item.ID}, bson.M{"$inc": bson.M{"attend": 1}}); err != nil {
+			return false, err
+		}
+	}
+	return changed, nil
 }
 
 // EarlyEnd stops the current user's contest clock. It mirrors Hydro's
@@ -314,7 +440,7 @@ func (r *Repository) EarlyEnd(ctx context.Context, tid string, uid int64) (*Atte
 	if item.Rule == "homework" {
 		return nil, ErrNotFound
 	}
-	status, err := r.Status(ctx, tid, uid)
+	status, err := r.StatusForUser(ctx, tid, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -342,12 +468,12 @@ func (r *Repository) EarlyEnd(ctx context.Context, tid string, uid int64) (*Atte
 		"domainId": DomainSystem,
 		"docType":  DocumentTypeContest,
 		"docId":    item.DocID,
-		"uid":      uid,
+		"uid":      status.UID,
 		"attend":   1,
 	}, bson.M{"$set": set}); err != nil {
 		return nil, err
 	}
-	return r.Status(ctx, tid, uid)
+	return r.Status(ctx, tid, status.UID)
 }
 
 // Attend marks the user as an attendee of the contest. It is idempotent and
@@ -1116,14 +1242,15 @@ func (r *Repository) UserStatuses(ctx context.Context, uid int64, docIDs []bson.
 	}
 	cursor, err := r.statuses.Find(ctx, bson.M{
 		"domainId": DomainSystem, "docType": DocumentTypeContest,
-		"uid": uid, "docId": bson.M{"$in": docIDs}, "attend": 1,
+		"docId": bson.M{"$in": docIDs}, "attend": 1,
+		"$or": []bson.M{{"uid": uid}, {"members": uid}},
 	})
 	if err != nil {
 		return nil, err
 	}
 	var rows []struct {
-		DocID  bson.ObjectID `bson:"docId"`
-		Attend int           `bson:"attend"`
+		DocID          bson.ObjectID `bson:"docId"`
+		AttendeeStatus `bson:",inline"`
 	}
 	if err := cursor.All(ctx, &rows); err != nil {
 		_ = cursor.Close(ctx)
@@ -1132,7 +1259,10 @@ func (r *Repository) UserStatuses(ctx context.Context, uid int64, docIDs []bson.
 	_ = cursor.Close(ctx)
 	result := make(map[string]AttendeeStatus, len(rows))
 	for _, row := range rows {
-		result[row.DocID.Hex()] = AttendeeStatus{UID: uid, Attend: row.Attend}
+		key := row.DocID.Hex()
+		if _, exists := result[key]; !exists || row.UID == uid {
+			result[key] = row.AttendeeStatus
+		}
 	}
 	return result, nil
 }

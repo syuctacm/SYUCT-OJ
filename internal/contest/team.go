@@ -222,6 +222,14 @@ func (r *TeamRepository) get(ctx context.Context, teamID int64) (*Team, error) {
 	return &team, nil
 }
 
+// Get returns one virtual team by its negative UID.
+func (r *TeamRepository) Get(ctx context.Context, teamID int64) (*Team, error) {
+	if teamID >= 0 {
+		return nil, fmt.Errorf("team not found")
+	}
+	return r.get(ctx, teamID)
+}
+
 func containsUserID(values []int64, uid int64) bool {
 	for _, value := range values {
 		if value == uid {

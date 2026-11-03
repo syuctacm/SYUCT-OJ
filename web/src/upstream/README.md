@@ -20,6 +20,10 @@ Nunjucks sources in the pinned `@hydrooj/ui-default` package (AGPL-3.0):
   It is dynamically imported so Monaco stays out of the initial route bundle.
 - The same mount also backs the submit-page code editor and switches Monaco
   language modes when the submission language changes.
+- Newer contest team templates from the local Hydro source are vendored under
+  `templates/` when the pinned package does not contain them. The team
+  participation sidebar preserves the original markup, Stylus and background
+  assets; React only adapts data and browser events.
 
 Do not duplicate a migrated page's markup in TSX or add handwritten CSS to
 approximate it. Page fixes belong in the adapter context or in an upstream

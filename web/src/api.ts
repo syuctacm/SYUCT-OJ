@@ -838,6 +838,9 @@ export type ContestStatus = {
   unrank?: boolean
   startAt?: string
   endAt?: string
+  members?: number[]
+  displayName?: string
+  subscribe?: number
 }
 
 export type Contest = {
@@ -900,10 +903,10 @@ export async function unlockContest(tid: string): Promise<Contest> {
   return result.data
 }
 
-export async function attendContest(tid: string, code = ''): Promise<{ attended: boolean; changed: boolean; status?: ContestStatus }> {
+export async function attendContest(tid: string, code = '', vuid?: number): Promise<{ attended: boolean; changed: boolean; status?: ContestStatus }> {
   const result = await request<Envelope<{ attended: boolean; changed: boolean; status?: ContestStatus }>>(`/api/v1/contests/${encodeURIComponent(tid)}/attend`, {
     method: 'POST',
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, ...(vuid ? { vuid } : {}) }),
   })
   return result.data
 }

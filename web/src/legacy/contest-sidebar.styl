@@ -1,0 +1,69 @@
+// Vendored from Hydro ui-default components/contest/contest_sidebar.page.styl
+// (AGPL-3.0). Only the standalone Stylus helpers and asset paths are adapted.
+$font-size = 16px
+$font-size-title = 20px
+
+rem() {
+  ret = ();
+  for arg in arguments {
+    push(ret, unit(arg / $font-size, 'rem'));
+  }
+  return ret;
+}
+
+mobile() {
+  @media (max-width: 640px) {
+    {block}
+  }
+}
+
+retina() {
+  @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    {block}
+  }
+}
+
+.contest-sidebar__bg
+  display: block
+  background: #67AABB url(./contest-assets/problem-contest-bg.png) right top no-repeat
+  color: #FFF !important
+  font-size: rem($font-size)
+  padding: rem(20px 0)
+
+  +retina()
+    background-image: url(./contest-assets/problem-contest-bg@2x.png)
+    background-size: 131px 150px
+
+  h1
+    font-size: rem($font-size-title)
+    color: #FFF
+    text-shadow: 0 1px 3px rgba(#000, 0.5)
+
+  &:hover
+    text-decoration: none
+
+  .contest-sidebar__status
+    margin-top: rem(20px)
+
+.contest-attend-dialog__modes
+  display: grid
+  grid-template-columns: repeat(2, minmax(0, 1fr))
+  gap: rem(10px)
+  margin-bottom: rem(12px)
+
+  .button
+    margin-bottom: 0
+    text-align: center
+    white-space: normal
+
+  +mobile()
+    grid-template-columns: 1fr
+
+.contest-attend-dialog__hint
+  margin-bottom: rem(12px)
+
+.contest-attend-dialog__desc
+  margin: rem(4px) 0 rem(12px)
+
+.contest-attend-dialog__team-select
+  margin-top: rem(12px)

@@ -18,12 +18,13 @@ import (
 
 type ContestHandler struct {
 	repo     *contest.Repository
+	teams    *contest.TeamRepository
 	sessions *auth.SessionManager
 	users    *user.Repository
 }
 
-func NewContestHandler(repo *contest.Repository, sessions *auth.SessionManager, users *user.Repository) *ContestHandler {
-	return &ContestHandler{repo: repo, sessions: sessions, users: users}
+func NewContestHandler(repo *contest.Repository, teams *contest.TeamRepository, sessions *auth.SessionManager, users *user.Repository) *ContestHandler {
+	return &ContestHandler{repo: repo, teams: teams, sessions: sessions, users: users}
 }
 
 func (h *ContestHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -183,7 +184,11 @@ func (h *ContestHandler) problems(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest status"})
 			return
 		}
-		statuses, err = h.repo.UserProblemStatus(c.Request.Context(), u.ID, item.PIDs)
+		participantID := u.ID
+		if attendeeStatus != nil {
+			participantID = attendeeStatus.UID
+		}
+		statuses, err = h.repo.UserProblemStatus(c.Request.Context(), participantID, item.PIDs)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load problem status"})
 			return
@@ -259,7 +264,7 @@ func (h *ContestHandler) get(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest attendance"})
 			return
 		}
-		response.Status, err = h.repo.Status(c.Request.Context(), c.Param("tid"), u.ID)
+		response.Status, err = h.repo.StatusForUser(c.Request.Context(), c.Param("tid"), u.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest status"})
 			return
@@ -284,6 +289,7 @@ func (h *ContestHandler) attend(c *gin.Context) {
 	}
 	var request struct {
 		Code string `json:"code"`
+		VUID int64  `json:"vuid"`
 	}
 	if c.Request.ContentLength > 0 {
 		if err := c.ShouldBindJSON(&request); err != nil {
@@ -291,7 +297,30 @@ func (h *ContestHandler) attend(c *gin.Context) {
 			return
 		}
 	}
-	changed, err := h.repo.AttendContest(c.Request.Context(), c.Param("tid"), u.ID, request.Code)
+	changed := false
+	var err error
+	if request.VUID != 0 {
+		team, teamErr := h.teams.Get(c.Request.Context(), request.VUID)
+		if teamErr != nil || !containsInt64(team.Members, u.ID) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "team not found or permission denied"})
+			return
+		}
+		item, contestErr := h.repo.Get(c.Request.Context(), c.Param("tid"))
+		if contestErr != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+			return
+		}
+		if !item.AllowTeam {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "team participation is not allowed"})
+			return
+		}
+		if !h.teamAssigned(c, item, team) {
+			return
+		}
+		changed, err = h.repo.AttendTeam(c.Request.Context(), c.Param("tid"), team.ID, team.DisplayName, team.Members, request.Code)
+	} else {
+		changed, err = h.repo.AttendContest(c.Request.Context(), c.Param("tid"), u.ID, request.Code)
+	}
 	if err != nil {
 		switch {
 		case errors.Is(err, contest.ErrNotFound):
@@ -300,12 +329,14 @@ func (h *ContestHandler) attend(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "contest has ended"})
 		case errors.Is(err, contest.ErrInvalidInvitationCode):
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid invitation code"})
+		case errors.Is(err, contest.ErrContestAlreadyAttended):
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to attend contest"})
 		}
 		return
 	}
-	status, err := h.repo.Status(c.Request.Context(), c.Param("tid"), u.ID)
+	status, err := h.repo.StatusForUser(c.Request.Context(), c.Param("tid"), u.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest status"})
 		return
@@ -926,6 +957,53 @@ func containsInt64(values []int64, target int64) bool {
 		}
 	}
 	return false
+}
+
+// teamAssigned verifies that every team member can see a group-restricted
+// contest. The owner and administrators retain the same override as personal
+// participation.
+func (h *ContestHandler) teamAssigned(c *gin.Context, item *contest.Contest, team *contest.Team) bool {
+	if len(item.Assign) == 0 {
+		return true
+	}
+	if h.users == nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "team member is not assigned to this contest"})
+		return false
+	}
+	allowed := make(map[string]bool, len(item.Assign))
+	for _, group := range item.Assign {
+		allowed[group] = true
+	}
+	for _, memberID := range team.Members {
+		if memberID == item.Owner {
+			continue
+		}
+		account, err := h.users.FindByID(c.Request.Context(), memberID)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "team member is not assigned to this contest"})
+			return false
+		}
+		if account.Priv&1 != 0 {
+			continue
+		}
+		groups, err := h.users.GroupNamesForUID(c.Request.Context(), memberID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load team member groups"})
+			return false
+		}
+		assigned := false
+		for _, group := range groups {
+			if allowed[group] {
+				assigned = true
+				break
+			}
+		}
+		if !assigned {
+			c.JSON(http.StatusForbidden, gin.H{"error": "team member is not assigned to this contest"})
+			return false
+		}
+	}
+	return true
 }
 
 func (h *ContestHandler) requireAdmin(c *gin.Context) (*user.User, bool) {

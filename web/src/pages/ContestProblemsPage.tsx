@@ -192,6 +192,9 @@ export function ContestProblemsPage() {
       tdoc,
       tsdoc: {
         attend: attended,
+        uid: problemPageStatus?.uid ?? user?.id ?? 0,
+        members: problemPageStatus?.members ?? [],
+        displayName: problemPageStatus?.displayName ?? '',
         startAt: problemPageStatus?.startAt ? new Date(problemPageStatus.startAt) : undefined,
         endAt: problemPageStatus?.endAt ? new Date(problemPageStatus.endAt) : undefined,
       },
