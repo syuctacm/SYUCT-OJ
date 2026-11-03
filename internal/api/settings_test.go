@@ -75,6 +75,13 @@ func TestPublicSettingsIntegration(t *testing.T) {
 			PaginationRanking    int    `json:"paginationRanking"`
 			PaginationSolution   int    `json:"paginationSolution"`
 			PaginationTraining   int    `json:"paginationTraining"`
+			LimitUserFiles       int    `json:"limitUserFiles"`
+			LimitUserFileSize    int64  `json:"limitUserFileSize"`
+			LimitContestFiles    int    `json:"limitContestFiles"`
+			LimitContestFileSize int64  `json:"limitContestFileSize"`
+			LimitProblemFiles    int    `json:"limitProblemFiles"`
+			LimitProblemFileSize int64  `json:"limitProblemFileSize"`
+			LimitCodeLength      int64  `json:"limitCodeLength"`
 		} `json:"data"`
 	}
 	get := func(path string, cookies []*http.Cookie) (int, settingsPayload) {
@@ -116,7 +123,10 @@ func TestPublicSettingsIntegration(t *testing.T) {
 		payload.Data.PaginationProblem != 100 || payload.Data.PaginationContest != 20 ||
 		payload.Data.PaginationDiscussion != 50 || payload.Data.PaginationRecord != 100 ||
 		payload.Data.PaginationRanking != 100 || payload.Data.PaginationSolution != 20 ||
-		payload.Data.PaginationTraining != 10 {
+		payload.Data.PaginationTraining != 10 || payload.Data.LimitUserFiles != 100 ||
+		payload.Data.LimitUserFileSize != 128<<20 || payload.Data.LimitContestFiles != 100 ||
+		payload.Data.LimitContestFileSize != 128<<20 || payload.Data.LimitProblemFiles != 100 ||
+		payload.Data.LimitProblemFileSize != 256<<20 || payload.Data.LimitCodeLength != 128<<10 {
 		t.Fatalf("initial public settings = %d %+v", status, payload.Data)
 	}
 
@@ -159,7 +169,13 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status := put(`{"paginationRecord":1001}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid large pagination = %d", status)
 	}
-	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6,"languageYaml":"cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\n"}`
+	if status := put(`{"limitUserFiles":0}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid file count limit = %d", status)
+	}
+	if status := put(`{"limitCodeLength":0}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid code length limit = %d", status)
+	}
+	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6,"limitUserFiles":8,"limitUserFileSize":1048576,"limitContestFiles":9,"limitContestFileSize":2097152,"limitProblemFiles":10,"limitProblemFileSize":3145728,"limitCodeLength":65536,"languageYaml":"cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\n"}`
 	if status := put(updateBody, adminCookies); status != http.StatusOK {
 		t.Fatalf("admin update = %d", status)
 	}
@@ -173,7 +189,10 @@ func TestPublicSettingsIntegration(t *testing.T) {
 		payload.Data.PaginationProblem != 37 || payload.Data.PaginationContest != 12 ||
 		payload.Data.PaginationDiscussion != 24 || payload.Data.PaginationRecord != 48 ||
 		payload.Data.PaginationRanking != 60 || payload.Data.PaginationSolution != 18 ||
-		payload.Data.PaginationTraining != 6 {
+		payload.Data.PaginationTraining != 6 || payload.Data.LimitUserFiles != 8 ||
+		payload.Data.LimitUserFileSize != 1048576 || payload.Data.LimitContestFiles != 9 ||
+		payload.Data.LimitContestFileSize != 2097152 || payload.Data.LimitProblemFiles != 10 ||
+		payload.Data.LimitProblemFileSize != 3145728 || payload.Data.LimitCodeLength != 65536 {
 		t.Fatalf("public settings after update = %d %+v", status, payload.Data)
 	}
 	status, payload = get("/api/v1/admin/settings", adminCookies)

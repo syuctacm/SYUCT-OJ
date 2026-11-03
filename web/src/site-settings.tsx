@@ -41,6 +41,13 @@ export const DEFAULT_SITE_SETTINGS: PublicSettings = {
   paginationRanking: 100,
   paginationSolution: 20,
   paginationTraining: 10,
+  limitUserFiles: 100,
+  limitUserFileSize: 128 * 1024 * 1024,
+  limitContestFiles: 100,
+  limitContestFileSize: 128 * 1024 * 1024,
+  limitProblemFiles: 100,
+  limitProblemFileSize: 256 * 1024 * 1024,
+  limitCodeLength: 128 * 1024,
 }
 
 let currentSiteName = DEFAULT_SITE_SETTINGS.siteName

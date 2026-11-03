@@ -30,12 +30,9 @@ import (
 )
 
 const (
-	maxProblemFiles       = 100
-	maxProblemFilesSize   = 256 << 20
 	maxProblemMultipart   = 32 << 20
 	maxPretestInputs      = 10
 	maxPretestInputSize   = 1 << 20
-	maxPretestCodeSize    = 128 << 10
 	problemFileKindData   = "testdata"
 	problemFileKindAttach = "additional"
 )
@@ -514,7 +511,7 @@ func (h *ProblemHandler) pretest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "lang, code and input are required"})
 		return
 	}
-	if len(request.Code) > maxPretestCodeSize || len(request.Input) > maxPretestInputs {
+	if int64(len(request.Code)) > configuredLimitBytes(c, settingLimitCodeLength, defaultLimitCodeLength) || len(request.Input) > maxPretestInputs {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "pretest code or input count exceeds the limit"})
 		return
 	}
@@ -694,7 +691,9 @@ func (h *ProblemHandler) uploadAssets(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "problem file storage is unavailable"})
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxProblemFilesSize)
+	fileLimit := configuredLimitBytes(c, settingLimitProblemFileSize, defaultLimitProblemFileSize)
+	countLimit := configuredLimitInt(c, settingLimitProblemFiles, defaultLimitProblemFiles)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, fileLimit)
 	if err := c.Request.ParseMultipartForm(maxProblemMultipart); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid multipart upload"})
 		return
@@ -716,8 +715,8 @@ func (h *ProblemHandler) uploadAssets(c *gin.Context) {
 		return
 	}
 	existing := assetsForKind(pdoc, kind)
-	if len(existing)+len(headers) > maxProblemFiles {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", maxProblemFiles)})
+	if len(existing)+len(headers) > countLimit {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", countLimit)})
 		return
 	}
 	var totalSize int64
@@ -727,7 +726,7 @@ func (h *ProblemHandler) uploadAssets(c *gin.Context) {
 	for _, header := range headers {
 		totalSize += header.Size
 	}
-	if totalSize > maxProblemFilesSize {
+	if totalSize > fileLimit {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "problem files are too large"})
 		return
 	}
@@ -794,8 +793,8 @@ func (h *ProblemHandler) deleteAssets(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "type and names are required"})
 		return
 	}
-	if len(request.Names) > maxProblemFiles {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", maxProblemFiles)})
+	if len(request.Names) > configuredLimitInt(c, settingLimitProblemFiles, defaultLimitProblemFiles) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", configuredLimitInt(c, settingLimitProblemFiles, defaultLimitProblemFiles))})
 		return
 	}
 	names := make([]string, 0, len(request.Names))
@@ -842,8 +841,9 @@ func (h *ProblemHandler) archiveAssets(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "type and names are required"})
 		return
 	}
-	if len(request.Names) > maxProblemFiles {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", maxProblemFiles)})
+	fileCountLimit := configuredLimitInt(c, settingLimitProblemFiles, defaultLimitProblemFiles)
+	if len(request.Names) > fileCountLimit {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", fileCountLimit)})
 		return
 	}
 	existing := assetsForKind(pdoc, request.Type)
@@ -921,8 +921,9 @@ func (h *ProblemHandler) renameAssets(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "type, names and newNames are required"})
 		return
 	}
-	if len(request.Names) > maxProblemFiles {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", maxProblemFiles)})
+	fileCountLimit := configuredLimitInt(c, settingLimitProblemFiles, defaultLimitProblemFiles)
+	if len(request.Names) > fileCountLimit {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many files (max %d)", fileCountLimit)})
 		return
 	}
 	existing := assetsForKind(pdoc, request.Type)
@@ -1117,8 +1118,8 @@ func (h *ProblemHandler) archiveProblems(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "pids are required"})
 		return
 	}
-	if len(request.PIDs) > maxProblemFiles {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many problems (max %d)", maxProblemFiles)})
+	if len(request.PIDs) > configuredLimitInt(c, settingLimitProblemFiles, defaultLimitProblemFiles) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("too many problems (max %d)", configuredLimitInt(c, settingLimitProblemFiles, defaultLimitProblemFiles))})
 		return
 	}
 	seen := map[int64]bool{}

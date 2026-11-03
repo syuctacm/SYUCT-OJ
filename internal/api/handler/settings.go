@@ -29,6 +29,14 @@ const (
 	settingAbout           = "ui-default.about"
 	settingLanguages       = "hydrooj.langs"
 
+	settingLimitUserFiles       = "limit.user_files"
+	settingLimitUserFileSize    = "limit.user_files_size"
+	settingLimitContestFiles    = "limit.contest_files"
+	settingLimitContestFileSize = "limit.contest_files_size"
+	settingLimitProblemFiles    = "limit.problem_files_max"
+	settingLimitProblemFileSize = "limit.problem_files_max_size"
+	settingLimitCodeLength      = "limit.codelength"
+
 	settingPaginationProblem    = "pagination.problem"
 	settingPaginationContest    = "pagination.contest"
 	settingPaginationDiscussion = "pagination.discussion"
@@ -78,6 +86,9 @@ var siteSettingKeys = []string{
 	settingPaginationProblem, settingPaginationContest, settingPaginationDiscussion,
 	settingPaginationRecord, settingPaginationRanking, settingPaginationSolution,
 	settingPaginationTraining,
+	settingLimitUserFiles, settingLimitUserFileSize, settingLimitContestFiles,
+	settingLimitContestFileSize, settingLimitProblemFiles, settingLimitProblemFileSize,
+	settingLimitCodeLength,
 }
 
 type SiteSettings struct {
@@ -97,6 +108,13 @@ type SiteSettings struct {
 	PaginationRanking    int    `json:"paginationRanking"`
 	PaginationSolution   int    `json:"paginationSolution"`
 	PaginationTraining   int    `json:"paginationTraining"`
+	LimitUserFiles       int    `json:"limitUserFiles"`
+	LimitUserFileSize    int64  `json:"limitUserFileSize"`
+	LimitContestFiles    int    `json:"limitContestFiles"`
+	LimitContestFileSize int64  `json:"limitContestFileSize"`
+	LimitProblemFiles    int    `json:"limitProblemFiles"`
+	LimitProblemFileSize int64  `json:"limitProblemFileSize"`
+	LimitCodeLength      int64  `json:"limitCodeLength"`
 }
 
 func DefaultSiteSettings() SiteSettings {
@@ -109,6 +127,10 @@ func DefaultSiteSettings() SiteSettings {
 		PaginationProblem: 100, PaginationContest: 20, PaginationDiscussion: 50,
 		PaginationRecord: 100, PaginationRanking: 100, PaginationSolution: 20,
 		PaginationTraining: 10,
+		LimitUserFiles:     100, LimitUserFileSize: 128 << 20,
+		LimitContestFiles: 100, LimitContestFileSize: 128 << 20,
+		LimitProblemFiles: 100, LimitProblemFileSize: 256 << 20,
+		LimitCodeLength: 128 << 10,
 	}
 }
 
@@ -231,22 +253,57 @@ func setSiteSettingValue(values *SiteSettings, key string, value any) {
 		if number, ok := anyInt(value); ok && number > 0 {
 			values.PaginationTraining = number
 		}
+	case settingLimitUserFiles:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.LimitUserFiles = number
+		}
+	case settingLimitUserFileSize:
+		if number, ok := anyInt64(value); ok && number > 0 {
+			values.LimitUserFileSize = number
+		}
+	case settingLimitContestFiles:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.LimitContestFiles = number
+		}
+	case settingLimitContestFileSize:
+		if number, ok := anyInt64(value); ok && number > 0 {
+			values.LimitContestFileSize = number
+		}
+	case settingLimitProblemFiles:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.LimitProblemFiles = number
+		}
+	case settingLimitProblemFileSize:
+		if number, ok := anyInt64(value); ok && number > 0 {
+			values.LimitProblemFileSize = number
+		}
+	case settingLimitCodeLength:
+		if number, ok := anyInt64(value); ok && number > 0 {
+			values.LimitCodeLength = number
+		}
 	}
 }
 
 func anyInt(value any) (int, bool) {
+	if number, ok := anyInt64(value); ok && number >= math.MinInt && number <= math.MaxInt {
+		return int(number), true
+	}
+	return 0, false
+}
+
+func anyInt64(value any) (int64, bool) {
 	switch number := value.(type) {
 	case int:
-		return number, true
+		return int64(number), true
 	case int32:
-		return int(number), true
+		return int64(number), true
 	case int64:
-		return int(number), true
+		return number, true
 	case float64:
-		if number != math.Trunc(number) || number < math.MinInt || number > math.MaxInt {
+		if number != math.Trunc(number) || number < math.MinInt64 || number > math.MaxInt64 {
 			return 0, false
 		}
-		return int(number), true
+		return int64(number), true
 	default:
 		return 0, false
 	}
@@ -293,7 +350,16 @@ func siteSettingUpdates(input SiteSettingsInput) map[string]any {
 		settingPaginationProblem: input.PaginationProblem, settingPaginationContest: input.PaginationContest,
 		settingPaginationDiscussion: input.PaginationDiscussion, settingPaginationRecord: input.PaginationRecord,
 		settingPaginationRanking: input.PaginationRanking, settingPaginationSolution: input.PaginationSolution,
-		settingPaginationTraining: input.PaginationTraining,
+		settingPaginationTraining: input.PaginationTraining, settingLimitUserFiles: input.LimitUserFiles,
+		settingLimitContestFiles: input.LimitContestFiles, settingLimitProblemFiles: input.LimitProblemFiles,
+	} {
+		if value != nil {
+			updates[key] = *value
+		}
+	}
+	for key, value := range map[string]*int64{
+		settingLimitUserFileSize: input.LimitUserFileSize, settingLimitContestFileSize: input.LimitContestFileSize,
+		settingLimitProblemFileSize: input.LimitProblemFileSize, settingLimitCodeLength: input.LimitCodeLength,
 	} {
 		if value != nil {
 			updates[key] = *value
@@ -329,6 +395,13 @@ type SiteSettingsInput struct {
 	PaginationRanking    *int    `json:"paginationRanking"`
 	PaginationSolution   *int    `json:"paginationSolution"`
 	PaginationTraining   *int    `json:"paginationTraining"`
+	LimitUserFiles       *int    `json:"limitUserFiles"`
+	LimitUserFileSize    *int64  `json:"limitUserFileSize"`
+	LimitContestFiles    *int    `json:"limitContestFiles"`
+	LimitContestFileSize *int64  `json:"limitContestFileSize"`
+	LimitProblemFiles    *int    `json:"limitProblemFiles"`
+	LimitProblemFileSize *int64  `json:"limitProblemFileSize"`
+	LimitCodeLength      *int64  `json:"limitCodeLength"`
 }
 
 func validHomepageYAML(value string) bool {
@@ -399,15 +472,27 @@ func validateSiteSettings(input SiteSettingsInput) error {
 	}
 	for _, item := range []struct {
 		value *int
+		max   int
+	}{
+		{input.PaginationProblem, 1000}, {input.PaginationContest, 1000},
+		{input.PaginationDiscussion, 1000}, {input.PaginationRecord, 1000},
+		{input.PaginationRanking, 1000}, {input.PaginationSolution, 1000},
+		{input.PaginationTraining, 1000}, {input.LimitUserFiles, 10000},
+		{input.LimitContestFiles, 10000}, {input.LimitProblemFiles, 10000},
+	} {
+		if item.value != nil && (*item.value < 1 || *item.value > item.max) {
+			return fmt.Errorf("setting value must be between 1 and %d", item.max)
+		}
+	}
+	for _, item := range []struct {
+		value *int64
 		label string
 	}{
-		{input.PaginationProblem, "pagination problem"}, {input.PaginationContest, "pagination contest"},
-		{input.PaginationDiscussion, "pagination discussion"}, {input.PaginationRecord, "pagination record"},
-		{input.PaginationRanking, "pagination ranking"}, {input.PaginationSolution, "pagination solution"},
-		{input.PaginationTraining, "pagination training"},
+		{input.LimitUserFileSize, "limit.user_files_size"}, {input.LimitContestFileSize, "limit.contest_files_size"},
+		{input.LimitProblemFileSize, "limit.problem_files_max_size"}, {input.LimitCodeLength, "limit.codelength"},
 	} {
-		if item.value != nil && (*item.value < 1 || *item.value > 1000) {
-			return fmt.Errorf("%s must be between 1 and 1000", item.label)
+		if item.value != nil && (*item.value < 1 || *item.value > 10<<30) {
+			return fmt.Errorf("%s must be between 1 and %d", item.label, int64(10<<30))
 		}
 	}
 	for _, item := range []struct {

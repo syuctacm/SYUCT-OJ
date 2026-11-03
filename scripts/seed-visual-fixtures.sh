@@ -83,6 +83,13 @@ db.system.insertMany([
   { _id: "pagination.ranking", value: 100 },
   { _id: "pagination.solution", value: 20 },
   { _id: "pagination.training", value: 10 },
+  { _id: "limit.user_files", value: 100 },
+  { _id: "limit.user_files_size", value: 134217728 },
+  { _id: "limit.contest_files", value: 100 },
+  { _id: "limit.contest_files_size", value: 134217728 },
+  { _id: "limit.problem_files_max", value: 100 },
+  { _id: "limit.problem_files_max_size", value: 268435456 },
+  { _id: "limit.codelength", value: 131072 },
 ]);
 
 db.document.insertMany([
