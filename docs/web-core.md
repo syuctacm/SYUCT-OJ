@@ -122,4 +122,23 @@ UPDATE_BASELINES=1 BASE_URL=http://localhost:13009 ./scripts/visual-regression.s
 
 脚本拒绝非 localhost 地址。基线覆盖首页、题库、比赛、作业、训练、讨论、排行榜、About 和登录页；动态登录后页面继续由现有 Playwright 功能回归覆盖。
 
+### 隔离 Docker 回归
+
+推荐通过一条命令运行固定数据截图回归：
+
+```bash
+./scripts/visual-regression-docker.sh
+UPDATE_BASELINES=1 ./scripts/visual-regression-docker.sh
+KEEP=1 ./scripts/visual-regression-docker.sh
+```
+
+`deploy/compose.visual.yaml` 会启动独立的本地 Mongo、Go API 和 Nginx Web，`scripts/seed-visual-fixtures.sh` 会清空并重建专用 `syuct_oj_visual` 数据库，灌入固定用户、题目、比赛、作业、训练、讨论和记录。固定账号为：
+
+```text
+visual_admin / secret  (管理员)
+visual_user  / secret  (普通用户)
+```
+
+测试结束后默认删除容器、网络和临时数据库；`KEEP=1` 仅用于本地排查。脚本拒绝非 localhost URL 和非 `syuct_oj_visual` 数据库，不会读取 `.env.prod` 或连接生产环境。
+
 除 `EmailChangeConfirmPage`（流程确认页）和 `RandomProblemPage`（跳转页）外，当前页面均通过 `HydroTemplate` 直接渲染上游模板；语言自动补全、日期控件、下拉、Tooltip、折叠、表格、Tab、滚动恢复、Prism、相对时间、划词标记和富媒体链接运行时已接入。

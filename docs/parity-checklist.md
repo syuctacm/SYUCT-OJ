@@ -1043,6 +1043,22 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地隔离 Docker（Mongo + Go API + Nginx 生产构建）首次生成临时基线，第二次 9 个页面全部为 0 differing pixels
 - 全程只监听 localhost，未连接生产环境
 
+## 6.59 隔离视觉回归数据栈（2026-11-03）
+
+- 新增 `deploy/compose.visual.yaml`，独立启动本地 Mongo、Go API 和 Nginx Web
+- 新增 `scripts/seed-visual-fixtures.sh`，只重建专用 `syuct_oj_visual` 数据库
+- 固定合成用户、题目、比赛、作业、训练、讨论、记录和站点设置；用户头像使用本地 `/logo.png`
+- 新增 `scripts/visual-regression-docker.sh`，一条命令完成构建、健康检查、灌数、截图和清理
+- 默认拒绝非 localhost URL、非 `syuct_oj_visual` 数据库，测试后删除容器、网络和临时数据
+- 重新生成公开页面基线，页面不再依赖开发 Mongo 当前数据或 Gravatar 第三方图片
+
+验证：
+
+- `./scripts/visual-regression-docker.sh` 连续运行两次，9 个公开页面全部为 0 differing pixels
+- `discuss` 的第三方头像差异已消除
+- `syuct_oj` 开发数据库未修改
+- 容器、网络和 `syuct_oj_visual` 数据在测试后清理
+
 ## 7. 当前已知差异
 
 ```text

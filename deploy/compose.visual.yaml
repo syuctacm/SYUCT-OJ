@@ -1,0 +1,57 @@
+name: syuct-oj-visual
+
+# Local-only screenshot regression stack. It never reads production credentials
+# or connects to a production MongoDB. The database is disposable and is
+# removed by scripts/visual-regression-docker.sh after the run.
+services:
+  mongo:
+    image: mongo:7-jammy
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: syuct
+      MONGO_INITDB_ROOT_PASSWORD: syuct_visual_password
+      MONGO_INITDB_DATABASE: syuct_oj_visual
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/api.Dockerfile
+    environment:
+      SERVER_PORT: "8080"
+      MONGO_URI: "mongodb://syuct:syuct_visual_password@mongo:27017/syuct_oj_visual?authSource=admin"
+      MONGO_DATABASE: syuct_oj_visual
+      CORS_ORIGINS: "http://localhost:${VISUAL_WEB_PORT:-13009}"
+      JUDGE_USERNAME: judge
+      JUDGE_PASSWORD: judge_visual_password
+      JUDGE_FILE_ROOT: /app/data/judge-files
+      COOKIE_SECURE: "0"
+      WEBAUTHN_RPID: localhost
+      WEBAUTHN_ORIGINS: "http://localhost:${VISUAL_WEB_PORT:-13009}"
+      OAUTH_CALLBACK_BASE_URL: "http://localhost:${VISUAL_WEB_PORT:-13009}"
+      OAUTH_GITHUB_CLIENT_ID: ""
+      OAUTH_GITHUB_CLIENT_SECRET: ""
+      ONSITE_IP_LOGIN: "0"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/v1/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    ports:
+      - "127.0.0.1:${VISUAL_WEB_PORT:-13009}:80"
+    depends_on:
+      api:
+        condition: service_healthy
