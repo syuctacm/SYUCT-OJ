@@ -24,6 +24,7 @@
 ## 前端
 
 - `/contest`：比赛列表
+- `/contest/team`：团队管理
 - `/contest/new`：创建比赛
 - `/contest/:tid`：比赛详情
 - `/contest/:tid/problems`：比赛题目列表
@@ -38,7 +39,20 @@
 - `contest_problemlist.html`：由 `HydroTemplate` 直接渲染题目表、本场提交表和答疑区块
 - `contest_scoreboard.html`：由 `HydroTemplate` 直接渲染榜单表格、封榜提示和导出按钮位置
 
-比赛列表的搜索和赛制筛选由 React 适配层保持；未实现的团队管理入口会隐藏。列表按上游默认每页 20 条分页，分页链接会保留搜索和赛制筛选参数。
+比赛列表的搜索和赛制筛选由 React 适配层保持。登录用户在侧栏可通过「Manage Teams」进入 `/contest/team`；该页直接渲染 Hydro `contest_team.html`，并复用 `contest_team.page.styl` 的团队卡片和邀请横幅样式。列表按上游默认每页 20 条分页，分页链接会保留搜索和赛制筛选参数。
+
+## 团队管理
+
+团队使用 Hydro 兼容的 `vuser` 集合：团队 ID 为负整数，文档保存 `displayName`、`members` 和 `invite`。每队默认最多 5 人。
+
+- `GET /api/v1/contest/teams`：当前用户的团队、收到的邀请和成员资料
+- `POST /api/v1/contest/teams`：创建团队
+- `PATCH /api/v1/contest/teams/:vuid`：重命名
+- `POST /api/v1/contest/teams/:vuid/invite`：按用户名或 UID 邀请
+- `POST /api/v1/contest/teams/:vuid/accept` / `reject`：接受或拒绝邀请
+- `DELETE /api/v1/contest/teams/:vuid/members/:uid`：移除成员或退出团队
+
+页面支持创建、重命名、邀请、待处理邀请、接受、拒绝、移除和退出。比赛报名、团队提交与团队榜单聚合尚未接入。
 
 比赛详情不再内嵌题目列表和榜单，改为原版结构下的独立路由 `/contest/:tid/problems` 和 `/contest/:tid/scoreboard`，两个页面都已迁移到上游模板。题目行提供带 `contest` 参数的提交入口，提交会写入比赛关联并进入榜单。比赛结束或未开始时后端拒绝比赛提交。
 
@@ -149,6 +163,5 @@
 
 ## 尚未完成
 
-- 组队赛和团队参赛状态；个人报名、邀请码、报名后提交限制和提前结束已实现
+- `allowTeam` 比赛报名、团队参赛状态、团队提交和榜单聚合；团队管理本身已实现
 - Ghost 榜单导出；当前已支持榜单 CSV、关注用户筛选、rank/all 筛选和三分钟自动刷新
-- 上游部分团队相关模板文案和团队邀请交互

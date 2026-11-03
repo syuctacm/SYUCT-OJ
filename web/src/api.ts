@@ -721,6 +721,72 @@ export async function getSubmissions(filter: SubmissionFilter = {}): Promise<Sub
   return result.data
 }
 
+export type ContestTeam = {
+  id: number
+  displayName: string
+  members: number[]
+  invite?: number[]
+  avatar?: string
+  createdAt?: string
+}
+
+export type ContestTeamUser = {
+  id: number
+  username: string
+  displayName?: string
+  avatar?: string
+}
+
+export type ContestTeamsSnapshot = {
+  mine: ContestTeam[]
+  invites: ContestTeam[]
+  users: Record<string, ContestTeamUser>
+}
+
+export async function getContestTeams(): Promise<ContestTeamsSnapshot> {
+  const result = await request<Envelope<ContestTeamsSnapshot>>('/api/v1/contest/teams')
+  return result.data
+}
+
+export async function createContestTeam(name: string): Promise<ContestTeamsSnapshot> {
+  const result = await request<Envelope<ContestTeamsSnapshot>>('/api/v1/contest/teams', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+  return result.data
+}
+
+export async function renameContestTeam(vuid: number, name: string): Promise<ContestTeamsSnapshot> {
+  const result = await request<Envelope<ContestTeamsSnapshot>>(`/api/v1/contest/teams/${vuid}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  })
+  return result.data
+}
+
+export async function inviteContestTeamMember(vuid: number, user: string): Promise<ContestTeamsSnapshot> {
+  const result = await request<Envelope<ContestTeamsSnapshot>>(`/api/v1/contest/teams/${vuid}/invite`, {
+    method: 'POST',
+    body: JSON.stringify({ user }),
+  })
+  return result.data
+}
+
+export async function acceptContestTeamInvite(vuid: number): Promise<ContestTeamsSnapshot> {
+  const result = await request<Envelope<ContestTeamsSnapshot>>(`/api/v1/contest/teams/${vuid}/accept`, { method: 'POST' })
+  return result.data
+}
+
+export async function rejectContestTeamInvite(vuid: number): Promise<ContestTeamsSnapshot> {
+  const result = await request<Envelope<ContestTeamsSnapshot>>(`/api/v1/contest/teams/${vuid}/reject`, { method: 'POST' })
+  return result.data
+}
+
+export async function leaveContestTeam(vuid: number, uid: number): Promise<ContestTeamsSnapshot> {
+  const result = await request<Envelope<ContestTeamsSnapshot>>(`/api/v1/contest/teams/${vuid}/members/${uid}`, { method: 'DELETE' })
+  return result.data
+}
+
 export type ContestEditInput = {
   title: string
   content: string

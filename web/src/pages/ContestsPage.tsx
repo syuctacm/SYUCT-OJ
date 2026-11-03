@@ -100,7 +100,7 @@ export function ContestsPage() {
           viewLang: 'zh',
           _dudoc: { join: true },
           hasPerm: (permission: number) => permission === 1 && isAdmin,
-          hasPriv: () => false,
+          hasPriv: (privilege: number) => Boolean(user) && privilege === 1,
           own: () => false,
         },
         args: { domainId: 'system' },
@@ -138,7 +138,7 @@ export function ContestsPage() {
       url={(name, args = {}) => {
         if (name === 'contest_detail') return `/contest/${encodeURIComponent(String(args.tid ?? ''))}`
         if (name === 'contest_create') return '/contest/new'
-        if (name === 'contest_team') return '/contest'
+        if (name === 'contest_team') return '/contest/team'
         return '/'
       }}
     />

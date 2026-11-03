@@ -27,6 +27,7 @@ import { NotFoundPage } from './pages/ErrorPage.tsx'
 const UserDeletePage = lazy(() => import('./pages/UserDeletePage.tsx').then((module) => ({ default: module.UserDeletePage })))
 const ContestEditPage = lazy(() => import('./pages/ContestEditPage.tsx').then((module) => ({ default: module.ContestEditPage })))
 const ContestsPage = lazy(() => import('./pages/ContestsPage.tsx').then((module) => ({ default: module.ContestsPage })))
+const ContestTeamsPage = lazy(() => import('./pages/ContestTeamsPage.tsx').then((module) => ({ default: module.ContestTeamsPage })))
 const DiscussionCreatePage = lazy(() => import('./pages/DiscussionCreatePage.tsx').then((module) => ({ default: module.DiscussionCreatePage })))
 const DiscussionDetailPage = lazy(() => import('./pages/DiscussionDetailPage.tsx').then((module) => ({ default: module.DiscussionDetailPage })))
 const DiscussionEditPage = lazy(() => import('./pages/DiscussionEditPage.tsx').then((module) => ({ default: module.DiscussionEditPage })))
@@ -97,6 +98,7 @@ export default function App() {
         <Route path="/p/:pid/submit" element={<SubmitPage />} />
         <Route path="/p/:pid/hack/:rid" element={<ProblemHackPage />} />
         <Route path="/contest" element={<ContestsPage />} />
+        <Route path="/contest/team" element={<ContestTeamsPage />} />
         <Route path="/contest/new" element={<ContestEditPage mode="create" />} />
         <Route path="/contest/:tid/edit" element={<ContestEditPage mode="edit" />} />
         <Route path="/contest/:tid/management" element={<ContestManagementPage />} />

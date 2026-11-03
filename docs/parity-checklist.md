@@ -933,6 +933,20 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - Playwright 验证 AC 记录 Hack 入口、原版 Hack 表单、文本提交、记录状态、目标链接和输入下载
 - 本地生产构建修复 nginx WebSocket 转发 Host（保留端口），记录列表控制台 0 error
 
+## 6.51 比赛团队管理（2026-11-03）
+
+- 新增 `/contest/team`，直接渲染 Hydro 上游 `contest_team.html`
+- 团队样式从上游 `contest_team.page.styl` 原样移植，只补充独立 Vite 构建所需的主题变量
+- 使用 Hydro 兼容 `vuser` 集合、负团队 UID、`members` 和 `invite`
+- 支持创建、重命名、按用户名或 UID 邀请、接受、拒绝、移除和退出，默认上限 5 人
+- 比赛列表恢复「Manage Teams」入口
+
+验证：
+
+- Go 集成测试覆盖团队生命周期、邀请冲突、成员上限和 API 鉴权
+- 本地 Docker Mongo + 生产前端构建完成双用户创建/邀请/接受/重命名/移除全流程
+- Playwright 验证原版团队卡片样式、Hydro 邀请 Dialog、待处理邀请、成员回显和控制台 0 error
+
 ## 7. 当前已知差异
 
 ```text
@@ -947,6 +961,6 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 ## 8. 尚未迁移的模块
 
-以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：OAuth、组队赛、后台脚本/高级配置，以及 Codeforces 比赛内 Hack；普通题目 Hack、交互题与特殊 checker 已完成真实 hydrojudge 本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：OAuth、组队赛报名与团队榜单、后台脚本/高级配置，以及 Codeforces 比赛内 Hack；团队管理、普通题目 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
 
 已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、SSR。
