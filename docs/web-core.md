@@ -110,9 +110,12 @@ VITE_API_PROXY=http://127.0.0.1:18080 pnpm dev
 
 ## 截图回归
 
-`scripts/visual-regression.sh` 在固定 `1280x900` viewport、reduced-motion 和 localhost 约束下截取公开稳定页面，并用 ImageMagick AE 指标与 `web/visual-baselines/` 比较。首页会隐藏第三方一言区块，避免网络内容污染基线。
+`scripts/visual-regression.sh` 在固定 `1280x900` viewport、浅色主题、reduced-motion 和 localhost 约束下截取公开稳定页面，并用 ImageMagick AE 指标与 `web/visual-baselines/` 比较。
+
+脚本不会用固定 `sleep` 猜测页面加载完成，而是等待 `document.readyState`、Hydro Page Loader 隐藏、`.main` 不再显示加载占位、section 动画结束且字体加载完成。比较前会校验图片宽高；AE 指标只读取差异像素数，不会把百分比拼进数字。首页会隐藏第三方一言区块，避免网络内容污染基线。
 
 ```bash
+./scripts/visual-regression.sh --self-test
 BASE_URL=http://localhost:13009 ./scripts/visual-regression.sh
 UPDATE_BASELINES=1 BASE_URL=http://localhost:13009 ./scripts/visual-regression.sh
 ```
