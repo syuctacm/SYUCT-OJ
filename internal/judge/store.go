@@ -47,6 +47,30 @@ func (s *FileStore) OpenSubmission(id string) (io.ReadCloser, error) {
 	return os.Open(path)
 }
 
+func (s *FileStore) SaveHackInput(id string, reader io.Reader) error {
+	path, err := s.path("hacks", id, "input.txt")
+	if err != nil {
+		return err
+	}
+	return writeFile(path, reader)
+}
+
+func (s *FileStore) OpenHackInput(id string) (io.ReadCloser, error) {
+	path, err := s.path("hacks", id, "input.txt")
+	if err != nil {
+		return nil, err
+	}
+	return os.Open(path)
+}
+
+func (s *FileStore) DeleteHackInput(id string) error {
+	path, err := s.path("hacks", id, "input.txt")
+	if err != nil {
+		return err
+	}
+	return removeFile(path)
+}
+
 func (s *FileStore) SaveProblemFile(domainID, pid, name string, reader io.Reader) error {
 	_, err := s.PutProblemFile(domainID, pid, name, reader)
 	return err

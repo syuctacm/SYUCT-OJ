@@ -48,6 +48,7 @@ const PROBLEM_PERMS = {
 function configSummary(problem: ProblemDetail) {
   return {
     type: problem.problemType || 'default',
+    hackable: Boolean(problem.hackable),
     timeMin: String(problem.timeLimit || '1000').replace(/ms$/i, ''),
     timeMax: String(problem.timeLimit || '1000').replace(/ms$/i, ''),
     memoryMin: String(problem.memoryLimit || '256').replace(/[a-z]+$/i, ''),
@@ -480,7 +481,7 @@ export function ProblemDetailPage() {
           case 'problem_statistics':
             return `/p/${encodeURIComponent(id)}/statistics`
           case 'problem_hack':
-            return `/p/${encodeURIComponent(id)}${contestTid ? `?tid=${encodeURIComponent(contestTid)}` : ''}`
+            return `/p/${encodeURIComponent(id)}/hack/${encodeURIComponent(String(args.rid ?? ''))}${contestTid ? `?tid=${encodeURIComponent(contestTid)}` : ''}`
           case 'record_detail':
             return appendQuery(`/record/${encodeURIComponent(String(args.rid ?? ''))}`, {
               ...query,

@@ -117,6 +117,27 @@ func TestJudgeHTTPContract(t *testing.T) {
 		t.Fatalf("submission file response = %d %q", codeRecorder.Code, codeRecorder.Body.String())
 	}
 
+	hackID := bson.NewObjectID().Hex()
+	if err := handler.store.SaveHackInput(hackID, strings.NewReader("2000000000 2000000000\n")); err != nil {
+		t.Fatalf("save hack input: %v", err)
+	}
+	recorder = doJSON(t, router, http.MethodPost, "/judge/files", map[string]string{"id": "hack-" + hackID}, cookies)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("hack files link status = %d", recorder.Code)
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &linkResponse); err != nil {
+		t.Fatalf("decode hack link response: %v", err)
+	}
+	hackRequest := httptest.NewRequest(http.MethodGet, linkResponse.URL, nil)
+	for _, cookie := range cookies {
+		hackRequest.AddCookie(cookie)
+	}
+	hackRecorder := httptest.NewRecorder()
+	router.ServeHTTP(hackRecorder, hackRequest)
+	if hackRecorder.Code != http.StatusOK || !strings.Contains(hackRecorder.Body.String(), "2000000000") {
+		t.Fatalf("hack file response = %d %q", hackRecorder.Code, hackRecorder.Body.String())
+	}
+
 	if err := handler.store.SaveProblemFile("system", "1001", "1.in", strings.NewReader("42\n")); err != nil {
 		t.Fatalf("save problem file: %v", err)
 	}

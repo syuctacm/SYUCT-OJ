@@ -56,6 +56,7 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup) {
 	authorized.POST("/d/:domainId/judge/files", h.problemFileLinks)
 	authorized.POST("/judge/upload", h.upload)
 	authorized.GET("/judge/files/submission/:id/code", h.submissionCode)
+	authorized.GET("/judge/files/hack/:id/input", h.hackInput)
 	authorized.GET("/judge/files/problem/:domainId/:pid/:filename", h.problemFile)
 	authorized.GET("/judge/conn", h.websocket)
 }
@@ -122,6 +123,10 @@ func (h *Handler) filesLinks(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&request); err != nil || request.ID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	if id, ok := strings.CutPrefix(request.ID, "hack-"); ok && id != "" {
+		c.JSON(http.StatusOK, gin.H{"url": "/judge/files/hack/" + id + "/input"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"url": "/judge/files/submission/" + request.ID + "/code"})
@@ -277,6 +282,16 @@ func (h *Handler) upload(c *gin.Context) {
 func (h *Handler) submissionCode(c *gin.Context) {
 	h.serveFile(c, func() (io.ReadCloser, error) {
 		return h.store.OpenSubmission(c.Param("id"))
+	})
+}
+
+func (h *Handler) hackInput(c *gin.Context) {
+	if _, err := bson.ObjectIDFromHex(c.Param("id")); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid hack id"})
+		return
+	}
+	h.serveFile(c, func() (io.ReadCloser, error) {
+		return h.store.OpenHackInput(c.Param("id"))
 	})
 }
 

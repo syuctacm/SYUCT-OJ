@@ -42,7 +42,7 @@ TEST_MONGO_URI='mongodb://syuct:syuct_dev_password@127.0.0.1:27017/?authSource=a
 - OAuth 第三方登录/绑定；当前没有配置 provider
 - 比赛组队模式
 - 后台脚本管理、尚未消费的高级系统配置
-- Hack 模式；交互题与特殊 checker 已完成真实 hydrojudge 本地验证
+- Codeforces 规则的比赛内 Hack；普通题目 Hack、交互题与特殊 checker 已完成真实 hydrojudge 本地验证
 
 ### 前端低优先级
 

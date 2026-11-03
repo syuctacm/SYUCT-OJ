@@ -2,7 +2,7 @@
 // file limited to polling and mapping the submission API to Hydro rdoc fields.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { cancelSubmission, getSubmission, rejudgeSubmission, submissionCodeUrl, type Submission } from '../api.ts'
+import { cancelSubmission, getSubmission, rejudgeSubmission, submissionCodeUrl, submissionHackUrl, type Submission } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { languageOptions } from '../components/autocomplete/LanguageSelectAutoComplete.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -36,6 +36,9 @@ const statusShortTexts: Record<number, string> = {
   21: 'Compiling',
   22: 'Fetched',
   30: 'Ignored',
+  31: 'Format Error',
+  32: 'Hack Successful',
+  33: 'Hack Unsuccessful',
 }
 
 function judgeText(value: unknown) {
@@ -83,7 +86,7 @@ export function SubmissionPage() {
     const cleanups: Array<() => void> = []
     const download = root.querySelector<HTMLAnchorElement>('a[href="?download=true"]')
     if (download) {
-      download.href = submissionCodeUrl(rid)
+      download.href = submission?.files?.hack ? submissionHackUrl(rid) : submissionCodeUrl(rid)
       download.setAttribute('download', '')
     }
     for (const form of root.querySelectorAll<HTMLFormElement>('form')) {
@@ -93,7 +96,7 @@ export function SubmissionPage() {
     }
     root.querySelectorAll('.compiler-text-mask').forEach((element) => element.remove())
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [rid])
+  }, [rid, submission?.files?.hack])
 
   async function handleAction(event: SubmitEvent) {
     event.preventDefault()
@@ -159,7 +162,7 @@ export function SubmissionPage() {
       tag: [],
       config: {
         type: 'default',
-        hackable: false,
+        hackable: Boolean(submission.problem.hackable),
         timeMin: '1000',
         timeMax: '1000',
         memoryMin: '256',
@@ -184,7 +187,8 @@ export function SubmissionPage() {
       subtasks,
       judgeAt: submission.judgeAt,
       createdAt: submission.createdAt,
-      files: { hack: false },
+      files: submission.files ?? {},
+      hackTarget: submission.hackTarget ?? null,
       contest: null,
     }
     return {
@@ -201,7 +205,7 @@ export function SubmissionPage() {
           _id: user?.id ?? 0,
           viewLang: 'zh',
           _dudoc: { join: true },
-          hasPerm: (permission: number) => permission === 1 ? isAdmin : Boolean(user) && permission === 2,
+          hasPerm: (permission: number) => isAdmin || (Boolean(user) && permission === 2),
           hasPriv: () => Boolean(user),
           own: () => Boolean(user && isAdmin),
         },
@@ -260,7 +264,7 @@ export function SubmissionPage() {
         url={(name, args = {}) => {
           if (name === 'record_detail') return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
           if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
-          if (name === 'problem_hack') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
+          if (name === 'problem_hack') return `/p/${encodeURIComponent(String(args.pid ?? submission.problem?.pid ?? ''))}/hack/${encodeURIComponent(String(args.rid ?? submission.id))}`
           if (name === 'user_detail') return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
           if (name === 'contest_detail' || name === 'homework_detail') {
             return `/${name === 'contest_detail' ? 'contest' : 'homework'}/${encodeURIComponent(String(args.tid ?? ''))}`

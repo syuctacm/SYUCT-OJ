@@ -2,6 +2,8 @@ package handler
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"mime"
 	"net/http"
 	"strconv"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
 	"github.com/syuctacm/syuct-oj/internal/contest"
+	"github.com/syuctacm/syuct-oj/internal/judge"
 	"github.com/syuctacm/syuct-oj/internal/submission"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
@@ -22,6 +25,7 @@ type SubmissionHandler struct {
 	contests *contest.Repository
 	users    *user.Repository
 	hub      *submission.RecordHub
+	store    *judge.FileStore
 }
 
 func NewSubmissionHandler(repo *submission.Repository, sessions *auth.SessionManager, contests *contest.Repository, users *user.Repository) *SubmissionHandler {
@@ -32,6 +36,10 @@ func NewSubmissionHandler(repo *submission.Repository, sessions *auth.SessionMan
 // access to records (the problem statistics page).
 func (h *SubmissionHandler) SetHub(hub *submission.RecordHub) {
 	h.hub = hub
+}
+
+func (h *SubmissionHandler) SetFileStore(store *judge.FileStore) {
+	h.store = store
 }
 
 func (h *SubmissionHandler) Repository() *submission.Repository {
@@ -49,6 +57,8 @@ func (h *SubmissionHandler) RegisterRoutes(router *gin.RouterGroup) {
 	}
 	router.GET("/api/v1/submissions/:rid", h.get)
 	router.GET("/api/v1/submissions/:rid/code", h.downloadCode)
+	router.GET("/api/v1/submissions/:rid/hack", h.downloadHack)
+	router.POST("/api/v1/problems/:pid/hack/:rid", h.createHack)
 	router.POST("/api/v1/submissions/:rid/rejudge", h.rejudge)
 	router.POST("/api/v1/submissions/:rid/cancel", h.cancel)
 }
@@ -254,6 +264,116 @@ func (h *SubmissionHandler) downloadCode(c *gin.Context) {
 	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 	_, _ = c.Writer.WriteString(record.Code)
+}
+
+func (h *SubmissionHandler) createHack(c *gin.Context) {
+	uid, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	if h.store == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "hack storage is unavailable"})
+		return
+	}
+	input, autoOrganize, err := readHackInput(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if autoOrganize {
+		input = organizeHackInput(input)
+	}
+	if len(input) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "hack input is required"})
+		return
+	}
+	record, err := h.repo.CreateHack(c.Request.Context(), uid, c.Param("pid"), c.Param("rid"), input)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{"code": 0, "message": "success", "data": record})
+}
+
+func readHackInput(c *gin.Context) ([]byte, bool, error) {
+	const maxInput = 2 << 20
+	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
+		if err := c.Request.ParseMultipartForm(maxInput + 1024); err != nil {
+			return nil, false, fmt.Errorf("invalid multipart form")
+		}
+		if c.Request.MultipartForm != nil {
+			defer c.Request.MultipartForm.RemoveAll()
+		}
+		autoOrganize := c.Request.FormValue("autoOrganizeInput") == "on" || c.Request.FormValue("autoOrganizeInput") == "true"
+		file, header, err := c.Request.FormFile("file")
+		if err == nil {
+			defer file.Close()
+			if header.Size > maxInput {
+				return nil, autoOrganize, fmt.Errorf("hack input is too large")
+			}
+			input, err := io.ReadAll(io.LimitReader(file, maxInput+1))
+			if err != nil {
+				return nil, autoOrganize, err
+			}
+			if len(input) > maxInput {
+				return nil, autoOrganize, fmt.Errorf("hack input is too large")
+			}
+			return input, autoOrganize, nil
+		}
+		input := []byte(c.Request.FormValue("input"))
+		if len(input) > maxInput {
+			return nil, autoOrganize, fmt.Errorf("hack input is too large")
+		}
+		return input, autoOrganize, nil
+	}
+	var request struct {
+		Input             string `json:"input"`
+		AutoOrganizeInput bool   `json:"autoOrganizeInput"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		return nil, false, fmt.Errorf("invalid request")
+	}
+	if len(request.Input) > maxInput {
+		return nil, request.AutoOrganizeInput, fmt.Errorf("hack input is too large")
+	}
+	return []byte(request.Input), request.AutoOrganizeInput, nil
+}
+
+func organizeHackInput(input []byte) []byte {
+	text := strings.ReplaceAll(string(input), "\r\n", "\n")
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = strings.Join(strings.Fields(line), " ")
+	}
+	return []byte(strings.Join(lines, "\n"))
+}
+
+func (h *SubmissionHandler) downloadHack(c *gin.Context) {
+	uid, ok := h.currentUser(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	record, err := h.repo.Get(c.Request.Context(), c.Param("rid"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "submission not found"})
+		return
+	}
+	if !h.canReadCode(c, uid, record) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	reader, err := h.repo.OpenHackInput(c.Request.Context(), record.ID.Hex())
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "hack input not found"})
+		return
+	}
+	defer reader.Close()
+	filename := "hack-" + record.ID.Hex() + ".in"
+	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	_, _ = io.Copy(c.Writer, io.LimitReader(reader, 2<<20))
 }
 
 func (h *SubmissionHandler) currentUser(c *gin.Context) (int64, bool) {
