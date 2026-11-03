@@ -16,6 +16,7 @@
 - 后台默认权限读取、编辑和新用户权限继承
 - 后台核心站点设置：站点名、Logo、Gravatar、页脚、公告、About、Scratchpad 和首页布局
 - 本地 Docker 判题闭环、迁移演练、生产形态 Compose 冒烟脚本
+- 公开页面自动截图回归基线和 ImageMagick 差异检查
 
 ## 验证基线
 
@@ -40,10 +41,6 @@ TEST_MONGO_URI='mongodb://syuct:syuct_dev_password@127.0.0.1:27017/?authSource=a
 ### 功能
 
 - 后台脚本管理、尚未消费的高级系统配置
-
-### 前端低优先级
-
-- 自动截图回归基线
 
 ### 发布验收
 
