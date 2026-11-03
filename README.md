@@ -103,6 +103,7 @@ pnpm dev
 go test ./...
 go build ./...
 cd web && pnpm build
+BASE_URL=http://localhost:5173 ./scripts/visual-regression.sh
 ```
 
 当前仓库是 Go + React 单站重构版本，开发和测试均不连接生产环境。

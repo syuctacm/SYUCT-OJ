@@ -108,11 +108,15 @@ VITE_API_PROXY=http://127.0.0.1:18080 pnpm dev
 - 页面组件按路由懒加载，首页和登录页保持同步加载以稳定首屏
 - Markdown 站内用户/题目/比赛/作业链接解析为原版富媒体节点
 
-## 仍未覆盖的低优先级项
+## 截图回归
 
-- `queryLocalFonts()` 本地字体选择弹窗
-- 超级管理员浏览器版本提示
-- `preferredEditorType` 等少量上游偏好项
-- 自动截图回归基线
+`scripts/visual-regression.sh` 在固定 `1280x900` viewport、reduced-motion 和 localhost 约束下截取公开稳定页面，并用 ImageMagick AE 指标与 `web/visual-baselines/` 比较。首页会隐藏第三方一言区块，避免网络内容污染基线。
+
+```bash
+BASE_URL=http://localhost:13009 ./scripts/visual-regression.sh
+UPDATE_BASELINES=1 BASE_URL=http://localhost:13009 ./scripts/visual-regression.sh
+```
+
+脚本拒绝非 localhost 地址。基线覆盖首页、题库、比赛、作业、训练、讨论、排行榜、About 和登录页；动态登录后页面继续由现有 Playwright 功能回归覆盖。
 
 除 `EmailChangeConfirmPage`（流程确认页）和 `RandomProblemPage`（跳转页）外，当前页面均通过 `HydroTemplate` 直接渲染上游模板；语言自动补全、日期控件、下拉、Tooltip、折叠、表格、Tab、滚动恢复、Prism、相对时间、划词标记和富媒体链接运行时已接入。

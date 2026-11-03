@@ -1016,6 +1016,19 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地隔离 Docker Playwright 验证比赛记录 Hack 入口、表单 `?tid`、提交后 Hack 记录关联本场比赛
 - 390px 无横向溢出，控制台 0 error
 
+## 6.57 自动截图回归基线（2026-11-03）
+
+- 新增 `scripts/visual-regression.sh`，固定 1280x900 viewport 和 reduced-motion
+- 覆盖首页、题库、比赛、作业、训练、讨论、排行榜、About 和登录页
+- 基线存放在 `web/visual-baselines/`，比较使用 ImageMagick AE + 2% fuzz
+- 首页隐藏第三方一言内容，避免网络文本导致误报
+- 脚本只接受 localhost/127.0.0.1，拒绝生产 URL
+
+验证：
+
+- 本地 Docker 生产形态 Web/API 上生成 9 张基线
+- 连续执行两次截图回归均为 0 differing pixels
+
 ## 7. 当前已知差异
 
 ```text
