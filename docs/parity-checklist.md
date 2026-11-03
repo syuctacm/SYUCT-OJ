@@ -1134,6 +1134,23 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 视觉回归 29/29 页面保持 0 差异
 - 不连接生产环境
 
+## 6.65 提交与自测频率限制（2026-11-03）
+
+- 后台新增 `limit.submission`、`limit.submission_user`、`limit.pretest` 和 `limit.by_user`
+- `limit.by_user=false` 时按客户端 IP 和 `limit.submission` 限流
+- `limit.by_user=true` 时按用户和 `limit.submission_user` 限流
+- 正常提交和 pretest 共用滑动窗口实现，超限返回 429 和 `Retry-After`
+- 限流器为单进程内存实现，多实例部署需要后续共享存储
+
+验证：
+
+- Go 单元测试覆盖窗口计数和过期
+- Go 集成测试覆盖用户模式、配置读取和第二次提交返回 429
+- 前端 lint/build
+- 本地 Docker Playwright 验证后台修改限制后连续提交行为
+- 视觉回归保持 29/29 页面 0 差异
+- 不连接生产环境
+
 ## 7. 当前已知差异
 
 ```text
@@ -1148,6 +1165,6 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 ## 8. 尚未迁移的模块
 
-以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括提交频率/pretest 限流、配置 schema 编辑器、会话配置等高级系统配置；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括配置 schema 编辑器、会话配置、SMTP/CDN 等部署配置；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
 
 已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、Hydro 后台脚本/插件任务管理器、SSR。维护任务通过仓库 CLI、迁移脚本和 Docker 脚本执行。

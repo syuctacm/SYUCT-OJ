@@ -37,7 +37,7 @@
 ## 前端
 
 - `/admin` 渲染上游 `manage_dashboard.html`：Messages、Information（域头像/名称）和 `manage_base.html` 控制面板侧栏
-- `/admin/settings` 渲染上游 `manage_setting.html` + `partials/setting.html`，管理站点名、Logo、Gravatar 前缀、页脚 HTML、公告、About、Scratchpad 开关、首页布局、判题语言表、文件/代码限制和分页默认值
+- `/admin/settings` 渲染上游 `manage_setting.html` + `partials/setting.html`，管理站点名、Logo、Gravatar 前缀、页脚 HTML、公告、About、Scratchpad 开关、首页布局、判题语言表、文件/代码/频率限制和分页默认值
 - `/admin/users` 渲染上游 `manage_user_priv.html`：默认权限行 + 按 `priv` 分组的用户表，`show_priv` 宏显示相对默认权限的 `+/-` 位
 - 默认权限行可编辑；保存后新注册用户继承新值，仍使用旧默认值的用户同步迁移，自定义权限用户不受影响
 - `/admin/ip-login` 提供 IP 自动登录映射的列表、新增/更新、编辑和删除；页面复用 `manage_base.html` 控制面板侧栏
@@ -55,6 +55,8 @@
 判题语言表使用 `hydrooj.langs` YAML，按 Hydro 的点号继承规则合并配置；保存后同时更新 `/api/v1/languages`、判题 hub 和状态页语言列表。
 
 文件与代码限制使用 Hydro 同名配置：`limit.user_files`、`limit.user_files_size`、`limit.contest_files`、`limit.contest_files_size`、`limit.problem_files_max`、`limit.problem_files_max_size` 和 `limit.codelength`。上传、附件操作和代码提交会读取当前有效值。
+
+提交与自测频率限制使用 `limit.submission`、`limit.submission_user`、`limit.pretest` 和 `limit.by_user`；超限返回 `429` 与 `Retry-After`。当前限流器是单进程内存实现，多实例部署需要替换为共享存储。
 
 Hydro 的后台脚本/插件任务管理器不迁移；重写版维护任务统一通过仓库中的 CLI、迁移脚本和 Docker 脚本执行，避免重新引入 Cordis/addon 插件运行时。
 
@@ -95,7 +97,7 @@ ONSITE_IP_LOGIN=1
 
 ## 尚未完成
 
-- 尚未被当前前台消费的高级系统配置（提交频率/pretest 限流、配置 schema 编辑器、会话配置等）
+- 尚未被当前前台消费的高级系统配置（配置 schema 编辑器、会话配置、SMTP/CDN 等部署配置）
 - `manage_dashboard` 的 WebSocket 连接检查和「Restart」按钮（出于安全考虑未实现，并从 DOM 移除）
 - 题目/比赛/训练编辑仍从各自详情页进入，没有复制到后台单独页面
 
