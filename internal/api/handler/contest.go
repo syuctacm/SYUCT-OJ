@@ -670,7 +670,10 @@ func (h *ContestHandler) attendees(c *gin.Context) {
 	}
 	ids := make([]int64, 0, len(statuses))
 	for _, status := range statuses {
-		ids = append(ids, status.UID)
+		if status.UID > 0 {
+			ids = append(ids, status.UID)
+		}
+		ids = append(ids, status.Members...)
 	}
 	users := []gin.H{}
 	if len(ids) > 0 {
@@ -725,7 +728,7 @@ func (h *ContestHandler) setAttendeeRank(c *gin.Context) {
 		return
 	}
 	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
-	if err != nil || uid <= 0 {
+	if err != nil || uid == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
 		return
 	}
@@ -757,7 +760,7 @@ func (h *ContestHandler) resumeAttendee(c *gin.Context) {
 		return
 	}
 	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
-	if err != nil || uid <= 0 {
+	if err != nil || uid == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
 		return
 	}
@@ -782,7 +785,7 @@ func (h *ContestHandler) cancelAttendee(c *gin.Context) {
 		return
 	}
 	uid, err := strconv.ParseInt(c.Param("uid"), 10, 64)
-	if err != nil || uid <= 0 {
+	if err != nil || uid == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
 		return
 	}

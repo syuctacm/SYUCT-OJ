@@ -128,6 +128,10 @@ export function ContestUserPage() {
       }
       case 'contest_code': return `/api/v1/contests/${encodeURIComponent(id)}/code`
       case 'contest_balloon': return `/contest/${encodeURIComponent(id)}/balloon`
+      case 'user_detail':
+        return Number(args.uid) < 0
+          ? '/contest/team'
+          : `/user/${encodeURIComponent(String(args.uid ?? ''))}`
       default: return '/'
     }
   }, [contest?.docId, tid])
@@ -159,18 +163,36 @@ export function ContestUserPage() {
       session: { legacy: false, viewLang: 'zh' },
       ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
     }
-    const udict = Object.fromEntries(users.map((item) => [String(item.id), {
+    const udict: Record<string, {
+      _id: number
+      uname: string
+      displayName: string
+      avatar: string
+      teamMembers?: number[]
+    }> = Object.fromEntries(users.map((item) => [String(item.id), {
       _id: item.id,
       uname: item.username,
       displayName: item.displayName ?? '',
       avatar: item.avatar ?? '',
     }]))
+    for (const item of statuses) {
+      if (item.uid >= 0) continue
+      udict[String(item.uid)] = {
+        _id: item.uid,
+        uname: item.displayName || `Team ${item.uid}`,
+        displayName: item.displayName ?? '',
+        avatar: '',
+        teamMembers: item.members ?? [],
+      }
+    }
     const owner = users.find((item) => item.id === contest.owner)
     return {
       page_name: 'contest_user',
       tdoc,
       tsdocs: statuses.map((item) => ({
         uid: item.uid,
+        displayName: item.displayName,
+        members: item.members,
         unrank: Boolean(item.unrank),
         startAt: item.startAt ? new Date(item.startAt) : null,
         endAt: item.endAt ? new Date(item.endAt) : null,

@@ -120,6 +120,8 @@ type ProblemCell struct {
 type ScoreboardRow struct {
 	Rank          int                    `json:"rank"`
 	UID           int64                  `json:"uid"`
+	DisplayName   string                 `json:"displayName,omitempty"`
+	Members       []int64                `json:"members,omitempty"`
 	Solved        int                    `json:"solved"`
 	Penalty       int                    `json:"penalty"`
 	Score         float64                `json:"score"`
@@ -999,13 +1001,15 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 		"docType":  DocumentTypeContest,
 		"docId":    item.DocID,
 		"attend":   1,
-	}, options.Find().SetProjection(bson.M{"uid": 1, "unrank": 1}))
+	}, options.Find().SetProjection(bson.M{"uid": 1, "unrank": 1, "displayName": 1, "members": 1}))
 	if err != nil {
 		return nil, nil, err
 	}
 	var attendees []struct {
-		UID    int64 `bson:"uid"`
-		Unrank bool  `bson:"unrank"`
+		UID         int64   `bson:"uid"`
+		Unrank      bool    `bson:"unrank"`
+		DisplayName string  `bson:"displayName"`
+		Members     []int64 `bson:"members"`
 	}
 	if err := attendeeCursor.All(ctx, &attendees); err != nil {
 		_ = attendeeCursor.Close(ctx)
@@ -1027,7 +1031,10 @@ func (r *Repository) Scoreboard(ctx context.Context, tid string) (*Contest, []Sc
 	_ = cursor.Close(ctx)
 	ranked := make([]scoreboardAttendee, 0, len(attendees))
 	for _, attendee := range attendees {
-		ranked = append(ranked, scoreboardAttendee{UID: attendee.UID, Unrank: attendee.Unrank})
+		ranked = append(ranked, scoreboardAttendee{
+			UID: attendee.UID, Unrank: attendee.Unrank,
+			DisplayName: attendee.DisplayName, Members: attendee.Members,
+		})
 	}
 	return item, buildScoreboard(item, ranked, records), nil
 }
