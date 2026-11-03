@@ -21,6 +21,8 @@ import manageIPLoginTemplate from './templates/manage_ip_login.html?raw'
 import contestTeamTemplate from './templates/contest_team.html?raw'
 import contestMainTemplate from './templates/contest_main.html?raw'
 import contestSidebarTemplate from './templates/partials/contest_sidebar.html?raw'
+import scoreboardTemplate from './templates/partials/scoreboard.html?raw'
+import contestUserTemplate from './templates/partials/contest_user.html?raw'
 import { renderMarkdown } from './markdown.ts'
 import { contentLanguages, selectLocalizedContent } from './problem-content.ts'
 import { datetimeSpan } from './datetime.ts'
@@ -69,6 +71,8 @@ sources.set('manage_ip_login.html', manageIPLoginTemplate)
 sources.set('contest_team.html', contestTeamTemplate)
 sources.set('contest_main.html', contestMainTemplate)
 sources.set('partials/contest_sidebar.html', contestSidebarTemplate)
+sources.set('partials/scoreboard.html', scoreboardTemplate)
+sources.set('partials/contest_user.html', contestUserTemplate)
 
 // The app already owns the shared <nav>/<footer> shell. Page templates continue
 // to extend the upstream layout so their block structure stays untouched, but

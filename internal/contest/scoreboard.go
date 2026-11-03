@@ -23,8 +23,10 @@ type scoreboardRecord struct {
 }
 
 type scoreboardAttendee struct {
-	UID    int64
-	Unrank bool
+	UID         int64
+	Unrank      bool
+	DisplayName string
+	Members     []int64
 }
 
 type scoreboardState struct {
@@ -108,13 +110,13 @@ func buildScoreboard(item *Contest, attendees []scoreboardAttendee, records []sc
 			unranked[attendee.UID] = true
 			continue
 		}
-		if attendee.UID > 0 {
+		if attendee.UID != 0 {
 			users[attendee.UID] = newScoreboardState(attendee.UID)
 		}
 	}
 	first := firstAccepted(item, records)
 	for _, record := range records {
-		if record.UID <= 0 || unranked[record.UID] {
+		if record.UID == 0 || unranked[record.UID] {
 			continue
 		}
 		allowed := false
@@ -146,9 +148,15 @@ func buildScoreboard(item *Contest, attendees []scoreboardAttendee, records []sc
 		}
 	}
 	rows := make([]ScoreboardRow, 0, len(users))
+	attendeesByUID := make(map[int64]scoreboardAttendee, len(attendees))
+	for _, attendee := range attendees {
+		attendeesByUID[attendee.UID] = attendee
+	}
 	for _, state := range users {
+		attendee := attendeesByUID[state.uid]
 		rows = append(rows, ScoreboardRow{
-			UID: state.uid, Solved: state.solved, Penalty: state.penalty,
+			UID: state.uid, DisplayName: attendee.DisplayName, Members: attendee.Members,
+			Solved: state.solved, Penalty: state.penalty,
 			Score: state.score, OriginalScore: state.original, Time: state.time,
 			Problems: state.cells,
 		})

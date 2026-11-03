@@ -84,7 +84,12 @@ export function ContestScoreboardPage() {
 
   useEffect(() => {
     if (!contest) return
-    const uids = [...new Set(rows.map((row) => row.uid))].filter((uid) => uid > 0)
+    const uidSet = new Set<number>()
+    for (const row of rows) {
+      if (row.uid > 0) uidSet.add(row.uid)
+      for (const member of row.members ?? []) uidSet.add(member)
+    }
+    const uids = [...uidSet]
     getUsersByIDs(uids).then(setUsers).catch(() => setUsers([]))
   }, [contest, rows])
 
@@ -102,12 +107,32 @@ export function ContestScoreboardPage() {
     }
   }, [contest])
 
-  const udict = useMemo(() => Object.fromEntries(users.map((item) => [String(item.id), {
-    _id: item.id,
-    uname: item.username,
-    displayName: item.displayName ?? '',
-    avatar: item.avatar ?? '',
-  }])), [users])
+  const udict = useMemo(() => {
+    type ScoreboardUser = {
+      _id: number
+      uname: string
+      displayName: string
+      avatar: string
+      teamMembers?: number[]
+    }
+    const entries: Array<[string, ScoreboardUser]> = users.map((item) => [String(item.id), {
+      _id: item.id,
+      uname: item.username,
+      displayName: item.displayName ?? '',
+      avatar: item.avatar ?? '',
+    }])
+    for (const row of rows) {
+      if (row.uid >= 0) continue
+      entries.push([String(row.uid), {
+        _id: row.uid,
+        uname: row.displayName || `Team ${row.uid}`,
+        displayName: row.displayName ?? '',
+        avatar: '',
+        teamMembers: row.members ?? [],
+      }])
+    }
+    return Object.fromEntries(entries)
+  }, [rows, users])
 
   const scoreboardRows = useMemo(() => {
     if (!contest) return []
@@ -289,7 +314,10 @@ export function ContestScoreboardPage() {
       case 'contest_scoreboard': return `/contest/${encodeURIComponent(id)}/scoreboard`
       case 'contest_detail': return `/contest/${encodeURIComponent(id)}`
       case 'discussion_node': return `/discuss/contest/${encodeURIComponent(id)}`
-      case 'user_detail': return `/user/${encodeURIComponent(String(args.uid ?? ''))}`
+      case 'user_detail':
+        return Number(args.uid) < 0
+          ? '/contest/team'
+          : `/user/${encodeURIComponent(String(args.uid ?? ''))}`
       case 'record_detail': return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
       case 'problem_detail': {
         const raw = String(args.pid ?? '')

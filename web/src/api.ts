@@ -938,6 +938,8 @@ export type ContestAttendee = {
   unrank?: boolean
   startAt?: string
   endAt?: string
+  displayName?: string
+  members?: number[]
 }
 
 export type ContestBalloonColor = { name: string; color: string }
@@ -1060,6 +1062,8 @@ export type ScoreboardCell = {
 export type ScoreboardRow = {
   rank: number
   uid: number
+  displayName?: string
+  members?: number[]
   solved: number
   penalty: number
   score: number

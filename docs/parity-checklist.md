@@ -976,6 +976,19 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地隔离 Docker Playwright 验证记录列表团队名、团队链接、记录详情和代码可见
 - 控制台 0 error，390px 页面无横向溢出
 
+## 6.54 团队榜单与团队参赛者管理（2026-11-03）
+
+- 榜单支持团队负 UID，团队记录聚合为单行，显示团队名和成员
+- 团队行继续支持排名、封榜、解封、关注用户筛选和 CSV 导出
+- 后台参赛者管理显示团队名、团队成员，并支持团队排名/取消排名
+- 直接复用上游 `partials/scoreboard.html` 和 `partials/contest_user.html` 团队展示逻辑
+
+验证：
+
+- Go 集成测试覆盖团队榜单聚合、团队状态字段和 unrank
+- 本地隔离 Docker Playwright 验证团队单行、成员链接、团队参赛者管理和 unrank
+- 390px 页面无横向溢出，控制台 0 error
+
 ## 7. 当前已知差异
 
 ```text
