@@ -101,6 +101,12 @@ export const RULES: Record<string, ContestRule> = {
     showSelfRecord: () => true,
     showRecord: (tdoc, now) => now > tdoc.endAt && !isLocked(tdoc, now),
   },
+  codeforces: {
+    TEXT: 'Codeforces',
+    showScoreboard: (tdoc, now) => now > tdoc.beginAt,
+    showSelfRecord: () => true,
+    showRecord: (tdoc, now) => now > tdoc.endAt && !isLocked(tdoc, now),
+  },
   oi: {
     TEXT: 'OI',
     showScoreboard: (tdoc, now) => now > tdoc.endAt && !tdoc.keepScoreboardHidden,

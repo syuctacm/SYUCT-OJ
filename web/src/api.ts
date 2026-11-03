@@ -682,9 +682,10 @@ export async function getSubmission(rid: string): Promise<Submission> {
   return result.data
 }
 
-export async function createHack(pid: string, rid: string, input: FormData): Promise<Submission> {
+export async function createHack(pid: string, rid: string, input: FormData, tid = ''): Promise<Submission> {
+  const query = tid ? `?tid=${encodeURIComponent(tid)}` : ''
   const result = await request<Envelope<Submission>>(
-    `/api/v1/problems/${encodeURIComponent(pid)}/hack/${encodeURIComponent(rid)}`,
+    `/api/v1/problems/${encodeURIComponent(pid)}/hack/${encodeURIComponent(rid)}${query}`,
     { method: 'POST', body: input },
   )
   return result.data

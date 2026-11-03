@@ -318,7 +318,37 @@ func (h *SubmissionHandler) createHack(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "hack input is required"})
 		return
 	}
-	record, err := h.repo.CreateHack(c.Request.Context(), uid, c.Param("pid"), c.Param("rid"), input)
+	contestID := strings.TrimSpace(c.Query("tid"))
+	if contestID != "" {
+		if h.contests == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "contest service is unavailable"})
+			return
+		}
+		item, err := h.contests.Get(c.Request.Context(), contestID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "contest not found"})
+			return
+		}
+		if item.Rule != "codeforces" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "this contest type does not allow hacks"})
+			return
+		}
+		status, err := h.contests.StatusForUser(c.Request.Context(), contestID, uid)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load contest status"})
+			return
+		}
+		if status == nil || status.Attend == 0 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "attend the contest first"})
+			return
+		}
+		if !contest.IsOngoing(item, status, time.Now()) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "contest is not running"})
+			return
+		}
+		uid = status.UID
+	}
+	record, err := h.repo.CreateHack(c.Request.Context(), uid, c.Param("pid"), c.Param("rid"), input, contestID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

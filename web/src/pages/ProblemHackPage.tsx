@@ -1,7 +1,7 @@
 // Page markup is rendered from the pinned Hydro ui-default template. React
 // supplies the target record, permissions and multipart submit adapter.
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { createHack, getProblem, getSubmission, getUsersByIDs, type ProblemDetail, type Submission } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
@@ -39,6 +39,8 @@ function configSummary(problem: ProblemDetail) {
 
 export function ProblemHackPage() {
   const { pid = '', rid = '' } = useParams()
+  const [searchParams] = useSearchParams()
+  const tid = searchParams.get('tid') ?? ''
   const navigate = useNavigate()
   const { user } = useAuth()
   const [problem, setProblem] = useState<ProblemDetail | null>(null)
@@ -51,24 +53,24 @@ export function ProblemHackPage() {
     setSubmitting(true)
     setError('')
     try {
-      const record = await createHack(pid, rid, new FormData(form))
+      const record = await createHack(pid, rid, new FormData(form), tid)
       navigate(`/record/${encodeURIComponent(record.id)}`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Hack 提交失败')
     } finally {
       setSubmitting(false)
     }
-  }, [navigate, pid, rid, submitting])
+  }, [navigate, pid, rid, submitting, tid])
 
   useEffect(() => {
     setError('')
-    Promise.all([getProblem(pid), getSubmission(rid)])
+    Promise.all([getProblem(pid, tid), getSubmission(rid)])
       .then(([nextProblem, nextSubmission]) => {
         setProblem(nextProblem)
         setSubmission(nextSubmission)
       })
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Hack 页面加载失败'))
-  }, [pid, rid])
+  }, [pid, rid, tid])
 
   useEffect(() => {
     if (!problem) {
@@ -144,7 +146,7 @@ export function ProblemHackPage() {
           own: () => false,
         },
         args: { domainId: 'system' },
-        request: { query: {}, path: `/p/${pid}/hack/${rid}`, headers: { 'user-agent': navigator.userAgent } },
+        request: { query: tid ? { tid } : {}, path: `/p/${pid}/hack/${rid}`, headers: { 'user-agent': navigator.userAgent } },
         session: { legacy: false, viewLang: 'zh' },
         ctx: { setting: { get: () => '' }, i18n: { get: () => '' } },
       },
@@ -157,7 +159,7 @@ export function ProblemHackPage() {
       UiContext: {},
       UserContext: user,
     }
-  }, [pid, problem, rid, submission, user, users])
+  }, [pid, problem, rid, submission, tid, user, users])
 
   if (!user) return <ErrorPage status={403} />
   if (error && !problem) return <div className="row"><div className="columns"><div className="nothing-placeholder">{error}</div></div></div>

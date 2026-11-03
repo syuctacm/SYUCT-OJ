@@ -293,7 +293,11 @@ export function SubmissionPage() {
         url={(name, args = {}) => {
           if (name === 'record_detail') return `/record/${encodeURIComponent(String(args.rid ?? ''))}`
           if (name === 'problem_detail') return `/p/${encodeURIComponent(String(args.pid ?? ''))}`
-          if (name === 'problem_hack') return `/p/${encodeURIComponent(String(args.pid ?? submission.problem?.pid ?? ''))}/hack/${encodeURIComponent(String(args.rid ?? submission.id))}`
+          if (name === 'problem_hack') {
+            const query = (args.query ?? {}) as Record<string, unknown>
+            const suffix = query.tid ? `?tid=${encodeURIComponent(String(query.tid))}` : ''
+            return `/p/${encodeURIComponent(String(args.pid ?? submission.problem?.pid ?? ''))}/hack/${encodeURIComponent(String(args.rid ?? submission.id))}${suffix}`
+          }
           if (name === 'user_detail') {
             return Number(args.uid) < 0
               ? '/contest/team'

@@ -66,14 +66,14 @@ Scratchpad 的 F9 预测试调用 `POST /api/v1/problems/:pid/pretest`：
 - 题目配置包含自定义 checker 和 validator，且 `checker_type` 不是 `default` / `strict`
 - 目标记录属于该题、状态为 Accepted、不是自己的提交
 - 当前用户已有一份该题的 Accepted 提交
-- 普通题目模式；Codeforces 规则的比赛内 Hack 暂不开放
+- 比赛内 Hack 仅允许 `codeforces` 规则；比赛必须进行中，Hack 和目标提交必须属于同一场比赛
 
 输入支持文本框和最大 2 MiB 的文件上传，可选择自动整理空白。创建后记录使用
 `type=hack`、`hackTarget` 和 `files.hack`，由 hydrojudge 原生 `hack` 模式执行
 validator、目标代码和 checker。
 
 Hack Successful 时，服务端把输入追加为题目最后一个子任务的测试点，并对该题普通
-Accepted 记录下发带 `meta.hackRejudge` 的重判任务；失败记录保持 Hack Unsuccessful，
+Accepted 记录下发带 `meta.hackRejudge` 的重判任务；Codeforces 比赛内 Hack 只重判该场比赛的 AC 记录。失败记录保持 Hack Unsuccessful，
 目标记录不变。Hack 记录不计入题目提交/通过计数，也不能重测或取消成绩。
 
 本地真实判题回归：

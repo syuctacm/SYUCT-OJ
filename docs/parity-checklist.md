@@ -1002,6 +1002,20 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地隔离 Docker mock provider + Playwright 覆盖 GitHub 登录、OAuth 账号显示、解绑和重新绑定
 - 390px 页面无横向溢出，控制台 0 error
 
+## 6.56 Codeforces 比赛内 Hack（2026-11-03）
+
+- 新增 `codeforces` 赛制，使用 XCPC 计分并显示封榜设置
+- 比赛进行中、已报名且本题 AC 的用户可以 Hack 同场其他用户或团队的 AC 提交
+- 禁止 Hack 自己或同队提交，非 `codeforces` 比赛拒绝 Hack
+- Hack 记录关联比赛；成功后只重判该场比赛内同一题的 AC 记录
+- 原版记录页 Hack 入口保留 `?tid`，直接复用 `problem_hack.html` 表单
+
+验证：
+
+- Go 集成测试覆盖比赛内 Hack、自己 Hack、非 Codeforces 比赛拒绝和比赛内重判范围
+- 本地隔离 Docker Playwright 验证比赛记录 Hack 入口、表单 `?tid`、提交后 Hack 记录关联本场比赛
+- 390px 无横向溢出，控制台 0 error
+
 ## 7. 当前已知差异
 
 ```text
@@ -1016,6 +1030,6 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 ## 8. 尚未迁移的模块
 
-以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：后台脚本/高级配置，以及 Codeforces 比赛内 Hack；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括：后台脚本/高级配置；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
 
 已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、SSR。

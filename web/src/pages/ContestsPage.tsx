@@ -10,6 +10,7 @@ import { formatInTimeZone } from '../upstream/timezone.ts'
 
 const ruleNames: Record<string, string> = {
   acm: 'XCPC / ACM',
+  codeforces: 'Codeforces',
   oi: 'OI',
   ioi: 'IOI',
   ledo: 'Ledo',

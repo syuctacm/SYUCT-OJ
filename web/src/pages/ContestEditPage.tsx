@@ -22,6 +22,7 @@ import { currentTimeZone, parseZonedDateTime, zonedDateParts } from '../upstream
 
 const rules = {
   acm: 'XCPC / ACM',
+  codeforces: 'Codeforces',
   oi: 'OI',
   ioi: 'IOI',
   strictioi: 'Strict IOI',
