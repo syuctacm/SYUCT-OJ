@@ -111,7 +111,16 @@ wait_for_ready() {
       ));
       return document.readyState === "complete" && !loading && loaderHidden && sectionsReady;
     }, null, { timeout: 15000 });
-    await page.evaluate(async () => { await document.fonts.ready; });
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await Promise.all([...document.images].map((image) => {
+        if (image.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          image.addEventListener("load", resolve, { once: true });
+          image.addEventListener("error", resolve, { once: true });
+        });
+      }));
+    });
   }' >/dev/null
 }
 
