@@ -96,6 +96,7 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		handler.NewDiscussionHandler(discussionRepo, sessions, userRepo, messageRepo).RegisterRoutes(router.Group("/"))
 	}
 	if userRepo != nil {
+		handler.NewTeamHandler(contest.NewTeamRepository(db), userRepo, sessions).RegisterRoutes(router.Group("/"))
 		mailer := mail.New(mail.Config{
 			Host: cfg.MailHost, Port: cfg.MailPort, Username: cfg.MailUsername,
 			Password: cfg.MailPassword, From: cfg.MailFrom,

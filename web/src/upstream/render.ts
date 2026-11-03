@@ -18,6 +18,8 @@ import wikiHelpSingleSiteTemplate from './templates/wiki_help_single_site.html?r
 import userDeleteConfirmTemplate from './templates/user_delete_confirm.html?raw'
 import manageDiscussionNodesTemplate from './templates/manage_discussion_nodes.html?raw'
 import manageIPLoginTemplate from './templates/manage_ip_login.html?raw'
+import contestTeamTemplate from './templates/contest_team.html?raw'
+import contestMainTemplate from './templates/contest_main.html?raw'
 import { renderMarkdown } from './markdown.ts'
 import { contentLanguages, selectLocalizedContent } from './problem-content.ts'
 import { datetimeSpan } from './datetime.ts'
@@ -63,6 +65,8 @@ sources.set('wiki_help.html', wikiHelpSingleSiteTemplate)
 sources.set('user_delete_confirm.html', userDeleteConfirmTemplate)
 sources.set('manage_discussion_nodes.html', manageDiscussionNodesTemplate)
 sources.set('manage_ip_login.html', manageIPLoginTemplate)
+sources.set('contest_team.html', contestTeamTemplate)
+sources.set('contest_main.html', contestMainTemplate)
 
 // The app already owns the shared <nav>/<footer> shell. Page templates continue
 // to extend the upstream layout so their block structure stays untouched, but

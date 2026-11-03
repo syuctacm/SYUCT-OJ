@@ -38,6 +38,7 @@ export function pageMetaForPath(pathname: string): PageMeta {
   if (pathname === '/record') return basic('record_main', '评测记录')
   if (/^\/record\/[^/]+\/?$/.test(pathname)) return basic('record_detail', '评测详情')
   if (pathname === '/contest') return basic('contest_main', '比赛')
+  if (pathname === '/contest/team') return basic('contest_team', '团队管理')
   if (pathname === '/contest/new') return basic('contest_create', '创建比赛')
   if (/^\/contest\/[^/]+\/edit\/?$/.test(pathname)) return basic('contest_edit', '编辑比赛')
   if (/^\/contest\/[^/]+\/manag(ement)?\/?$/.test(pathname) || /^\/contest\/[^/]+\/files\/?$/.test(pathname)) return basic('contest_manage', '比赛管理')
