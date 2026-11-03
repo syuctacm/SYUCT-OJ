@@ -37,7 +37,7 @@
 ## 前端
 
 - `/admin` 渲染上游 `manage_dashboard.html`：Messages、Information（域头像/名称）和 `manage_base.html` 控制面板侧栏
-- `/admin/settings` 渲染上游 `manage_setting.html` + `partials/setting.html`，管理站点名、Logo、Gravatar 前缀、页脚 HTML、公告、About、Scratchpad 开关、首页布局和分页默认值
+- `/admin/settings` 渲染上游 `manage_setting.html` + `partials/setting.html`，管理站点名、Logo、Gravatar 前缀、页脚 HTML、公告、About、Scratchpad 开关、首页布局、判题语言表和分页默认值
 - `/admin/users` 渲染上游 `manage_user_priv.html`：默认权限行 + 按 `priv` 分组的用户表，`show_priv` 宏显示相对默认权限的 `+/-` 位
 - 默认权限行可编辑；保存后新注册用户继承新值，仍使用旧默认值的用户同步迁移，自定义权限用户不受影响
 - `/admin/ip-login` 提供 IP 自动登录映射的列表、新增/更新、编辑和删除；页面复用 `manage_base.html` 控制面板侧栏
@@ -51,6 +51,8 @@
 设置存储在 Hydro 同名的 `system` 集合里（`{_id: key, value: ...}`）。公开接口 `GET /api/v1/settings` 只返回前台实际消费的字段，管理接口 `GET/PUT /api/v1/admin/settings` 需要管理员权限。首页布局使用 `hydrooj.homepage` YAML，保存前校验栏目结构。
 
 分页默认值使用 Hydro 同名配置：`pagination.problem`、`pagination.contest`、`pagination.discussion`、`pagination.record`、`pagination.ranking`、`pagination.solution`、`pagination.training`。列表请求未显式传 `limit` 时由后端读取对应配置，前端也使用相同的公共设置值；显式 `limit` 仍然优先。
+
+判题语言表使用 `hydrooj.langs` YAML，按 Hydro 的点号继承规则合并配置；保存后同时更新 `/api/v1/languages`、判题 hub 和状态页语言列表。
 
 Hydro 的后台脚本/插件任务管理器不迁移；重写版维护任务统一通过仓库中的 CLI、迁移脚本和 Docker 脚本执行，避免重新引入 Cordis/addon 插件运行时。
 
@@ -91,7 +93,7 @@ ONSITE_IP_LOGIN=1
 
 ## 尚未完成
 
-- 尚未被当前前台消费的高级系统配置（语言配置、配置 schema 编辑器、上传/提交限制等）
+- 尚未被当前前台消费的高级系统配置（配置 schema 编辑器、上传/提交限制、会话配置等）
 - `manage_dashboard` 的 WebSocket 连接检查和「Restart」按钮（出于安全考虑未实现，并从 DOM 移除）
 - 题目/比赛/训练编辑仍从各自详情页进入，没有复制到后台单独页面
 

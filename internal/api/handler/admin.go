@@ -19,13 +19,20 @@ import (
 )
 
 type AdminHandler struct {
-	db       *mongo.Database
-	users    *user.Repository
-	sessions *auth.SessionManager
+	db              *mongo.Database
+	users           *user.Repository
+	sessions        *auth.SessionManager
+	languageUpdater func(string) error
 }
 
 func NewAdminHandler(db *mongo.Database, users *user.Repository, sessions *auth.SessionManager) *AdminHandler {
 	return &AdminHandler{db: db, users: users, sessions: sessions}
+}
+
+// SetLanguageUpdater lets the API process apply a saved hydrooj.langs value to
+// the live judge hub without coupling the admin handler to the judge package.
+func (h *AdminHandler) SetLanguageUpdater(updater func(string) error) {
+	h.languageUpdater = updater
 }
 
 func (h *AdminHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -305,6 +312,12 @@ func (h *AdminHandler) updateSettings(c *gin.Context) {
 	if err := writeSiteSettings(c.Request.Context(), h.db, updates); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save settings"})
 		return
+	}
+	if request.LanguageYAML != nil && h.languageUpdater != nil {
+		if err := h.languageUpdater(*request.LanguageYAML); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to apply language settings"})
+			return
+		}
 	}
 	values, err := readSiteSettings(c.Request.Context(), h.db)
 	if err != nil {

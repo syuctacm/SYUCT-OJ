@@ -15,11 +15,16 @@ import (
 
 type StatusHandler struct {
 	db       *mongo.Database
+	hub      *judge.Hub
 	requests atomic.Int64
 }
 
-func NewStatusHandler(db *mongo.Database) *StatusHandler {
-	return &StatusHandler{db: db}
+func NewStatusHandler(db *mongo.Database, hub ...*judge.Hub) *StatusHandler {
+	h := &StatusHandler{db: db}
+	if len(hub) > 0 {
+		h.hub = hub[0]
+	}
+	return h
 }
 
 func (h *StatusHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -66,15 +71,19 @@ func (h *StatusHandler) get(c *gin.Context) {
 				Memory:   map[string]int64{"used": int64(mem.Alloc), "total": int64(mem.Sys)},
 				ReqCount: h.requests.Load(),
 			}},
-			"languages": statusLanguages(),
+			"languages": h.statusLanguages(),
 			"compilers": []any{},
 		},
 	})
 }
 
-func statusLanguages() map[string]string {
+func (h *StatusHandler) statusLanguages() map[string]string {
+	languages := judge.DefaultLanguages()
+	if h.hub != nil {
+		languages = h.hub.Languages()
+	}
 	result := make(map[string]string)
-	for key, raw := range judge.DefaultLanguages() {
+	for key, raw := range languages {
 		entry, ok := raw.(map[string]any)
 		if !ok {
 			continue
@@ -83,6 +92,9 @@ func statusLanguages() map[string]string {
 			continue
 		}
 		if remote, _ := entry["remote"].(bool); remote {
+			continue
+		}
+		if disabled, _ := entry["disabled"].(bool); disabled {
 			continue
 		}
 		display, _ := entry["display"].(string)

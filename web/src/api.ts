@@ -71,6 +71,7 @@ export type PublicSettings = {
   gravatarUrl: string
   homepageYaml: string
   aboutMarkdown: string
+  languageYaml: string
   paginationProblem: number
   paginationContest: number
   paginationDiscussion: number

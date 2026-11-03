@@ -14,6 +14,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"gopkg.in/yaml.v3"
+
+	"github.com/syuctacm/syuct-oj/internal/judge"
 )
 
 const (
@@ -25,6 +27,7 @@ const (
 	settingGravatarURL     = "avatar.gravatar_url"
 	settingHomepage        = "hydrooj.homepage"
 	settingAbout           = "ui-default.about"
+	settingLanguages       = "hydrooj.langs"
 
 	settingPaginationProblem    = "pagination.problem"
 	settingPaginationContest    = "pagination.contest"
@@ -71,7 +74,7 @@ const DefaultAboutMarkdown = `# about 关于 {{ name }}
 
 var siteSettingKeys = []string{
 	settingBulletin, settingServerName, settingNavLogo, settingFooterExtraHTML,
-	settingScratchpad, settingGravatarURL, settingHomepage, settingAbout,
+	settingScratchpad, settingGravatarURL, settingHomepage, settingAbout, settingLanguages,
 	settingPaginationProblem, settingPaginationContest, settingPaginationDiscussion,
 	settingPaginationRecord, settingPaginationRanking, settingPaginationSolution,
 	settingPaginationTraining,
@@ -86,6 +89,7 @@ type SiteSettings struct {
 	GravatarURL          string `json:"gravatarUrl"`
 	HomepageYAML         string `json:"homepageYaml"`
 	AboutMarkdown        string `json:"aboutMarkdown"`
+	LanguageYAML         string `json:"languageYaml"`
 	PaginationProblem    int    `json:"paginationProblem"`
 	PaginationContest    int    `json:"paginationContest"`
 	PaginationDiscussion int    `json:"paginationDiscussion"`
@@ -101,6 +105,7 @@ func DefaultSiteSettings() SiteSettings {
 		FooterExtraHTML: DefaultFooterExtraHTML, EnableScratchpad: true,
 		GravatarURL: DefaultGravatarURL, HomepageYAML: DefaultHomepageYAML,
 		AboutMarkdown:     DefaultAboutMarkdown,
+		LanguageYAML:      judge.DefaultLanguagesYAML(),
 		PaginationProblem: 100, PaginationContest: 20, PaginationDiscussion: 50,
 		PaginationRecord: 100, PaginationRanking: 100, PaginationSolution: 20,
 		PaginationTraining: 10,
@@ -190,6 +195,14 @@ func setSiteSettingValue(values *SiteSettings, key string, value any) {
 		if isText {
 			values.AboutMarkdown = text
 		}
+	case settingLanguages:
+		if isText {
+			values.LanguageYAML = text
+		} else if value != nil {
+			if encoded, err := yaml.Marshal(value); err == nil {
+				values.LanguageYAML = string(encoded)
+			}
+		}
 	case settingPaginationProblem:
 		if number, ok := anyInt(value); ok && number > 0 {
 			values.PaginationProblem = number
@@ -273,6 +286,9 @@ func siteSettingUpdates(input SiteSettingsInput) map[string]any {
 	if input.AboutMarkdown != nil {
 		updates[settingAbout] = *input.AboutMarkdown
 	}
+	if input.LanguageYAML != nil {
+		updates[settingLanguages] = *input.LanguageYAML
+	}
 	for key, value := range map[string]*int{
 		settingPaginationProblem: input.PaginationProblem, settingPaginationContest: input.PaginationContest,
 		settingPaginationDiscussion: input.PaginationDiscussion, settingPaginationRecord: input.PaginationRecord,
@@ -305,6 +321,7 @@ type SiteSettingsInput struct {
 	GravatarURL          *string `json:"gravatarUrl"`
 	HomepageYAML         *string `json:"homepageYaml"`
 	AboutMarkdown        *string `json:"aboutMarkdown"`
+	LanguageYAML         *string `json:"languageYaml"`
 	PaginationProblem    *int    `json:"paginationProblem"`
 	PaginationContest    *int    `json:"paginationContest"`
 	PaginationDiscussion *int    `json:"paginationDiscussion"`
@@ -375,6 +392,11 @@ func validateSiteSettings(input SiteSettingsInput) error {
 	if input.HomepageYAML != nil && !validHomepageYAML(*input.HomepageYAML) {
 		return fmt.Errorf("invalid homepage yaml")
 	}
+	if input.LanguageYAML != nil {
+		if _, err := judge.ParseLanguages(*input.LanguageYAML); err != nil {
+			return fmt.Errorf("invalid language yaml: %w", err)
+		}
+	}
 	for _, item := range []struct {
 		value *int
 		label string
@@ -396,7 +418,7 @@ func validateSiteSettings(input SiteSettingsInput) error {
 		{input.Bulletin, 20000, "bulletin"}, {input.SiteName, 100, "site name"},
 		{input.NavLogo, 512, "nav logo"}, {input.FooterExtraHTML, 20000, "footer html"},
 		{input.GravatarURL, 512, "gravatar url"}, {input.HomepageYAML, 20000, "homepage yaml"},
-		{input.AboutMarkdown, 50000, "about markdown"},
+		{input.AboutMarkdown, 50000, "about markdown"}, {input.LanguageYAML, 100000, "language yaml"},
 	} {
 		if err := checkLength(item.value, item.max, item.label); err != nil {
 			return err

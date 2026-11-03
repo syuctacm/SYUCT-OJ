@@ -39,6 +39,10 @@ func (h *Handler) Store() *FileStore {
 	return h.store
 }
 
+func (h *Handler) Hub() *Hub {
+	return h.hub
+}
+
 // EnableGenerateUpload lets /judge/upload persist generated testdata into the
 // problem referenced by an active type=generate task.
 func (h *Handler) EnableGenerateUpload(db *mongo.Database, problems *problem.Repository) {

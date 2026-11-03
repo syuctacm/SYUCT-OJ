@@ -75,6 +75,7 @@ db.system.insertMany([
   { _id: "ui-default.footer_extra_html", value: "SYUCT ACM Visual Regression" },
   { _id: "ui-default.enableScratchpad", value: false },
   { _id: "hydrooj.homepage", value: "- width: 8\n  contest: 3\n  homework: 3\n  training: 3\n- width: 4\n  discussion_nodes: true\n  problem_search: true\n" },
+  { _id: "hydrooj.langs", value: "cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\ncc:\n  display: C++\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cc\n  code_file: foo.cc\n  execute: /w/foo\n  hidden: true\npython3:\n  display: Python 3\n  compile: /usr/bin/python3 -m py_compile foo.py\n  code_file: foo.py\n  execute: /usr/bin/python3 foo.py\npy:\n  display: Python\n  code_file: foo.py\n  execute: /usr/bin/python3 foo.py\n  hidden: true\n" },
   { _id: "pagination.problem", value: 100 },
   { _id: "pagination.contest", value: 20 },
   { _id: "pagination.discussion", value: 50 },

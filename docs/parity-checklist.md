@@ -1102,6 +1102,22 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地 Docker Playwright 验证后台保存分页值后题目列表按新值分页
 - 未连接生产环境
 
+## 6.63 判题语言表配置（2026-11-03）
+
+- 后台系统设置新增 Hydro `hydrooj.langs` YAML 编辑项
+- 按上游规则处理点号语言继承、默认显示名/文件名、hidden/remote/disabled
+- 启动时从 `system` 读取语言表并发送给 hydrojudge hub
+- 后台保存后校验配置、更新运行中 hub，并向已连接判题机广播新语言表
+- `/api/v1/languages`、题目/比赛语言交集和状态页使用当前生效注册表
+
+验证：
+
+- Go 单元测试覆盖继承、默认字段和隐藏/远程/禁用过滤
+- Go 集成测试覆盖后台保存和 `/api/v1/languages` 即时更新
+- 前端 lint/build
+- 本地 Docker Playwright 验证后台保存语言 YAML 后提交页语言选项变化
+- 不连接生产环境，不修改 hydrojudge/go-judge
+
 ## 7. 当前已知差异
 
 ```text
@@ -1116,6 +1132,6 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 ## 8. 尚未迁移的模块
 
-以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括尚未消费的高级系统配置；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括配置 schema 编辑器、上传/提交限制、会话配置等高级系统配置；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
 
 已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、Hydro 后台脚本/插件任务管理器、SSR。维护任务通过仓库 CLI、迁移脚本和 Docker 脚本执行。

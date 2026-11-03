@@ -16,6 +16,7 @@
 - 后台默认权限读取、编辑和新用户权限继承
 - 后台核心站点设置：站点名、Logo、Gravatar、页脚、公告、About、Scratchpad 和首页布局
 - 后台分页默认值：题目、比赛、讨论、记录、排行榜、题解和训练列表
+- 后台判题语言表：`hydrooj.langs` YAML、语言继承和运行时 hub 更新
 - 本地 Docker 判题闭环、迁移演练、生产形态 Compose 冒烟脚本
 - 公开页面自动截图回归基线和 ImageMagick 差异检查
 
@@ -41,7 +42,7 @@ TEST_MONGO_URI='mongodb://syuct:syuct_dev_password@127.0.0.1:27017/?authSource=a
 
 ### 功能
 
-- 尚未消费的高级系统配置
+- 尚未消费的高级系统配置：配置 schema 编辑器、上传/提交限制、会话配置等
 
 ### 发布验收
 

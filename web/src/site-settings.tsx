@@ -28,6 +28,12 @@ export const DEFAULT_SITE_SETTINGS: PublicSettings = {
   suggestion: true
 `,
   aboutMarkdown: '',
+  languageYaml: `cpp:
+  display: C++17
+  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp
+  code_file: foo.cpp
+  execute: /w/foo
+`,
   paginationProblem: 100,
   paginationContest: 20,
   paginationDiscussion: 50,
