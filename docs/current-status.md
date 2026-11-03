@@ -40,7 +40,7 @@ TEST_MONGO_URI='mongodb://syuct:syuct_dev_password@127.0.0.1:27017/?authSource=a
 
 ### 功能
 
-- 后台脚本管理、尚未消费的高级系统配置
+- 尚未消费的高级系统配置
 
 ### 发布验收
 
@@ -53,5 +53,6 @@ TEST_MONGO_URI='mongodb://syuct:syuct_dev_password@127.0.0.1:27017/?authSource=a
 - VJudge 远程评测
 - HydroAC 远程评测/LSP
 - Cordis/addon 插件加载器
+- Hydro 后台脚本/插件任务管理器；维护任务统一通过仓库 CLI、迁移脚本和 Docker 脚本执行
 - SSR/Next.js
 - 第一阶段 PostgreSQL/Redis/Kafka/微服务化
