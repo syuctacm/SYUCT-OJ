@@ -50,6 +50,9 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	sessions := auth.NewSessionManager(time.Hour)
 	authHandler := auth.NewHandler(userRepo, sessions)
 	adminHandler := handler.NewAdminHandler(db, userRepo, sessions)
+	adminHandler.SetSessionTTLUpdater(func(saved, unsaved time.Duration) {
+		sessions.SetTTLs(saved, unsaved)
+	})
 	router := api.NewRouter(
 		config.Config{CORSOrigins: []string{"http://localhost"}}, db,
 		nil, authHandler, nil, nil, nil, nil, nil, userRepo, adminHandler, sessions,
@@ -86,6 +89,8 @@ func TestPublicSettingsIntegration(t *testing.T) {
 			LimitSubmissionUser  int    `json:"limitSubmissionUser"`
 			LimitPretest         int    `json:"limitPretest"`
 			LimitByUser          bool   `json:"limitByUser"`
+			SessionSavedExpire   int64  `json:"sessionSavedExpireSeconds"`
+			SessionUnsavedExpire int64  `json:"sessionUnsavedExpireSeconds"`
 		} `json:"data"`
 	}
 	get := func(path string, cookies []*http.Cookie) (int, settingsPayload) {
@@ -132,7 +137,8 @@ func TestPublicSettingsIntegration(t *testing.T) {
 		payload.Data.LimitContestFileSize != 128<<20 || payload.Data.LimitProblemFiles != 100 ||
 		payload.Data.LimitProblemFileSize != 256<<20 || payload.Data.LimitCodeLength != 128<<10 ||
 		payload.Data.LimitSubmission != 60 || payload.Data.LimitSubmissionUser != 15 ||
-		payload.Data.LimitPretest != 60 || payload.Data.LimitByUser {
+		payload.Data.LimitPretest != 60 || payload.Data.LimitByUser ||
+		payload.Data.SessionSavedExpire != 30*24*60*60 || payload.Data.SessionUnsavedExpire != 3*60*60 {
 		t.Fatalf("initial public settings = %d %+v", status, payload.Data)
 	}
 
@@ -184,9 +190,15 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status := put(`{"limitSubmission":0}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid submission rate limit = %d", status)
 	}
-	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6,"limitUserFiles":8,"limitUserFileSize":1048576,"limitContestFiles":9,"limitContestFileSize":2097152,"limitProblemFiles":10,"limitProblemFileSize":3145728,"limitCodeLength":65536,"limitSubmission":11,"limitSubmissionUser":7,"limitPretest":12,"limitByUser":true,"languageYaml":"cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\n"}`
+	if status := put(`{"sessionSavedExpireSeconds":59}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid session expiry = %d", status)
+	}
+	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6,"limitUserFiles":8,"limitUserFileSize":1048576,"limitContestFiles":9,"limitContestFileSize":2097152,"limitProblemFiles":10,"limitProblemFileSize":3145728,"limitCodeLength":65536,"limitSubmission":11,"limitSubmissionUser":7,"limitPretest":12,"limitByUser":true,"sessionSavedExpireSeconds":7200,"sessionUnsavedExpireSeconds":1800,"languageYaml":"cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\n"}`
 	if status := put(updateBody, adminCookies); status != http.StatusOK {
 		t.Fatalf("admin update = %d", status)
+	}
+	if sessions.TTLFor("user") != 2*time.Hour || sessions.TTLFor("judge") != 30*time.Minute {
+		t.Fatalf("live session TTLs = user %s judge %s", sessions.TTLFor("user"), sessions.TTLFor("judge"))
 	}
 
 	status, payload = get("/api/v1/settings", nil)
@@ -203,7 +215,8 @@ func TestPublicSettingsIntegration(t *testing.T) {
 		payload.Data.LimitContestFileSize != 2097152 || payload.Data.LimitProblemFiles != 10 ||
 		payload.Data.LimitProblemFileSize != 3145728 || payload.Data.LimitCodeLength != 65536 ||
 		payload.Data.LimitSubmission != 11 || payload.Data.LimitSubmissionUser != 7 ||
-		payload.Data.LimitPretest != 12 || !payload.Data.LimitByUser {
+		payload.Data.LimitPretest != 12 || !payload.Data.LimitByUser ||
+		payload.Data.SessionSavedExpire != 7200 || payload.Data.SessionUnsavedExpire != 1800 {
 		t.Fatalf("public settings after update = %d %+v", status, payload.Data)
 	}
 	status, payload = get("/api/v1/admin/settings", adminCookies)

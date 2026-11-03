@@ -19,10 +19,11 @@ import (
 )
 
 type AdminHandler struct {
-	db              *mongo.Database
-	users           *user.Repository
-	sessions        *auth.SessionManager
-	languageUpdater func(string) error
+	db                *mongo.Database
+	users             *user.Repository
+	sessions          *auth.SessionManager
+	languageUpdater   func(string) error
+	sessionTTLUpdater func(saved, unsaved time.Duration)
 }
 
 func NewAdminHandler(db *mongo.Database, users *user.Repository, sessions *auth.SessionManager) *AdminHandler {
@@ -33,6 +34,12 @@ func NewAdminHandler(db *mongo.Database, users *user.Repository, sessions *auth.
 // the live judge hub without coupling the admin handler to the judge package.
 func (h *AdminHandler) SetLanguageUpdater(updater func(string) error) {
 	h.languageUpdater = updater
+}
+
+// SetSessionTTLUpdater applies saved/unsaved session lifetimes after an admin
+// settings update without coupling the handler to the auth implementation.
+func (h *AdminHandler) SetSessionTTLUpdater(updater func(saved, unsaved time.Duration)) {
+	h.sessionTTLUpdater = updater
 }
 
 func (h *AdminHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -323,6 +330,12 @@ func (h *AdminHandler) updateSettings(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to reload settings"})
 		return
+	}
+	if (request.SessionSavedExpire != nil || request.SessionUnsavedExpire != nil) && h.sessionTTLUpdater != nil {
+		h.sessionTTLUpdater(
+			time.Duration(values.SessionSavedExpire)*time.Second,
+			time.Duration(values.SessionUnsavedExpire)*time.Second,
+		)
 	}
 	session, _ := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
 	keys := make([]string, 0, len(updates))

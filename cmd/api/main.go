@@ -14,6 +14,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/syuctacm/syuct-oj/internal/api"
 	"github.com/syuctacm/syuct-oj/internal/api/handler"
@@ -72,6 +73,15 @@ func main() {
 		slog.Error("unable to initialize session store", "error", err)
 		os.Exit(1)
 	}
+	savedTTL := cfg.SessionTTL
+	unsavedTTL := cfg.SessionTTL
+	if strings.TrimSpace(os.Getenv("SESSION_TTL")) == "" {
+		savedTTL = 30 * 24 * time.Hour
+		unsavedTTL = 3 * time.Hour
+	}
+	savedTTL = readSystemDuration(ctx, db, "session.saved_expire_seconds", savedTTL)
+	unsavedTTL = readSystemDuration(ctx, db, "session.unsaved_expire_seconds", unsavedTTL)
+	sessions.SetTTLs(savedTTL, unsavedTTL)
 	judgeHandler := judge.NewHandler(cfg.JudgeUsername, cfg.JudgePassword, sessions, judgeStore, hub)
 	userRepo := user.NewRepository(db)
 	go user.RunDeletionWorker(context.Background(), db, sessions, time.Hour)
@@ -93,6 +103,9 @@ func main() {
 	submissionRepo := submission.NewRepository(db, problemRepo)
 	submissionHandler := handler.NewSubmissionHandler(submissionRepo, sessions, contestRepo, userRepo)
 	adminHandler := handler.NewAdminHandler(db, userRepo, sessions)
+	adminHandler.SetSessionTTLUpdater(func(saved, unsaved time.Duration) {
+		sessions.SetTTLs(saved, unsaved)
+	})
 	adminHandler.SetLanguageUpdater(func(raw string) error {
 		parsed, err := judge.ParseLanguages(raw)
 		if err != nil {
@@ -148,4 +161,30 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("api stopped")
+}
+
+func readSystemDuration(ctx context.Context, db *mongo.Database, key string, fallback time.Duration) time.Duration {
+	var doc struct {
+		Value any `bson:"value"`
+	}
+	if err := db.Collection("system").FindOne(ctx, bson.M{"_id": key}).Decode(&doc); err != nil {
+		return fallback
+	}
+	var seconds int64
+	switch value := doc.Value.(type) {
+	case int:
+		seconds = int64(value)
+	case int32:
+		seconds = int64(value)
+	case int64:
+		seconds = value
+	case float64:
+		seconds = int64(value)
+	default:
+		return fallback
+	}
+	if seconds <= 0 {
+		return fallback
+	}
+	return time.Duration(seconds) * time.Second
 }

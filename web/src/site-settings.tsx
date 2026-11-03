@@ -52,6 +52,8 @@ export const DEFAULT_SITE_SETTINGS: PublicSettings = {
   limitSubmissionUser: 15,
   limitPretest: 60,
   limitByUser: false,
+  sessionSavedExpireSeconds: 30 * 24 * 60 * 60,
+  sessionUnsavedExpireSeconds: 3 * 60 * 60,
 }
 
 let currentSiteName = DEFAULT_SITE_SETTINGS.siteName
