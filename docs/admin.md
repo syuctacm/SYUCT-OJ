@@ -50,6 +50,8 @@
 
 设置存储在 Hydro 同名的 `system` 集合里（`{_id: key, value: ...}`）。公开接口 `GET /api/v1/settings` 只返回前台实际消费的字段，管理接口 `GET/PUT /api/v1/admin/settings` 需要管理员权限。首页布局使用 `hydrooj.homepage` YAML，保存前校验栏目结构。
 
+Hydro 的后台脚本/插件任务管理器不迁移；重写版维护任务统一通过仓库中的 CLI、迁移脚本和 Docker 脚本执行，避免重新引入 Cordis/addon 插件运行时。
+
 ### 模板层依赖
 
 `manage_user_priv.html` 的 `show_priv` 宏需要 `bitand` 过滤器（`web/src/upstream/render.ts`），PRIV 位值来自 `web/src/upstream/priv.ts`，与 Hydro `packages/common/permission.ts` 保持一致。
