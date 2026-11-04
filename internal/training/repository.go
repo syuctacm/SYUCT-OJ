@@ -498,7 +498,7 @@ func (r *Repository) Get(ctx context.Context, tid string) (*Training, error) {
 	return item, nil
 }
 
-func (r *Repository) Detail(ctx context.Context, tid string, uid int64) (*Detail, error) {
+func (r *Repository) Detail(ctx context.Context, tid string, uid int64, includeEnrolledUsers bool) (*Detail, error) {
 	item, err := r.Get(ctx, tid)
 	if err != nil {
 		return nil, err
@@ -530,9 +530,12 @@ func (r *Repository) Detail(ctx context.Context, tid string, uid int64) (*Detail
 	if err != nil {
 		return nil, err
 	}
-	enrolledUsers, err := r.enrolledUsers(ctx, item.DocID)
-	if err != nil {
-		return nil, err
+	enrolledUsers := make([]int64, 0)
+	if includeEnrolledUsers {
+		enrolledUsers, err = r.enrolledUsers(ctx, item.DocID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	doneNids := map[int64]bool{}

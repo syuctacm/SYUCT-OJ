@@ -19,15 +19,16 @@ import (
 )
 
 const (
-	settingBulletin        = "bulletin"
-	settingServerName      = "server.name"
-	settingNavLogo         = "ui-default.nav_logo_dark"
-	settingFooterExtraHTML = "ui-default.footer_extra_html"
-	settingScratchpad      = "ui-default.enableScratchpad"
-	settingGravatarURL     = "avatar.gravatar_url"
-	settingHomepage        = "hydrooj.homepage"
-	settingAbout           = "ui-default.about"
-	settingLanguages       = "hydrooj.langs"
+	settingBulletin              = "bulletin"
+	settingServerName            = "server.name"
+	settingNavLogo               = "ui-default.nav_logo_dark"
+	settingFooterExtraHTML       = "ui-default.footer_extra_html"
+	settingScratchpad            = "ui-default.enableScratchpad"
+	settingGravatarURL           = "avatar.gravatar_url"
+	settingHomepage              = "hydrooj.homepage"
+	settingAbout                 = "ui-default.about"
+	settingLanguages             = "hydrooj.langs"
+	settingTrainingEnrolledUsers = "training.enrolled-users"
 
 	settingLimitUserFiles       = "limit.user_files"
 	settingLimitUserFileSize    = "limit.user_files_size"
@@ -90,6 +91,7 @@ const DefaultAboutMarkdown = `# about 关于 {{ name }}
 var siteSettingKeys = []string{
 	settingBulletin, settingServerName, settingNavLogo, settingFooterExtraHTML,
 	settingScratchpad, settingGravatarURL, settingHomepage, settingAbout, settingLanguages,
+	settingTrainingEnrolledUsers,
 	settingPaginationProblem, settingPaginationContest, settingPaginationDiscussion,
 	settingPaginationReply, settingPaginationRecord, settingPaginationRanking, settingPaginationSolution,
 	settingPaginationTraining,
@@ -101,36 +103,37 @@ var siteSettingKeys = []string{
 }
 
 type SiteSettings struct {
-	Bulletin             string `json:"bulletin"`
-	SiteName             string `json:"siteName"`
-	NavLogo              string `json:"navLogo"`
-	FooterExtraHTML      string `json:"footerExtraHtml"`
-	EnableScratchpad     bool   `json:"enableScratchpad"`
-	GravatarURL          string `json:"gravatarUrl"`
-	HomepageYAML         string `json:"homepageYaml"`
-	AboutMarkdown        string `json:"aboutMarkdown"`
-	LanguageYAML         string `json:"languageYaml"`
-	PaginationProblem    int    `json:"paginationProblem"`
-	PaginationContest    int    `json:"paginationContest"`
-	PaginationDiscussion int    `json:"paginationDiscussion"`
-	PaginationReply      int    `json:"paginationReply"`
-	PaginationRecord     int    `json:"paginationRecord"`
-	PaginationRanking    int    `json:"paginationRanking"`
-	PaginationSolution   int    `json:"paginationSolution"`
-	PaginationTraining   int    `json:"paginationTraining"`
-	LimitUserFiles       int    `json:"limitUserFiles"`
-	LimitUserFileSize    int64  `json:"limitUserFileSize"`
-	LimitContestFiles    int    `json:"limitContestFiles"`
-	LimitContestFileSize int64  `json:"limitContestFileSize"`
-	LimitProblemFiles    int    `json:"limitProblemFiles"`
-	LimitProblemFileSize int64  `json:"limitProblemFileSize"`
-	LimitCodeLength      int64  `json:"limitCodeLength"`
-	LimitSubmission      int    `json:"limitSubmission"`
-	LimitSubmissionUser  int    `json:"limitSubmissionUser"`
-	LimitPretest         int    `json:"limitPretest"`
-	LimitByUser          bool   `json:"limitByUser"`
-	SessionSavedExpire   int64  `json:"sessionSavedExpireSeconds"`
-	SessionUnsavedExpire int64  `json:"sessionUnsavedExpireSeconds"`
+	Bulletin              string `json:"bulletin"`
+	SiteName              string `json:"siteName"`
+	NavLogo               string `json:"navLogo"`
+	FooterExtraHTML       string `json:"footerExtraHtml"`
+	EnableScratchpad      bool   `json:"enableScratchpad"`
+	GravatarURL           string `json:"gravatarUrl"`
+	HomepageYAML          string `json:"homepageYaml"`
+	AboutMarkdown         string `json:"aboutMarkdown"`
+	LanguageYAML          string `json:"languageYaml"`
+	TrainingEnrolledUsers bool   `json:"trainingEnrolledUsers"`
+	PaginationProblem     int    `json:"paginationProblem"`
+	PaginationContest     int    `json:"paginationContest"`
+	PaginationDiscussion  int    `json:"paginationDiscussion"`
+	PaginationReply       int    `json:"paginationReply"`
+	PaginationRecord      int    `json:"paginationRecord"`
+	PaginationRanking     int    `json:"paginationRanking"`
+	PaginationSolution    int    `json:"paginationSolution"`
+	PaginationTraining    int    `json:"paginationTraining"`
+	LimitUserFiles        int    `json:"limitUserFiles"`
+	LimitUserFileSize     int64  `json:"limitUserFileSize"`
+	LimitContestFiles     int    `json:"limitContestFiles"`
+	LimitContestFileSize  int64  `json:"limitContestFileSize"`
+	LimitProblemFiles     int    `json:"limitProblemFiles"`
+	LimitProblemFileSize  int64  `json:"limitProblemFileSize"`
+	LimitCodeLength       int64  `json:"limitCodeLength"`
+	LimitSubmission       int    `json:"limitSubmission"`
+	LimitSubmissionUser   int    `json:"limitSubmissionUser"`
+	LimitPretest          int    `json:"limitPretest"`
+	LimitByUser           bool   `json:"limitByUser"`
+	SessionSavedExpire    int64  `json:"sessionSavedExpireSeconds"`
+	SessionUnsavedExpire  int64  `json:"sessionUnsavedExpireSeconds"`
 }
 
 func DefaultSiteSettings() SiteSettings {
@@ -138,9 +141,10 @@ func DefaultSiteSettings() SiteSettings {
 		SiteName: DefaultSiteName, NavLogo: DefaultNavLogo,
 		FooterExtraHTML: DefaultFooterExtraHTML, EnableScratchpad: true,
 		GravatarURL: DefaultGravatarURL, HomepageYAML: DefaultHomepageYAML,
-		AboutMarkdown:     DefaultAboutMarkdown,
-		LanguageYAML:      judge.DefaultLanguagesYAML(),
-		PaginationProblem: 100, PaginationContest: 20, PaginationDiscussion: 50, PaginationReply: 50,
+		AboutMarkdown:         DefaultAboutMarkdown,
+		LanguageYAML:          judge.DefaultLanguagesYAML(),
+		TrainingEnrolledUsers: true,
+		PaginationProblem:     100, PaginationContest: 20, PaginationDiscussion: 50, PaginationReply: 50,
 		PaginationRecord: 100, PaginationRanking: 100, PaginationSolution: 20,
 		PaginationTraining: 10,
 		LimitUserFiles:     100, LimitUserFileSize: 128 << 20,
@@ -242,6 +246,10 @@ func setSiteSettingValue(values *SiteSettings, key string, value any) {
 			if encoded, err := yaml.Marshal(value); err == nil {
 				values.LanguageYAML = string(encoded)
 			}
+		}
+	case settingTrainingEnrolledUsers:
+		if boolean, ok := anyBool(value); ok {
+			values.TrainingEnrolledUsers = boolean
 		}
 	case settingPaginationProblem:
 		if number, ok := anyInt(value); ok && number > 0 {
@@ -392,6 +400,9 @@ func siteSettingUpdates(input SiteSettingsInput) map[string]any {
 	if input.LanguageYAML != nil {
 		updates[settingLanguages] = *input.LanguageYAML
 	}
+	if input.TrainingEnrolledUsers != nil {
+		updates[settingTrainingEnrolledUsers] = *input.TrainingEnrolledUsers
+	}
 	if input.LimitByUser != nil {
 		updates[settingLimitByUser] = *input.LimitByUser
 	}
@@ -437,36 +448,37 @@ func writeSiteSettings(ctx context.Context, db *mongo.Database, updates map[stri
 }
 
 type SiteSettingsInput struct {
-	Bulletin             *string `json:"bulletin"`
-	SiteName             *string `json:"siteName"`
-	NavLogo              *string `json:"navLogo"`
-	FooterExtraHTML      *string `json:"footerExtraHtml"`
-	EnableScratchpad     *bool   `json:"enableScratchpad"`
-	GravatarURL          *string `json:"gravatarUrl"`
-	HomepageYAML         *string `json:"homepageYaml"`
-	AboutMarkdown        *string `json:"aboutMarkdown"`
-	LanguageYAML         *string `json:"languageYaml"`
-	PaginationProblem    *int    `json:"paginationProblem"`
-	PaginationContest    *int    `json:"paginationContest"`
-	PaginationDiscussion *int    `json:"paginationDiscussion"`
-	PaginationReply      *int    `json:"paginationReply"`
-	PaginationRecord     *int    `json:"paginationRecord"`
-	PaginationRanking    *int    `json:"paginationRanking"`
-	PaginationSolution   *int    `json:"paginationSolution"`
-	PaginationTraining   *int    `json:"paginationTraining"`
-	LimitUserFiles       *int    `json:"limitUserFiles"`
-	LimitUserFileSize    *int64  `json:"limitUserFileSize"`
-	LimitContestFiles    *int    `json:"limitContestFiles"`
-	LimitContestFileSize *int64  `json:"limitContestFileSize"`
-	LimitProblemFiles    *int    `json:"limitProblemFiles"`
-	LimitProblemFileSize *int64  `json:"limitProblemFileSize"`
-	LimitCodeLength      *int64  `json:"limitCodeLength"`
-	LimitSubmission      *int    `json:"limitSubmission"`
-	LimitSubmissionUser  *int    `json:"limitSubmissionUser"`
-	LimitPretest         *int    `json:"limitPretest"`
-	LimitByUser          *bool   `json:"limitByUser"`
-	SessionSavedExpire   *int64  `json:"sessionSavedExpireSeconds"`
-	SessionUnsavedExpire *int64  `json:"sessionUnsavedExpireSeconds"`
+	Bulletin              *string `json:"bulletin"`
+	SiteName              *string `json:"siteName"`
+	NavLogo               *string `json:"navLogo"`
+	FooterExtraHTML       *string `json:"footerExtraHtml"`
+	EnableScratchpad      *bool   `json:"enableScratchpad"`
+	GravatarURL           *string `json:"gravatarUrl"`
+	HomepageYAML          *string `json:"homepageYaml"`
+	AboutMarkdown         *string `json:"aboutMarkdown"`
+	LanguageYAML          *string `json:"languageYaml"`
+	TrainingEnrolledUsers *bool   `json:"trainingEnrolledUsers"`
+	PaginationProblem     *int    `json:"paginationProblem"`
+	PaginationContest     *int    `json:"paginationContest"`
+	PaginationDiscussion  *int    `json:"paginationDiscussion"`
+	PaginationReply       *int    `json:"paginationReply"`
+	PaginationRecord      *int    `json:"paginationRecord"`
+	PaginationRanking     *int    `json:"paginationRanking"`
+	PaginationSolution    *int    `json:"paginationSolution"`
+	PaginationTraining    *int    `json:"paginationTraining"`
+	LimitUserFiles        *int    `json:"limitUserFiles"`
+	LimitUserFileSize     *int64  `json:"limitUserFileSize"`
+	LimitContestFiles     *int    `json:"limitContestFiles"`
+	LimitContestFileSize  *int64  `json:"limitContestFileSize"`
+	LimitProblemFiles     *int    `json:"limitProblemFiles"`
+	LimitProblemFileSize  *int64  `json:"limitProblemFileSize"`
+	LimitCodeLength       *int64  `json:"limitCodeLength"`
+	LimitSubmission       *int    `json:"limitSubmission"`
+	LimitSubmissionUser   *int    `json:"limitSubmissionUser"`
+	LimitPretest          *int    `json:"limitPretest"`
+	LimitByUser           *bool   `json:"limitByUser"`
+	SessionSavedExpire    *int64  `json:"sessionSavedExpireSeconds"`
+	SessionUnsavedExpire  *int64  `json:"sessionUnsavedExpireSeconds"`
 }
 
 func validHomepageYAML(value string) bool {

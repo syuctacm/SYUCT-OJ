@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/syuctacm/syuct-oj/internal/api"
 	"github.com/syuctacm/syuct-oj/internal/auth"
@@ -62,6 +63,12 @@ func TestTrainingCompareIntegration(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.Collection("document.status").InsertMany(ctx, []any{
+		bson.M{"domainId": "system", "docType": 40, "docId": trainingID, "uid": int64(7), "enroll": 1},
+		bson.M{"domainId": "system", "docType": 40, "docId": trainingID, "uid": int64(8), "enroll": 1},
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	userRepo := user.NewRepository(db)
 	trainingRepo := training.NewRepository(db)
@@ -76,8 +83,9 @@ func TestTrainingCompareIntegration(t *testing.T) {
 
 	type compareResponse struct {
 		Data struct {
-			ViewedUID int64 `json:"viewedUid"`
-			Sections  []struct {
+			ViewedUID     int64   `json:"viewedUid"`
+			EnrolledUsers []int64 `json:"enrolledUsers"`
+			Sections      []struct {
 				Problems []struct {
 					DocID  int64 `json:"docId"`
 					Solved bool  `json:"solved"`
@@ -115,6 +123,9 @@ func TestTrainingCompareIntegration(t *testing.T) {
 	bobCookies := loginAssetUser(t, server.URL, "bob", "secret")
 	aliceCookies := loginAssetUser(t, server.URL, "alice", "secret")
 
+	if status, body := fetch("/api/v1/trainings/"+trainingID.Hex(), nil); status != http.StatusOK || len(body.Data.EnrolledUsers) != 0 {
+		t.Fatalf("anonymous training detail = %d enrolled users=%+v", status, body.Data.EnrolledUsers)
+	}
 	if status, _ := fetch("/api/v1/trainings/"+trainingID.Hex()+"?uid=7", nil); status != http.StatusUnauthorized {
 		t.Fatalf("anonymous compare = %d", status)
 	}
@@ -123,8 +134,8 @@ func TestTrainingCompareIntegration(t *testing.T) {
 	}
 
 	status, body := fetch("/api/v1/trainings/"+trainingID.Hex()+"?uid=7", bobCookies)
-	if status != http.StatusOK || body.Data.ViewedUID != 7 {
-		t.Fatalf("compare fetch = %d viewedUid=%d", status, body.Data.ViewedUID)
+	if status != http.StatusOK || body.Data.ViewedUID != 7 || len(body.Data.EnrolledUsers) != 2 {
+		t.Fatalf("compare fetch = %d viewedUid=%d enrolled users=%+v", status, body.Data.ViewedUID, body.Data.EnrolledUsers)
 	}
 	if len(body.Data.Sections) != 1 || !body.Data.Sections[0].Problems[0].Solved {
 		t.Fatalf("viewed sections = %+v", body.Data.Sections)
@@ -136,5 +147,17 @@ func TestTrainingCompareIntegration(t *testing.T) {
 	status, body = fetch("/api/v1/trainings/"+trainingID.Hex()+"?uid=7", aliceCookies)
 	if status != http.StatusOK || body.Data.Compare != nil {
 		t.Fatalf("self fetch should not compare = %d %+v", status, body.Data.Compare)
+	}
+
+	if _, err := db.Collection("system").UpdateOne(ctx, bson.M{"_id": "training.enrolled-users"},
+		bson.M{"$set": bson.M{"value": false}}, options.UpdateOne().SetUpsert(true)); err != nil {
+		t.Fatal(err)
+	}
+	status, body = fetch("/api/v1/trainings/"+trainingID.Hex()+"?uid=7", bobCookies)
+	if status != http.StatusOK || body.Data.ViewedUID != 8 || body.Data.Compare != nil || len(body.Data.EnrolledUsers) != 0 {
+		t.Fatalf("hidden enrolled users = %d viewedUid=%d compare=%+v enrolled=%+v", status, body.Data.ViewedUID, body.Data.Compare, body.Data.EnrolledUsers)
+	}
+	if body.Data.Sections[0].Problems[0].Solved {
+		t.Fatalf("disabled enrolled users should force the viewer's own progress: %+v", body.Data.Sections)
 	}
 }

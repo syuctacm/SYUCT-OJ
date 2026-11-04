@@ -13,7 +13,7 @@ import { mountHeadingMenu } from '../upstream/heading-menu.ts'
 export function TrainingDetailPage() {
   const { tid = '' } = useParams()
   const [searchParams] = useSearchParams()
-  const viewedUid = Number.parseInt(searchParams.get('uid') ?? '', 10) || 0
+  const requestedUid = Number.parseInt(searchParams.get('uid') ?? '', 10) || 0
   const { user } = useAuth()
   const [training, setTraining] = useState<TrainingDetailResponse | null>(null)
   const [users, setUsers] = useState<UserChoice[]>([])
@@ -25,10 +25,10 @@ export function TrainingDetailPage() {
   useEffect(() => {
     setTraining(null)
     setError('')
-    getTraining(tid, viewedUid || undefined)
+    getTraining(tid, requestedUid || undefined)
       .then(setTraining)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '训练加载失败'))
-  }, [tid, viewedUid])
+  }, [tid, requestedUid])
 
   useEffect(() => {
     if (!training) return
@@ -40,6 +40,7 @@ export function TrainingDetailPage() {
 
   const context = useMemo(() => {
     if (!training) return {}
+    const viewedUid = training.viewedUid ?? 0
     const canEdit = Boolean(user && (user.id === training.owner || ((user.priv ?? 0) & 1) !== 0))
     const problems = training.sections.flatMap((section) => section.problems)
     const pids = problems.map((problem) => problem.docId)
@@ -200,7 +201,7 @@ export function TrainingDetailPage() {
     setEnrollError('')
     try {
       await enrollTraining(tid)
-      setTraining(await getTraining(tid))
+      setTraining(await getTraining(tid, requestedUid || undefined))
     } catch (err) {
       setEnrollError(err instanceof Error ? err.message : '报名失败')
     } finally {

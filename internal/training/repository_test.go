@@ -100,7 +100,7 @@ func TestTrainingRepositoryIntegration(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	detail, err := repo.Detail(ctx, detailID.Hex(), 7)
+	detail, err := repo.Detail(ctx, detailID.Hex(), 7, true)
 	if err != nil {
 		t.Fatalf("detail: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestTrainingRepositoryIntegration(t *testing.T) {
 	if problems[1].RID != "" || problems[1].Tried || problems[1].Solved {
 		t.Fatalf("unexpected problem without record: %+v", problems[1])
 	}
-	anonymous, err := repo.Detail(ctx, detailID.Hex(), 0)
+	anonymous, err := repo.Detail(ctx, detailID.Hex(), 0, false)
 	if err != nil {
 		t.Fatalf("anonymous detail: %v", err)
 	}

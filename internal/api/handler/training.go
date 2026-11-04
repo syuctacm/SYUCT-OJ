@@ -130,14 +130,18 @@ func (h *TrainingHandler) get(c *gin.Context) {
 		}
 		viewedUID = parsed
 	}
-	item, err := h.repo.Detail(c.Request.Context(), c.Param("tid"), viewedUID)
+	showEnrolledUsers := viewer > 0 && configuredSystemBool(c, settingTrainingEnrolledUsers, true)
+	if !showEnrolledUsers {
+		viewedUID = viewer
+	}
+	item, err := h.repo.Detail(c.Request.Context(), c.Param("tid"), viewedUID, showEnrolledUsers)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "training not found"})
 		return
 	}
 	response := trainingDetailResponse{Detail: item, ViewedUID: viewedUID}
-	if viewer > 0 && viewer != viewedUID {
-		compare, err := h.repo.Detail(c.Request.Context(), c.Param("tid"), viewer)
+	if showEnrolledUsers && viewer != viewedUID {
+		compare, err := h.repo.Detail(c.Request.Context(), c.Param("tid"), viewer, false)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load own progress"})
 			return
