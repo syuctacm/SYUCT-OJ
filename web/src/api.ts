@@ -66,6 +66,8 @@ export type PublicSettings = {
   bulletin: string
   siteName: string
   serverUrl: string
+  cdnPrefix: string
+  cdnDynamic: boolean
   navLogo: string
   footerExtraHtml: string
   enableScratchpad: boolean

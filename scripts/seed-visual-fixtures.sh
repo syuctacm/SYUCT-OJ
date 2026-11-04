@@ -45,6 +45,7 @@ const contestID = ObjectId("6ae994800000000000003001");
 const homeworkID = ObjectId("6ae994800000000000003002");
 const trainingID = ObjectId("6ae994800000000000004001");
 const discussionID = ObjectId("6ae994800000000000002101");
+const orphanDiscussionID = ObjectId("6ae994800000000000002102");
 const replyID = ObjectId("6ae994800000000000002201");
 const secondReplyID = ObjectId("6ae994800000000000002202");
 
@@ -72,6 +73,8 @@ db.getCollection("domain.user").insertMany([
 db.system.insertMany([
   { _id: "server.name", value: "SYUCT OJ Visual Fixture" },
   { _id: "server.url", value: "http://localhost:13009" },
+  { _id: "server.cdn", value: "/" },
+  { _id: "server.cdn_dynamic", value: false },
   { _id: "bulletin", value: "截图回归固定公告" },
   { _id: "ui-default.about", value: "# 关于 SYUCT OJ\n\n这是用于前端截图回归的本地固定页面。" },
   { _id: "ui-default.footer_extra_html", value: "SYUCT ACM Visual Regression" },
@@ -161,6 +164,12 @@ db.document.insertMany([
     _id: discussionID, domainId: "system", docType: NumberInt("21"), docId: discussionID,
     title: "视觉回归讨论：如何准备校赛", owner: NumberLong("2"), content: "# 如何准备校赛\n\n先从基础题开始，坚持复盘。",
     parentType: NumberInt("20"), parentId: "qa", nReply: NumberLong("2"), views: NumberLong("12"),
+    updateAt: earlier, hidden: false, pin: false, highlight: false, lock: false, edited: false,
+  },
+  {
+    _id: orphanDiscussionID, domainId: "system", docType: NumberInt("21"), docId: orphanDiscussionID,
+    title: "视觉回归讨论：已注销用户", owner: NumberLong("999"), content: "这条讨论用于验证原版未知用户头像。",
+    parentType: NumberInt("20"), parentId: "qa", nReply: NumberLong("0"), views: NumberLong("3"),
     updateAt: earlier, hidden: false, pin: false, highlight: false, lock: false, edited: false,
   },
   {

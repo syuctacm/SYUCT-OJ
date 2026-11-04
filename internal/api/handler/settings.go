@@ -24,6 +24,8 @@ const (
 	settingBulletin              = "bulletin"
 	settingServerName            = "server.name"
 	settingServerURL             = "server.url"
+	settingServerCDN             = "server.cdn"
+	settingServerCDNDynamic      = "server.cdn_dynamic"
 	settingNavLogo               = "ui-default.nav_logo_dark"
 	settingFooterExtraHTML       = "ui-default.footer_extra_html"
 	settingScratchpad            = "ui-default.enableScratchpad"
@@ -243,6 +245,7 @@ const DefaultAboutMarkdown = `# about 关于 {{ name }}
 var siteSettingKeys = []string{
 	settingBulletin, settingServerName, settingNavLogo, settingFooterExtraHTML,
 	settingServerURL,
+	settingServerCDN, settingServerCDNDynamic,
 	settingScratchpad, settingGravatarURL, settingHomepage, settingAbout, settingLanguages,
 	settingProblemCategories,
 	settingTrainingEnrolledUsers,
@@ -265,6 +268,8 @@ type SiteSettings struct {
 	Bulletin              string `json:"bulletin"`
 	SiteName              string `json:"siteName"`
 	ServerURL             string `json:"serverUrl"`
+	CDNPrefix             string `json:"cdnPrefix"`
+	CDNDynamic            bool   `json:"cdnDynamic"`
 	NavLogo               string `json:"navLogo"`
 	FooterExtraHTML       string `json:"footerExtraHtml"`
 	EnableScratchpad      bool   `json:"enableScratchpad"`
@@ -312,6 +317,7 @@ func DefaultSiteSettings() SiteSettings {
 	return SiteSettings{
 		SiteName: DefaultSiteName, NavLogo: DefaultNavLogo,
 		ServerURL:       "/",
+		CDNPrefix:       "/",
 		FooterExtraHTML: DefaultFooterExtraHTML, EnableScratchpad: true,
 		GravatarURL: DefaultGravatarURL, HomepageYAML: DefaultHomepageYAML,
 		AboutMarkdown:         DefaultAboutMarkdown,
@@ -477,6 +483,14 @@ func setSiteSettingValue(values *SiteSettings, key string, value any) {
 	case settingServerURL:
 		if normalized, ok := normalizeServerURL(text); ok {
 			values.ServerURL = normalized
+		}
+	case settingServerCDN:
+		if normalized, ok := normalizeCDNPrefix(text); ok {
+			values.CDNPrefix = normalized
+		}
+	case settingServerCDNDynamic:
+		if boolean, ok := anyBool(value); ok {
+			values.CDNDynamic = boolean
 		}
 	case settingNavLogo:
 		if isText && strings.TrimSpace(text) != "" {
@@ -730,6 +744,14 @@ func siteSettingUpdates(input SiteSettingsInput) map[string]any {
 			updates[settingServerURL] = normalized
 		}
 	}
+	if input.CDNPrefix != nil {
+		if normalized, ok := normalizeCDNPrefix(*input.CDNPrefix); ok {
+			updates[settingServerCDN] = normalized
+		}
+	}
+	if input.CDNDynamic != nil {
+		updates[settingServerCDNDynamic] = *input.CDNDynamic
+	}
 	if input.NavLogo != nil {
 		updates[settingNavLogo] = *input.NavLogo
 	}
@@ -805,6 +827,8 @@ type SiteSettingsInput struct {
 	Bulletin              *string `json:"bulletin"`
 	SiteName              *string `json:"siteName"`
 	ServerURL             *string `json:"serverUrl"`
+	CDNPrefix             *string `json:"cdnPrefix"`
+	CDNDynamic            *bool   `json:"cdnDynamic"`
 	NavLogo               *string `json:"navLogo"`
 	FooterExtraHTML       *string `json:"footerExtraHtml"`
 	EnableScratchpad      *bool   `json:"enableScratchpad"`
@@ -893,6 +917,11 @@ func validateSiteSettings(input SiteSettingsInput) error {
 	if input.ServerURL != nil {
 		if _, ok := normalizeServerURL(*input.ServerURL); !ok {
 			return fmt.Errorf("invalid server URL")
+		}
+	}
+	if input.CDNPrefix != nil {
+		if _, ok := normalizeCDNPrefix(*input.CDNPrefix); !ok {
+			return fmt.Errorf("invalid CDN prefix")
 		}
 	}
 	if input.NavLogo != nil && strings.TrimSpace(*input.NavLogo) == "" {
@@ -1012,6 +1041,44 @@ func normalizeServerURL(value string) (string, bool) {
 		return "", false
 	}
 	return strings.TrimRight(value, "/"), true
+}
+
+func normalizeCDNPrefix(value string) (string, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "/" {
+		return "/", true
+	}
+	parts := strings.Split(value, ",")
+	normalized := make([]string, 0, len(parts))
+	for _, part := range parts {
+		prefix := strings.TrimSpace(part)
+		if prefix == "" {
+			return "", false
+		}
+		parsed, err := url.Parse(prefix)
+		if err != nil || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || strings.Contains(parsed.Path, "..") {
+			return "", false
+		}
+		switch {
+		case strings.HasPrefix(prefix, "//"):
+			if parsed.Host == "" {
+				return "", false
+			}
+		case parsed.IsAbs():
+			if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+				return "", false
+			}
+		default:
+			if parsed.Host != "" || !strings.HasPrefix(prefix, "/") || strings.HasPrefix(prefix, "//") {
+				return "", false
+			}
+		}
+		if !strings.HasSuffix(prefix, "/") {
+			prefix += "/"
+		}
+		normalized = append(normalized, prefix)
+	}
+	return strings.Join(normalized, ","), true
 }
 
 func configuredServerBaseURL(c *gin.Context) string {

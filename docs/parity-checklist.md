@@ -1270,6 +1270,23 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地隔离 Docker 视觉回归 34/34 页面通过
 - 不连接生产环境
 
+## 6.73 CDN 前缀配置（2026-11-04）
+
+- 后台新增 Hydro `server.cdn` 和 `server.cdn_dynamic`
+- `server.cdn` 支持单个或逗号分隔的 CDN 前缀，并统一补全末尾 `/`
+- 支持绝对 HTTP(S)、协议相对和站内路径前缀，拒绝危险协议、凭据、查询串、Fragment 和路径穿越
+- `render.ts` 统一向所有原模板注入 `UiContext.cdn_prefix/cdn_dynamic`，页面自己写死的旧值不会覆盖全局配置
+- 引入固定版本 Hydro 默认头像 `img/avatar.png`
+- 固定 fixtures 增加已注销用户讨论，直接覆盖原版未知用户头像模板分支
+
+验证：
+
+- Go 集成测试覆盖默认值、非法协议、多前缀规范化和公共设置回读
+- 前端 lint/build 通过
+- Playwright 验证默认地址为 `/img/avatar.png`，保存 CDN 后变为 `https://cdn.example.test/static/img/avatar.png`
+- 本地隔离 Docker 视觉回归 34/34 页面全部 0 差异
+- 不连接生产环境
+
 ## 7. 当前已知差异
 
 ```text
@@ -1284,6 +1301,6 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 ## 8. 尚未迁移的模块
 
-以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括配置 schema 编辑器、CDN 等部署配置；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括配置 schema 编辑器；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
 
 已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、Hydro 后台脚本/插件任务管理器、SSR。维护任务通过仓库 CLI、迁移脚本和 Docker 脚本执行。
