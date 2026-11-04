@@ -170,7 +170,9 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
         },
         ctx: {
           setting: {
-            get: (key: string) => key === 'problem.categories' ? '{}' : key === 'ui-default.enableScratchpad' ? siteSettings.enableScratchpad : '',
+            get: (key: string) => key === 'problem.categories'
+              ? siteSettings.problemCategoriesYaml
+              : key === 'ui-default.enableScratchpad' ? siteSettings.enableScratchpad : '',
           },
         },
       },
@@ -203,7 +205,7 @@ export function ProblemEditPage({ mode }: { mode: 'create' | 'edit' }) {
       utils: { getAlphabeticId: () => '' },
       UserContext: user,
     }
-  }, [config, files.current, mode, problem, siteSettings.enableScratchpad, user])
+  }, [config, files.current, mode, problem, siteSettings.enableScratchpad, siteSettings.problemCategoriesYaml, user])
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()

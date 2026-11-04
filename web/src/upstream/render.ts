@@ -59,7 +59,7 @@ const sources = new Map<string, string>(
 // The tag-stat addon pages are copied verbatim from the local production plugin.
 sources.set('problem_tag_stat.html', tagStatTemplate)
 sources.set('problem_main.html', problemMainTemplate)
-sources.set('partials/category.html', tagStatCategoryTemplate)
+sources.set('partials/problem_tag_stat_category.html', tagStatCategoryTemplate)
 sources.set('partials/homepage/checkin.html', checkinHomeTemplate)
 sources.set('partials/homepage/countdown.html', countdownHomeTemplate)
 sources.set('partials/nav.html', navTemplate)

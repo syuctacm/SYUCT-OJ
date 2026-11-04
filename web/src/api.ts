@@ -72,6 +72,7 @@ export type PublicSettings = {
   homepageYaml: string
   aboutMarkdown: string
   languageYaml: string
+  problemCategoriesYaml: string
   trainingEnrolledUsers: boolean
   paginationProblem: number
   paginationContest: number

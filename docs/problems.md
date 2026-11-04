@@ -70,6 +70,8 @@
 
 搜索、排序、标签筛选、分页、编辑模式、批量隐藏/取消隐藏/删除和题目包下载由 React 适配层接入；多域复制不迁移。
 
+题目分类来自 Hydro 同名系统设置 `problem.categories`。后台以 YAML 编辑“分类 -> 子分类数组”，题目编辑页继续由原版 `partials/category.html` 渲染，不会复制分类 DOM。题库列表保留旧站 tag-stat 插件的“标签统计”侧栏，因此 tag-stat partial 使用独立模板名，不再覆盖原版分类 partial。
+
 
 题目详情和提交页由 `HydroTemplate` 直接渲染上游模板：
 

@@ -71,6 +71,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 			HomepageYAML          string `json:"homepageYaml"`
 			AboutMarkdown         string `json:"aboutMarkdown"`
 			LanguageYAML          string `json:"languageYaml"`
+			ProblemCategoriesYAML string `json:"problemCategoriesYaml"`
 			TrainingEnrolledUsers bool   `json:"trainingEnrolledUsers"`
 			PaginationProblem     int    `json:"paginationProblem"`
 			PaginationContest     int    `json:"paginationContest"`
@@ -131,6 +132,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status != http.StatusOK || payload.Data.Bulletin != "" || payload.Data.SiteName != handler.DefaultSiteName ||
 		payload.Data.NavLogo != handler.DefaultNavLogo || !payload.Data.EnableScratchpad ||
 		payload.Data.GravatarURL != handler.DefaultGravatarURL || payload.Data.HomepageYAML == "" || payload.Data.LanguageYAML == "" ||
+		!strings.Contains(payload.Data.ProblemCategoriesYAML, "动态规划:") ||
 		!payload.Data.TrainingEnrolledUsers ||
 		payload.Data.PaginationProblem != 100 || payload.Data.PaginationContest != 20 ||
 		payload.Data.PaginationDiscussion != 50 || payload.Data.PaginationReply != 50 || payload.Data.PaginationRecord != 100 ||
@@ -178,6 +180,12 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status := put(`{"languageYaml":"scalar"}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid language yaml = %d", status)
 	}
+	if status := put(`{"problemCategoriesYaml":"scalar"}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid problem categories yaml = %d", status)
+	}
+	if status := put(`{"problemCategoriesYaml":"分类: [\"\"]"}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("empty problem category = %d", status)
+	}
 	if status := put(`{"paginationProblem":0}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid zero pagination = %d", status)
 	}
@@ -199,7 +207,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status := put(`{"sessionSavedExpireSeconds":59}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid session expiry = %d", status)
 	}
-	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","trainingEnrolledUsers":false,"paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationReply":36,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6,"limitUserFiles":8,"limitUserFileSize":1048576,"limitContestFiles":9,"limitContestFileSize":2097152,"limitProblemFiles":10,"limitProblemFileSize":3145728,"limitCodeLength":65536,"limitSubmission":11,"limitSubmissionUser":7,"limitPretest":12,"limitByUser":true,"sessionSavedExpireSeconds":7200,"sessionUnsavedExpireSeconds":1800,"languageYaml":"cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\n"}`
+	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","problemCategoriesYaml":"基础:\n  - 前缀和\n","trainingEnrolledUsers":false,"paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationReply":36,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6,"limitUserFiles":8,"limitUserFileSize":1048576,"limitContestFiles":9,"limitContestFileSize":2097152,"limitProblemFiles":10,"limitProblemFileSize":3145728,"limitCodeLength":65536,"limitSubmission":11,"limitSubmissionUser":7,"limitPretest":12,"limitByUser":true,"sessionSavedExpireSeconds":7200,"sessionUnsavedExpireSeconds":1800,"languageYaml":"cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\n"}`
 	if status := put(updateBody, adminCookies); status != http.StatusOK {
 		t.Fatalf("admin update = %d", status)
 	}
@@ -213,6 +221,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 		payload.Data.EnableScratchpad || payload.Data.GravatarURL != "https://example.com/avatar/" ||
 		!strings.Contains(payload.Data.HomepageYAML, "contest: 3") || !strings.Contains(payload.Data.AboutMarkdown, "Test About") ||
 		!strings.Contains(payload.Data.LanguageYAML, "C++17") ||
+		!strings.Contains(payload.Data.ProblemCategoriesYAML, "基础:") || !strings.Contains(payload.Data.ProblemCategoriesYAML, "前缀和") ||
 		payload.Data.TrainingEnrolledUsers ||
 		payload.Data.PaginationProblem != 37 || payload.Data.PaginationContest != 12 ||
 		payload.Data.PaginationDiscussion != 24 || payload.Data.PaginationReply != 36 || payload.Data.PaginationRecord != 48 ||
