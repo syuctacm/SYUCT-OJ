@@ -278,6 +278,7 @@ main() {
     "record-detail:/record/6ae994800000000000005001"
     "user-profile:/user/2"
     "admin:/admin"
+    "admin-settings:/admin/settings"
     "admin-users:/admin/users"
     "settings-account:/home/settings?category=account"
     "security:/home/security"

@@ -48,3 +48,25 @@ func configuredSystemInt64(c *gin.Context, key string, fallback, min, max int64)
 	}
 	return value
 }
+
+func configuredSystemBool(c *gin.Context, key string, fallback bool) bool {
+	rawDB, ok := c.Get(RequestDatabaseKey)
+	if !ok {
+		return fallback
+	}
+	db, ok := rawDB.(*mongo.Database)
+	if !ok || db == nil {
+		return fallback
+	}
+	var doc struct {
+		Value any `bson:"value"`
+	}
+	if err := db.Collection("system").FindOne(c.Request.Context(), bson.M{"_id": key}).Decode(&doc); err != nil {
+		return fallback
+	}
+	value, ok := anyBool(doc.Value)
+	if !ok {
+		return fallback
+	}
+	return value
+}

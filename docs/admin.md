@@ -54,6 +54,8 @@
 
 判题语言表使用 `hydrooj.langs` YAML，按 Hydro 的点号继承规则合并配置；保存后同时更新 `/api/v1/languages`、判题 hub 和状态页语言列表。
 
+训练报名用户展示使用 Hydro 原版 `training.enrolled-users` 布尔配置，默认开启。关闭后，训练详情不再返回报名用户列表，也不能通过 `?uid=` 查看其他用户的训练进度。
+
 文件与代码限制使用 Hydro 同名配置：`limit.user_files`、`limit.user_files_size`、`limit.contest_files`、`limit.contest_files_size`、`limit.problem_files_max`、`limit.problem_files_max_size` 和 `limit.codelength`。上传、附件操作和代码提交会读取当前有效值。
 
 提交与自测频率限制使用 `limit.submission`、`limit.submission_user`、`limit.pretest` 和 `limit.by_user`；超限返回 `429` 与 `Retry-After`。当前限流器是单进程内存实现，多实例部署需要替换为共享存储。

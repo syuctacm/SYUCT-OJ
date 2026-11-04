@@ -24,6 +24,7 @@ const SYSTEM_SETTINGS = [
   { family: 'setting_basic', key: 'enableScratchpad', type: 'boolean', name: 'Enable Scratchpad Mode', value: true, flag: 0 },
   { family: 'setting_basic', key: 'homepageYaml', type: 'textarea', subType: 'yaml', name: 'Homepage Config', value: '', flag: 0 },
   { family: 'setting_basic', key: 'languageYaml', type: 'textarea', subType: 'yaml', name: 'Language Config', value: '', flag: 0 },
+  { family: 'setting_basic', key: 'trainingEnrolledUsers', type: 'boolean', name: 'Show enrolled users for training', value: true, flag: 0 },
   { family: 'setting_limits', key: 'paginationProblem', type: 'number', name: 'Problems per page', value: 100, flag: 0 },
   { family: 'setting_limits', key: 'paginationContest', type: 'number', name: 'Contests per page', value: 20, flag: 0 },
   { family: 'setting_limits', key: 'paginationDiscussion', type: 'number', name: 'Discussions per page', value: 50, flag: 0 },
@@ -124,6 +125,7 @@ export function AdminSettingsPage() {
       payload[key] = value
     }
     payload.enableScratchpad = data.has('enableScratchpad')
+    payload.trainingEnrolledUsers = data.has('trainingEnrolledUsers')
     payload.limitByUser = data.has('limitByUser')
     setSaved('')
     setError('')

@@ -60,6 +60,8 @@ enroll=1
 ## 进度对比与标题导航
 
 - `GET /api/v1/trainings/:tid?uid=<uid>` 返回被查看用户的进度；查看他人时同时返回自己的进度（`compare`）
+- Hydro `training.enrolled-users` 默认开启；关闭后 API 不返回报名用户列表，忽略 `?uid=` 并强制返回当前登录用户自己的进度
+- 匿名请求不会返回报名用户 ID；前端以 API 返回的 `viewedUid` 渲染对比状态，不直接信任 URL 参数
 - 详情页左侧的报名者列表点进去即 `?uid=`，当前查看对象会高亮；题目表格多出「My status」一列展示自己的状态
 - 侧栏的章节锚点由 `web/src/upstream/heading-menu.ts`（移植自 `components/menu/menu-heading.page.js`）生成，读取 `data-heading-extract-to` / `data-heading`
 
