@@ -46,6 +46,7 @@ const (
 	settingPaginationProblem    = "pagination.problem"
 	settingPaginationContest    = "pagination.contest"
 	settingPaginationDiscussion = "pagination.discussion"
+	settingPaginationReply      = "pagination.reply"
 	settingPaginationRecord     = "pagination.record"
 	settingPaginationRanking    = "pagination.ranking"
 	settingPaginationSolution   = "pagination.solution"
@@ -90,7 +91,7 @@ var siteSettingKeys = []string{
 	settingBulletin, settingServerName, settingNavLogo, settingFooterExtraHTML,
 	settingScratchpad, settingGravatarURL, settingHomepage, settingAbout, settingLanguages,
 	settingPaginationProblem, settingPaginationContest, settingPaginationDiscussion,
-	settingPaginationRecord, settingPaginationRanking, settingPaginationSolution,
+	settingPaginationReply, settingPaginationRecord, settingPaginationRanking, settingPaginationSolution,
 	settingPaginationTraining,
 	settingLimitUserFiles, settingLimitUserFileSize, settingLimitContestFiles,
 	settingLimitContestFileSize, settingLimitProblemFiles, settingLimitProblemFileSize,
@@ -112,6 +113,7 @@ type SiteSettings struct {
 	PaginationProblem    int    `json:"paginationProblem"`
 	PaginationContest    int    `json:"paginationContest"`
 	PaginationDiscussion int    `json:"paginationDiscussion"`
+	PaginationReply      int    `json:"paginationReply"`
 	PaginationRecord     int    `json:"paginationRecord"`
 	PaginationRanking    int    `json:"paginationRanking"`
 	PaginationSolution   int    `json:"paginationSolution"`
@@ -138,7 +140,7 @@ func DefaultSiteSettings() SiteSettings {
 		GravatarURL: DefaultGravatarURL, HomepageYAML: DefaultHomepageYAML,
 		AboutMarkdown:     DefaultAboutMarkdown,
 		LanguageYAML:      judge.DefaultLanguagesYAML(),
-		PaginationProblem: 100, PaginationContest: 20, PaginationDiscussion: 50,
+		PaginationProblem: 100, PaginationContest: 20, PaginationDiscussion: 50, PaginationReply: 50,
 		PaginationRecord: 100, PaginationRanking: 100, PaginationSolution: 20,
 		PaginationTraining: 10,
 		LimitUserFiles:     100, LimitUserFileSize: 128 << 20,
@@ -252,6 +254,10 @@ func setSiteSettingValue(values *SiteSettings, key string, value any) {
 	case settingPaginationDiscussion:
 		if number, ok := anyInt(value); ok && number > 0 {
 			values.PaginationDiscussion = number
+		}
+	case settingPaginationReply:
+		if number, ok := anyInt(value); ok && number > 0 {
+			values.PaginationReply = number
 		}
 	case settingPaginationRecord:
 		if number, ok := anyInt(value); ok && number > 0 {
@@ -397,7 +403,8 @@ func siteSettingUpdates(input SiteSettingsInput) map[string]any {
 	}
 	for key, value := range map[string]*int{
 		settingPaginationProblem: input.PaginationProblem, settingPaginationContest: input.PaginationContest,
-		settingPaginationDiscussion: input.PaginationDiscussion, settingPaginationRecord: input.PaginationRecord,
+		settingPaginationDiscussion: input.PaginationDiscussion, settingPaginationReply: input.PaginationReply,
+		settingPaginationRecord:  input.PaginationRecord,
 		settingPaginationRanking: input.PaginationRanking, settingPaginationSolution: input.PaginationSolution,
 		settingPaginationTraining: input.PaginationTraining, settingLimitUserFiles: input.LimitUserFiles,
 		settingLimitContestFiles: input.LimitContestFiles, settingLimitProblemFiles: input.LimitProblemFiles,
@@ -442,6 +449,7 @@ type SiteSettingsInput struct {
 	PaginationProblem    *int    `json:"paginationProblem"`
 	PaginationContest    *int    `json:"paginationContest"`
 	PaginationDiscussion *int    `json:"paginationDiscussion"`
+	PaginationReply      *int    `json:"paginationReply"`
 	PaginationRecord     *int    `json:"paginationRecord"`
 	PaginationRanking    *int    `json:"paginationRanking"`
 	PaginationSolution   *int    `json:"paginationSolution"`
@@ -532,7 +540,7 @@ func validateSiteSettings(input SiteSettingsInput) error {
 		max   int
 	}{
 		{input.PaginationProblem, 1000}, {input.PaginationContest, 1000},
-		{input.PaginationDiscussion, 1000}, {input.PaginationRecord, 1000},
+		{input.PaginationDiscussion, 1000}, {input.PaginationReply, 1000}, {input.PaginationRecord, 1000},
 		{input.PaginationRanking, 1000}, {input.PaginationSolution, 1000},
 		{input.PaginationTraining, 1000}, {input.LimitUserFiles, 10000},
 		{input.LimitContestFiles, 10000}, {input.LimitProblemFiles, 10000},

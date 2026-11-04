@@ -655,12 +655,16 @@ func (h *DiscussionHandler) replies(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "discussion not found"})
 		return
 	}
-	items, err := h.repo.ListReplies(c.Request.Context(), item.ID)
+	page, limit := parsePaging(c, settingPaginationReply)
+	items, total, err := h.repo.ListRepliesPage(c.Request.Context(), item.ID, page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to list replies"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{"items": items, "total": len(items)}})
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0, "message": "success",
+		"data": gin.H{"items": items, "total": total, "page": page, "limit": limit},
+	})
 }
 
 func (h *DiscussionHandler) createReply(c *gin.Context) {

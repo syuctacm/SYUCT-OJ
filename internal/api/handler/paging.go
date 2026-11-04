@@ -16,6 +16,7 @@ const (
 	defaultPaginationProblem    = 100
 	defaultPaginationContest    = 20
 	defaultPaginationDiscussion = 50
+	defaultPaginationReply      = 50
 	defaultPaginationRecord     = 100
 	defaultPaginationRanking    = 100
 	defaultPaginationSolution   = 20
@@ -27,6 +28,7 @@ var paginationSettingDefaults = map[string]int{
 	settingPaginationProblem:    defaultPaginationProblem,
 	settingPaginationContest:    defaultPaginationContest,
 	settingPaginationDiscussion: defaultPaginationDiscussion,
+	settingPaginationReply:      defaultPaginationReply,
 	settingPaginationRecord:     defaultPaginationRecord,
 	settingPaginationRanking:    defaultPaginationRanking,
 	settingPaginationSolution:   defaultPaginationSolution,

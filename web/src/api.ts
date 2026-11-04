@@ -75,6 +75,7 @@ export type PublicSettings = {
   paginationProblem: number
   paginationContest: number
   paginationDiscussion: number
+  paginationReply: number
   paginationRecord: number
   paginationRanking: number
   paginationSolution: number
@@ -1448,6 +1449,13 @@ export type DiscussionReply = {
   createdAt: string
 }
 
+export type DiscussionReplyPage = {
+  items: DiscussionReply[]
+  total: number
+  page: number
+  limit: number
+}
+
 export async function getDiscussions(filter: { parentType?: number; parentId?: string; page?: number; limit?: number } = {}): Promise<ListPage<Discussion>> {
   const params = new URLSearchParams({
     page: String(filter.page ?? 1),
@@ -1556,9 +1564,10 @@ export async function setDiscussionLock(did: string, lock: boolean): Promise<Dis
   return result.data
 }
 
-export async function getDiscussionReplies(did: string): Promise<DiscussionReply[]> {
-  const result = await request<Envelope<{ items: DiscussionReply[]; total: number }>>(`/api/v1/discussions/${encodeURIComponent(did)}/replies`)
-  return result.data.items
+export async function getDiscussionReplies(did: string, page = 1): Promise<DiscussionReplyPage> {
+  const params = new URLSearchParams({ page: String(page), limit: String(getPaginationLimit('reply')) })
+  const result = await request<Envelope<DiscussionReplyPage>>(`/api/v1/discussions/${encodeURIComponent(did)}/replies?${params.toString()}`)
+  return result.data
 }
 
 export async function createDiscussionReply(did: string, content: string, replyTo?: string): Promise<DiscussionReply | DiscussionTailReply> {

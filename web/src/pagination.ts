@@ -1,9 +1,10 @@
-export type PaginationKind = 'problem' | 'contest' | 'discussion' | 'record' | 'ranking' | 'solution' | 'training'
+export type PaginationKind = 'problem' | 'contest' | 'discussion' | 'reply' | 'record' | 'ranking' | 'solution' | 'training'
 
 type PaginationFields = {
   paginationProblem: number
   paginationContest: number
   paginationDiscussion: number
+  paginationReply: number
   paginationRecord: number
   paginationRanking: number
   paginationSolution: number
@@ -14,6 +15,7 @@ export const DEFAULT_PAGINATION: Record<PaginationKind, number> = {
   problem: 100,
   contest: 20,
   discussion: 50,
+  reply: 50,
   record: 100,
   ranking: 100,
   solution: 20,
@@ -24,6 +26,7 @@ const FIELD_BY_KIND: Record<PaginationKind, keyof PaginationFields> = {
   problem: 'paginationProblem',
   contest: 'paginationContest',
   discussion: 'paginationDiscussion',
+  reply: 'paginationReply',
   record: 'paginationRecord',
   ranking: 'paginationRanking',
   solution: 'paginationSolution',

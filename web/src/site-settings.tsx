@@ -37,6 +37,7 @@ export const DEFAULT_SITE_SETTINGS: PublicSettings = {
   paginationProblem: 100,
   paginationContest: 20,
   paginationDiscussion: 50,
+  paginationReply: 50,
   paginationRecord: 100,
   paginationRanking: 100,
   paginationSolution: 20,
