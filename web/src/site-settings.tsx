@@ -34,6 +34,7 @@ export const DEFAULT_SITE_SETTINGS: PublicSettings = {
   code_file: foo.cpp
   execute: /w/foo
 `,
+  problemCategoriesYaml: '{}',
   trainingEnrolledUsers: true,
   paginationProblem: 100,
   paginationContest: 20,

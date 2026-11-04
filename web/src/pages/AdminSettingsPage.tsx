@@ -24,6 +24,7 @@ const SYSTEM_SETTINGS = [
   { family: 'setting_basic', key: 'enableScratchpad', type: 'boolean', name: 'Enable Scratchpad Mode', value: true, flag: 0 },
   { family: 'setting_basic', key: 'homepageYaml', type: 'textarea', subType: 'yaml', name: 'Homepage Config', value: '', flag: 0 },
   { family: 'setting_basic', key: 'languageYaml', type: 'textarea', subType: 'yaml', name: 'Language Config', value: '', flag: 0 },
+  { family: 'setting_basic', key: 'problemCategoriesYaml', type: 'textarea', subType: 'yaml', name: 'Problem Categories', value: '{}', flag: 0 },
   { family: 'setting_basic', key: 'trainingEnrolledUsers', type: 'boolean', name: 'Show enrolled users for training', value: true, flag: 0 },
   { family: 'setting_limits', key: 'paginationProblem', type: 'number', name: 'Problems per page', value: 100, flag: 0 },
   { family: 'setting_limits', key: 'paginationContest', type: 'number', name: 'Contests per page', value: 20, flag: 0 },
@@ -48,7 +49,7 @@ const SYSTEM_SETTINGS = [
   { family: 'setting_limits', key: 'limitByUser', type: 'boolean', name: 'Use per-user rate limits', value: false, flag: 0 },
 ]
 
-const STRING_KEYS = ['siteName', 'navLogo', 'gravatarUrl', 'footerExtraHtml', 'bulletin', 'aboutMarkdown', 'homepageYaml', 'languageYaml'] as const
+const STRING_KEYS = ['siteName', 'navLogo', 'gravatarUrl', 'footerExtraHtml', 'bulletin', 'aboutMarkdown', 'homepageYaml', 'languageYaml', 'problemCategoriesYaml'] as const
 const PAGINATION_KEYS = ['paginationProblem', 'paginationContest', 'paginationDiscussion', 'paginationReply', 'paginationRecord', 'paginationRanking', 'paginationSolution', 'paginationTraining'] as const
 const FILE_COUNT_KEYS = ['limitUserFiles', 'limitContestFiles', 'limitProblemFiles'] as const
 const SIZE_KEYS = ['limitUserFileSize', 'limitContestFileSize', 'limitProblemFileSize', 'limitCodeLength'] as const

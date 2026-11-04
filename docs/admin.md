@@ -56,6 +56,8 @@
 
 训练报名用户展示使用 Hydro 原版 `training.enrolled-users` 布尔配置，默认开启。关闭后，训练详情不再返回报名用户列表，也不能通过 `?uid=` 查看其他用户的训练进度。
 
+题目分类使用 Hydro 原版 `problem.categories` YAML，结构为“分类 -> 子分类数组”。题库侧栏、题目编辑侧栏和 `category:` 搜索直接使用该配置。
+
 文件与代码限制使用 Hydro 同名配置：`limit.user_files`、`limit.user_files_size`、`limit.contest_files`、`limit.contest_files_size`、`limit.problem_files_max`、`limit.problem_files_max_size` 和 `limit.codelength`。上传、附件操作和代码提交会读取当前有效值。
 
 提交与自测频率限制使用 `limit.submission`、`limit.submission_user`、`limit.pretest` 和 `limit.by_user`；超限返回 `429` 与 `Retry-After`。当前限流器是单进程内存实现，多实例部署需要替换为共享存储。

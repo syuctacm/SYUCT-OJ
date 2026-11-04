@@ -1218,6 +1218,24 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地隔离 Docker 视觉回归 32/32 页面通过默认差异阈值；训练对比页为 0 differing pixels
 - 不连接生产环境
 
+## 6.70 题目分类配置（2026-11-04）
+
+- 后台恢复 Hydro 原版 `problem.categories` YAML 配置
+- 默认值与固定版本 Hydro `builtin.CATEGORIES` 一致
+- 保存时校验顶层为“分类 -> 子分类数组”，拒绝标量、空分类名和空子分类名
+- 题目编辑页通过公共设置读取该配置，继续渲染上游 `partials/category.html`
+- 题库列表保留旧站 tag-stat 的“标签统计”侧栏；tag-stat partial 改用独立模板名，不再覆盖原版分类 partial
+- `category:` 查询继续复用现有题库搜索和随机题目逻辑
+- 固定 Docker fixtures 加入分类配置，并新增题目编辑页截图基线
+
+验证：
+
+- Go 集成测试覆盖默认分类、合法保存、非法 YAML、空分类和公共设置回读
+- 前端 lint/build 通过
+- Playwright 验证题目编辑页出现配置的分类与子分类，题库页仍保留 tag-stat 侧栏
+- 本地隔离 Docker 视觉回归 33/33 页面通过
+- 不连接生产环境
+
 ## 7. 当前已知差异
 
 ```text

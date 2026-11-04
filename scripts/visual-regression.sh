@@ -268,6 +268,7 @@ main() {
   local auth_routes=(
     "home-auth:/"
     "problem-detail:/p/P1001"
+    "problem-edit:/p/P1001/edit"
     "contest-detail:/contest/6ae994800000000000003001"
     "contest-scoreboard:/contest/6ae994800000000000003001/scoreboard"
     "homework-detail:/homework/6ae994800000000000003002"
