@@ -148,7 +148,7 @@ db.document.insertMany([
   },
   {
     _id: trainingID, domainId: "system", docType: NumberInt("40"), docId: trainingID,
-    title: "视觉回归训练", owner: NumberLong("1"), attend: NumberLong("1"), pin: false,
+    title: "视觉回归训练", owner: NumberLong("1"), attend: NumberLong("2"), pin: false,
     content: "# 视觉回归训练\n\n固定训练数据。", description: "基础算法训练",
     dag: [
       { _id: NumberInt("1"), title: "基础章节", content: "前缀和与二分。", requireNids: [], pids: [NumberLong("1001"), NumberLong("1002")] },
@@ -177,6 +177,7 @@ db.getCollection("document.status").insertMany([
   { domainId: "system", docType: NumberInt("30"), docId: contestID, uid: NumberLong("1"), attend: NumberInt("1"), unrank: false },
   { domainId: "system", docType: NumberInt("30"), docId: homeworkID, uid: NumberLong("1"), attend: NumberInt("1"), unrank: false },
   { domainId: "system", docType: NumberInt("40"), docId: trainingID, uid: NumberLong("1"), enroll: NumberInt("1") },
+  { domainId: "system", docType: NumberInt("40"), docId: trainingID, uid: NumberLong("2"), enroll: NumberInt("1") },
   { domainId: "system", docType: NumberInt("21"), docId: discussionID, uid: NumberLong("1"), star: false, react: {} },
 ]);
 

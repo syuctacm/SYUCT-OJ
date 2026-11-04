@@ -4,7 +4,10 @@ The edit pages shown by `HydroTemplate` are rendered from the unmodified
 Nunjucks sources in the pinned `@hydrooj/ui-default` package (AGPL-3.0):
 
 - `templates/**/*.html` is loaded by `render.ts` via Vite `?raw` imports.
-- `locales/zh.yaml` is the upstream Chinese translation table.
+- `locales/zh.yaml` is the upstream `ui-default` Chinese translation table;
+  `templates/hydrooj_zh.yaml` is the pinned Hydro core locale. `render.ts`
+  merges core -> `ui-default` -> local overrides so template keys from both
+  packages resolve consistently.
 - `hydro-editor/mdeditor.ts` is generated from the package's
   `components/editor/mdeditor.ts` by `pnpm --dir web sync:hydro-ui`; only the
   import paths are rewritten for this repository.

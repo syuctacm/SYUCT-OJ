@@ -57,7 +57,7 @@
 - `web/src/index.css`：只保留 React 应用壳的兼容样式，不仿制页面视觉
 - `web/src/legacy/`：从旧站原样迁移的独立插件 CSS，例如 Activity Calendar
 - 页面使用 `.section`、`.section__header`、`.section__body`、`.section__footer`、`.data-table`、`.button`、`.textbox` 等原版类名
-- `web/src/upstream/render.ts` 从固定版本 `@hydrooj/ui-default@4.58.5` 读取原始 Nunjucks 模板和 `zh.yaml`，`HydroTemplate` 用原模板输出页面
+- `web/src/upstream/render.ts` 从固定版本 `@hydrooj/ui-default@4.58.5` 读取原始 Nunjucks 模板，并合并 Hydro 4.58.5 core `zh.yaml`、`ui-default` `zh.yaml` 和本项目少量覆盖文案；`HydroTemplate` 用原模板输出页面
 - `web/src/upstream/hydrate.tsx` 只在原模板 DOM 上挂载日期控件、自动补全和 Markdown 编辑器，不重新生成页面结构
 - `web/src/upstream/hydro-editor/mdeditor.ts` 由 `pnpm --dir web sync:hydro-ui` 从上游编辑器官网源码生成，仅改 import 路径
 - `web/src/components/autocomplete/` 移植 Hydro `@hydrooj/components` 的自动补全，用于题目、用户、分组和语言选择
