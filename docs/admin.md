@@ -50,7 +50,7 @@
 
 设置存储在 Hydro 同名的 `system` 集合里（`{_id: key, value: ...}`）。公开接口 `GET /api/v1/settings` 只返回前台实际消费的字段，管理接口 `GET/PUT /api/v1/admin/settings` 需要管理员权限。首页布局使用 `hydrooj.homepage` YAML，保存前校验栏目结构。
 
-分页默认值使用 Hydro 同名配置：`pagination.problem`、`pagination.contest`、`pagination.discussion`、`pagination.record`、`pagination.ranking`、`pagination.solution`、`pagination.training`。列表请求未显式传 `limit` 时由后端读取对应配置，前端也使用相同的公共设置值；显式 `limit` 仍然优先。
+分页默认值使用 Hydro 同名配置：`pagination.problem`、`pagination.contest`、`pagination.discussion`、`pagination.reply`、`pagination.record`、`pagination.ranking`、`pagination.solution`、`pagination.training`。列表请求未显式传 `limit` 时由后端读取对应配置，前端也使用相同的公共设置值；显式 `limit` 仍然优先。
 
 判题语言表使用 `hydrooj.langs` YAML，按 Hydro 的点号继承规则合并配置；保存后同时更新 `/api/v1/languages`、判题 hub 和状态页语言列表。
 

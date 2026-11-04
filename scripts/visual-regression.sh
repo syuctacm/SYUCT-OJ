@@ -273,6 +273,7 @@ main() {
     "homework-detail:/homework/6ae994800000000000003002"
     "training-detail:/training/6ae994800000000000004001"
     "discuss-detail:/discuss/6ae994800000000000002101"
+    "discuss-detail-page2:/discuss/6ae994800000000000002101?page=2"
     "records:/record"
     "record-detail:/record/6ae994800000000000005001"
     "user-profile:/user/2"

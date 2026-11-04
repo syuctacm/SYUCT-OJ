@@ -1089,7 +1089,7 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 ## 6.62 分页默认值配置（2026-11-03）
 
-- 后台系统设置新增 7 个 Hydro `pagination.*` 数值项
+- 后台系统设置新增 8 个 Hydro `pagination.*` 数值项
 - 后端列表 API 在未显式传 `limit` 时读取对应系统设置
 - 前端列表默认请求使用公共设置中的同一组值
 - 显式 `limit` 仍然优先，分页大小限制为 1–1000
@@ -1166,6 +1166,24 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 前端 lint/build
 - 本地 Docker 视觉回归保持 29/29 页面 0 差异
 - 不连接生产环境
+
+## 6.67 讨论回复分页（2026-11-04）
+
+- 后台新增 Hydro 原版 `pagination.reply` 配置，默认 50
+- 回复列表 API 支持 `page/limit`，返回当前页、总数、页码和页大小
+- 顶层回复按 `_id` 倒序分页，楼中楼继续嵌入对应顶层回复
+- 讨论详情页从 URL `page` 读取页码，并把 `page/pcount/drcount` 传给原版 `discussion_detail.html`
+- 分页器继续使用 Hydro `components/paginator.html`，没有另写 React 分页 UI
+- 新增、编辑、删除回复后刷新当前页；浏览器前进/后退继续由 React Router 处理
+
+验证：
+
+- Go 集成测试覆盖 `pagination.reply` 默认值、第一页/第二页、倒序、总数和第二页数据
+- 后台设置集成测试覆盖新配置的默认值、保存、非法值和公共设置回读
+- 前端 `pnpm lint`、`pnpm build` 通过
+- 本地隔离 Docker 视觉回归覆盖讨论详情第一页和第二页，30/30 页面为 0 differing pixels
+- Playwright 验证第一页只显示最新回复，点击原版分页器后 URL 变为 `?page=2`，当前页和回复内容正确
+- 不连接生产环境，不修改判题机
 
 ## 7. 当前已知差异
 

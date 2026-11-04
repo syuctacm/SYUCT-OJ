@@ -46,6 +46,7 @@ const homeworkID = ObjectId("6ae994800000000000003002");
 const trainingID = ObjectId("6ae994800000000000004001");
 const discussionID = ObjectId("6ae994800000000000002101");
 const replyID = ObjectId("6ae994800000000000002201");
+const secondReplyID = ObjectId("6ae994800000000000002202");
 
 db.user.insertMany([
   {
@@ -79,6 +80,7 @@ db.system.insertMany([
   { _id: "pagination.problem", value: 100 },
   { _id: "pagination.contest", value: 20 },
   { _id: "pagination.discussion", value: 50 },
+  { _id: "pagination.reply", value: 1 },
   { _id: "pagination.record", value: 100 },
   { _id: "pagination.ranking", value: 100 },
   { _id: "pagination.solution", value: 20 },
@@ -155,13 +157,18 @@ db.document.insertMany([
   {
     _id: discussionID, domainId: "system", docType: NumberInt("21"), docId: discussionID,
     title: "视觉回归讨论：如何准备校赛", owner: NumberLong("2"), content: "# 如何准备校赛\n\n先从基础题开始，坚持复盘。",
-    parentType: NumberInt("20"), parentId: "qa", nReply: NumberLong("1"), views: NumberLong("12"),
+    parentType: NumberInt("20"), parentId: "qa", nReply: NumberLong("2"), views: NumberLong("12"),
     updateAt: earlier, hidden: false, pin: false, highlight: false, lock: false, edited: false,
   },
   {
     _id: replyID, domainId: "system", docType: NumberInt("22"), docId: replyID,
     parentType: NumberInt("21"), parentId: discussionID, owner: NumberLong("1"),
     content: "先完成基础训练，再模拟比赛。", updateAt: at, edited: false, reply: [],
+  },
+  {
+    _id: secondReplyID, domainId: "system", docType: NumberInt("22"), docId: secondReplyID,
+    parentType: NumberInt("21"), parentId: discussionID, owner: NumberLong("2"),
+    content: "每周复盘错题，并记录每道题的失败原因。", updateAt: at, edited: false, reply: [],
   },
 ]);
 

@@ -27,6 +27,7 @@ const SYSTEM_SETTINGS = [
   { family: 'setting_limits', key: 'paginationProblem', type: 'number', name: 'Problems per page', value: 100, flag: 0 },
   { family: 'setting_limits', key: 'paginationContest', type: 'number', name: 'Contests per page', value: 20, flag: 0 },
   { family: 'setting_limits', key: 'paginationDiscussion', type: 'number', name: 'Discussions per page', value: 50, flag: 0 },
+  { family: 'setting_limits', key: 'paginationReply', type: 'number', name: 'Replies per page', value: 50, flag: 0 },
   { family: 'setting_limits', key: 'paginationRecord', type: 'number', name: 'Records per page', value: 100, flag: 0 },
   { family: 'setting_limits', key: 'paginationRanking', type: 'number', name: 'Users per page', value: 100, flag: 0 },
   { family: 'setting_limits', key: 'paginationSolution', type: 'number', name: 'Solutions per page', value: 20, flag: 0 },
@@ -47,7 +48,7 @@ const SYSTEM_SETTINGS = [
 ]
 
 const STRING_KEYS = ['siteName', 'navLogo', 'gravatarUrl', 'footerExtraHtml', 'bulletin', 'aboutMarkdown', 'homepageYaml', 'languageYaml'] as const
-const PAGINATION_KEYS = ['paginationProblem', 'paginationContest', 'paginationDiscussion', 'paginationRecord', 'paginationRanking', 'paginationSolution', 'paginationTraining'] as const
+const PAGINATION_KEYS = ['paginationProblem', 'paginationContest', 'paginationDiscussion', 'paginationReply', 'paginationRecord', 'paginationRanking', 'paginationSolution', 'paginationTraining'] as const
 const FILE_COUNT_KEYS = ['limitUserFiles', 'limitContestFiles', 'limitProblemFiles'] as const
 const SIZE_KEYS = ['limitUserFileSize', 'limitContestFileSize', 'limitProblemFileSize', 'limitCodeLength'] as const
 const RATE_KEYS = ['limitSubmission', 'limitSubmissionUser', 'limitPretest'] as const

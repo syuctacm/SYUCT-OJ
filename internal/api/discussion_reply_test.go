@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/syuctacm/syuct-oj/internal/api"
 	"github.com/syuctacm/syuct-oj/internal/auth"
@@ -86,28 +87,56 @@ func TestDiscussionReplyIntegration(t *testing.T) {
 	if reply.CreatedAt.IsZero() {
 		t.Fatal("reply createdAt is zero")
 	}
+	postDiscussionReply(t, server.URL, cookies, discussionID.Hex(), "坚持补题复盘", http.StatusCreated)
+	postDiscussionReply(t, server.URL, cookies, discussionID.Hex(), "参加模拟比赛", http.StatusCreated)
 
-	req, _ := http.NewRequest(http.MethodGet, server.URL+"/api/v1/discussions/"+discussionID.Hex()+"/replies", nil)
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
-	resp, err = http.DefaultClient.Do(req)
+	_, err = db.Collection("system").UpdateOne(ctx, bson.M{"_id": "pagination.reply"},
+		bson.M{"$set": bson.M{"value": int64(2)}}, options.UpdateOne().SetUpsert(true))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var listEnvelope struct {
 		Data struct {
 			Items []discussionReply `json:"items"`
 			Total int               `json:"total"`
+			Page  int               `json:"page"`
+			Limit int               `json:"limit"`
 		} `json:"data"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&listEnvelope); err != nil {
-		resp.Body.Close()
-		t.Fatal(err)
+	getReplies := func(path string) {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, server.URL+path, nil)
+		for _, cookie := range cookies {
+			req.AddCookie(cookie)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("GET %s = %d", path, resp.StatusCode)
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&listEnvelope); err != nil {
+			t.Fatal(err)
+		}
 	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK || listEnvelope.Data.Total != 1 || len(listEnvelope.Data.Items) != 1 {
-		t.Fatalf("reply list status=%d data=%+v", resp.StatusCode, listEnvelope.Data)
+
+	getReplies("/api/v1/discussions/" + discussionID.Hex() + "/replies")
+	if listEnvelope.Data.Total != 3 || len(listEnvelope.Data.Items) != 2 ||
+		listEnvelope.Data.Page != 1 || listEnvelope.Data.Limit != 2 {
+		t.Fatalf("first reply page = %+v", listEnvelope.Data)
+	}
+	if listEnvelope.Data.Items[0].Content != "参加模拟比赛" || listEnvelope.Data.Items[1].Content != "坚持补题复盘" {
+		t.Fatalf("first reply page order = %+v", listEnvelope.Data.Items)
+	}
+
+	getReplies("/api/v1/discussions/" + discussionID.Hex() + "/replies?page=2")
+	if listEnvelope.Data.Total != 3 || len(listEnvelope.Data.Items) != 1 ||
+		listEnvelope.Data.Page != 2 || listEnvelope.Data.Limit != 2 ||
+		listEnvelope.Data.Items[0].Content != "先刷基础题" {
+		t.Fatalf("second reply page = %+v", listEnvelope.Data)
 	}
 
 	var stored struct {
@@ -117,7 +146,7 @@ func TestDiscussionReplyIntegration(t *testing.T) {
 	if err := db.Collection("document").FindOne(ctx, bson.M{"_id": discussionID}).Decode(&stored); err != nil {
 		t.Fatal(err)
 	}
-	if stored.NReply != 1 || stored.UpdateAt.Before(time.Now().Add(-time.Minute)) {
+	if stored.NReply != 3 || stored.UpdateAt.Before(time.Now().Add(-time.Minute)) {
 		t.Fatalf("discussion counters not updated: %+v", stored)
 	}
 

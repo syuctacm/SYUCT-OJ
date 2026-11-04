@@ -74,6 +74,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 			PaginationProblem    int    `json:"paginationProblem"`
 			PaginationContest    int    `json:"paginationContest"`
 			PaginationDiscussion int    `json:"paginationDiscussion"`
+			PaginationReply      int    `json:"paginationReply"`
 			PaginationRecord     int    `json:"paginationRecord"`
 			PaginationRanking    int    `json:"paginationRanking"`
 			PaginationSolution   int    `json:"paginationSolution"`
@@ -130,7 +131,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 		payload.Data.NavLogo != handler.DefaultNavLogo || !payload.Data.EnableScratchpad ||
 		payload.Data.GravatarURL != handler.DefaultGravatarURL || payload.Data.HomepageYAML == "" || payload.Data.LanguageYAML == "" ||
 		payload.Data.PaginationProblem != 100 || payload.Data.PaginationContest != 20 ||
-		payload.Data.PaginationDiscussion != 50 || payload.Data.PaginationRecord != 100 ||
+		payload.Data.PaginationDiscussion != 50 || payload.Data.PaginationReply != 50 || payload.Data.PaginationRecord != 100 ||
 		payload.Data.PaginationRanking != 100 || payload.Data.PaginationSolution != 20 ||
 		payload.Data.PaginationTraining != 10 || payload.Data.LimitUserFiles != 100 ||
 		payload.Data.LimitUserFileSize != 128<<20 || payload.Data.LimitContestFiles != 100 ||
@@ -181,6 +182,9 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status := put(`{"paginationRecord":1001}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid large pagination = %d", status)
 	}
+	if status := put(`{"paginationReply":0}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid reply pagination = %d", status)
+	}
 	if status := put(`{"limitUserFiles":0}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid file count limit = %d", status)
 	}
@@ -193,7 +197,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status := put(`{"sessionSavedExpireSeconds":59}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid session expiry = %d", status)
 	}
-	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6,"limitUserFiles":8,"limitUserFileSize":1048576,"limitContestFiles":9,"limitContestFileSize":2097152,"limitProblemFiles":10,"limitProblemFileSize":3145728,"limitCodeLength":65536,"limitSubmission":11,"limitSubmissionUser":7,"limitPretest":12,"limitByUser":true,"sessionSavedExpireSeconds":7200,"sessionUnsavedExpireSeconds":1800,"languageYaml":"cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\n"}`
+	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationReply":36,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6,"limitUserFiles":8,"limitUserFileSize":1048576,"limitContestFiles":9,"limitContestFileSize":2097152,"limitProblemFiles":10,"limitProblemFileSize":3145728,"limitCodeLength":65536,"limitSubmission":11,"limitSubmissionUser":7,"limitPretest":12,"limitByUser":true,"sessionSavedExpireSeconds":7200,"sessionUnsavedExpireSeconds":1800,"languageYaml":"cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\n"}`
 	if status := put(updateBody, adminCookies); status != http.StatusOK {
 		t.Fatalf("admin update = %d", status)
 	}
@@ -208,7 +212,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 		!strings.Contains(payload.Data.HomepageYAML, "contest: 3") || !strings.Contains(payload.Data.AboutMarkdown, "Test About") ||
 		!strings.Contains(payload.Data.LanguageYAML, "C++17") ||
 		payload.Data.PaginationProblem != 37 || payload.Data.PaginationContest != 12 ||
-		payload.Data.PaginationDiscussion != 24 || payload.Data.PaginationRecord != 48 ||
+		payload.Data.PaginationDiscussion != 24 || payload.Data.PaginationReply != 36 || payload.Data.PaginationRecord != 48 ||
 		payload.Data.PaginationRanking != 60 || payload.Data.PaginationSolution != 18 ||
 		payload.Data.PaginationTraining != 6 || payload.Data.LimitUserFiles != 8 ||
 		payload.Data.LimitUserFileSize != 1048576 || payload.Data.LimitContestFiles != 9 ||

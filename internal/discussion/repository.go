@@ -776,19 +776,50 @@ func (r *Repository) Get(ctx context.Context, did string) (*Discussion, error) {
 }
 
 func (r *Repository) ListReplies(ctx context.Context, discussionID bson.ObjectID) ([]Reply, error) {
-	cursor, err := r.coll.Find(ctx, bson.M{
+	items, _, err := r.listReplies(ctx, discussionID, 0, 0)
+	return items, err
+}
+
+// ListRepliesPage returns one page of top-level replies and the total number of
+// top-level replies for the discussion. Tail replies remain embedded in their
+// parent document, matching Hydro's storage model.
+func (r *Repository) ListRepliesPage(ctx context.Context, discussionID bson.ObjectID, page, limit int) ([]Reply, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		return nil, 0, fmt.Errorf("reply page limit must be positive")
+	}
+	return r.listReplies(ctx, discussionID, page, limit)
+}
+
+func (r *Repository) listReplies(ctx context.Context, discussionID bson.ObjectID, page, limit int) ([]Reply, int64, error) {
+	filter := bson.M{
 		"domainId":   DomainSystem,
 		"docType":    DocumentTypeDiscussionReply,
 		"parentType": DocumentTypeDiscussion,
 		"parentId":   discussionID,
-	}, options.Find().SetSort(bson.D{{Key: "_id", Value: -1}}))
+	}
+	var total int64
+	if limit > 0 {
+		count, err := r.coll.CountDocuments(ctx, filter)
+		if err != nil {
+			return nil, 0, err
+		}
+		total = count
+	}
+	findOptions := options.Find().SetSort(bson.D{{Key: "_id", Value: -1}})
+	if limit > 0 {
+		findOptions.SetSkip(int64(page-1) * int64(limit)).SetLimit(int64(limit))
+	}
+	cursor, err := r.coll.Find(ctx, filter, findOptions)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer cursor.Close(ctx)
 	items := make([]Reply, 0)
 	if err := cursor.All(ctx, &items); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	for i := range items {
 		items[i].CreatedAt = items[i].ID.Timestamp()
@@ -796,7 +827,7 @@ func (r *Repository) ListReplies(ctx context.Context, discussionID bson.ObjectID
 			items[i].Replies[j].CreatedAt = items[i].Replies[j].ID.Timestamp()
 		}
 	}
-	return items, nil
+	return items, total, nil
 }
 
 func (node Node) DisplayTitle() string {

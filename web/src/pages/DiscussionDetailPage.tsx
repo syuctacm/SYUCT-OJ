@@ -2,7 +2,7 @@
 // file limited to data mapping and the reply/lock interactions.
 import $ from 'jquery'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   createDiscussionReply, deleteDiscussionReply, getDiscussion, getDiscussionNode, getDiscussionNodes, getDiscussionReplies,
   getUsersByIDs, setDiscussionLock, setDiscussionStar, updateDiscussionReply,
@@ -33,8 +33,13 @@ export function DiscussionDetailPage() {
   const { did = '' } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const requestedPage = Number(searchParams.get('page') ?? '1')
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1
   const [discussion, setDiscussion] = useState<Discussion | null>(null)
   const [replies, setReplies] = useState<DiscussionReply[]>([])
+  const [replyTotal, setReplyTotal] = useState(0)
+  const [replyLimit, setReplyLimit] = useState(50)
   const [nodes, setNodes] = useState<DiscussionNode[]>([])
   const [parentNode, setParentNode] = useState<DiscussionNode | null>(null)
   const [parentTypeName, setParentTypeName] = useState('node')
@@ -47,15 +52,17 @@ export function DiscussionDetailPage() {
   const closingForms = useRef(new WeakSet<HTMLFormElement>())
 
   const load = useCallback(async () => {
-    const [ddoc, drdocs, vnodes] = await Promise.all([
+    const [ddoc, replyPage, vnodes] = await Promise.all([
       getDiscussion(did),
-      getDiscussionReplies(did),
+      getDiscussionReplies(did, page),
       getDiscussionNodes(),
     ])
     setDiscussion(ddoc)
-    setReplies(drdocs)
+    setReplies(replyPage.items)
+    setReplyTotal(replyPage.total)
+    setReplyLimit(replyPage.limit)
     setNodes(vnodes)
-  }, [did])
+  }, [did, page])
 
   useEffect(() => {
     setDiscussion(null)
@@ -167,7 +174,9 @@ export function DiscussionDetailPage() {
       ddoc,
       dsdoc: { star: Boolean(discussion.starred) },
       drdocs,
-      drcount: discussion.nReply,
+      drcount: replyTotal,
+      page,
+      pcount: replyLimit > 0 ? Math.ceil(replyTotal / replyLimit) : 0,
       udict,
       vnode: node ? {
         _id: node.docId,
@@ -188,7 +197,7 @@ export function DiscussionDetailPage() {
       UiContext: {},
       UserContext: user,
     }
-  }, [did, discussion, nodes, parentNode, parentTypeName, replies, user, users])
+  }, [did, discussion, nodes, parentNode, parentTypeName, page, replies, replyLimit, replyTotal, user, users])
 
   const buildUrl = useCallback((name: string, args: Record<string, unknown> = {}) => {
     switch (name) {
