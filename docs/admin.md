@@ -62,6 +62,8 @@ SMTP 使用 Hydro 同名配置 `smtp.host`、`smtp.port`、`smtp.user`、`smtp.p
 
 站点基址使用 Hydro `server.url`，默认 `/`。可以配置绝对 HTTP(S) URL 或站内路径前缀；忘记密码/邮箱确认邮件和 OAuth callback 优先使用该值，未配置时回退到 `OAUTH_CALLBACK_BASE_URL` 或当前请求 Host。
 
+CDN 使用 Hydro `server.cdn` 和 `server.cdn_dynamic`。`server.cdn` 支持单个或逗号分隔的绝对/协议相对/站内路径前缀；`render.ts` 会把选中的前缀统一注入所有原模板的 `UiContext.cdn_prefix`。
+
 文件与代码限制使用 Hydro 同名配置：`limit.user_files`、`limit.user_files_size`、`limit.contest_files`、`limit.contest_files_size`、`limit.problem_files_max`、`limit.problem_files_max_size` 和 `limit.codelength`。上传、附件操作和代码提交会读取当前有效值。
 
 提交与自测频率限制使用 `limit.submission`、`limit.submission_user`、`limit.pretest` 和 `limit.by_user`；超限返回 `429` 与 `Retry-After`。当前限流器是单进程内存实现，多实例部署需要替换为共享存储。
@@ -107,7 +109,7 @@ ONSITE_IP_LOGIN=1
 
 ## 尚未完成
 
-- 尚未被当前前台消费的高级系统配置（配置 schema 编辑器和 CDN 等部署配置）
+- 尚未被当前前台消费的高级系统配置（配置 schema 编辑器）
 - `manage_dashboard` 的 WebSocket 连接检查和「Restart」按钮（出于安全考虑未实现，并从 DOM 移除）
 - 题目/比赛/训练编辑仍从各自详情页进入，没有复制到后台单独页面
 

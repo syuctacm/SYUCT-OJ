@@ -17,6 +17,8 @@ const FLAG_SECRET = 4
 const SYSTEM_SETTINGS = [
   { family: 'setting_basic', key: 'siteName', type: 'text', name: 'Site Name', value: 'SYUCT ACM OJ', flag: 0 },
   { family: 'setting_basic', key: 'serverUrl', type: 'text', name: 'Server URL', desc: 'Canonical base URL, for example https://oj.example.com', value: '/', flag: 0 },
+  { family: 'setting_basic', key: 'cdnPrefix', type: 'text', name: 'CDN Prefix', desc: 'One or more comma-separated URL prefixes', value: '/', flag: 0 },
+  { family: 'setting_basic', key: 'cdnDynamic', type: 'boolean', name: 'Dynamic CDN', value: false, flag: 0 },
   { family: 'setting_basic', key: 'navLogo', type: 'text', name: 'Navigation Logo URL', value: '/nav_logo_dark.png', flag: 0 },
   { family: 'setting_basic', key: 'gravatarUrl', type: 'text', name: 'Gravatar URL Prefix', value: '//cn.gravatar.com/avatar/', flag: 0 },
   { family: 'setting_basic', key: 'footerExtraHtml', type: 'textarea', name: 'Footer Extra HTML', value: '', flag: 0 },
@@ -57,7 +59,7 @@ const SYSTEM_SETTINGS = [
   { family: 'setting_limits', key: 'limitByUser', type: 'boolean', name: 'Use per-user rate limits', value: false, flag: 0 },
 ]
 
-const STRING_KEYS = ['siteName', 'serverUrl', 'navLogo', 'gravatarUrl', 'footerExtraHtml', 'bulletin', 'aboutMarkdown', 'homepageYaml', 'languageYaml', 'problemCategoriesYaml'] as const
+const STRING_KEYS = ['siteName', 'serverUrl', 'cdnPrefix', 'navLogo', 'gravatarUrl', 'footerExtraHtml', 'bulletin', 'aboutMarkdown', 'homepageYaml', 'languageYaml', 'problemCategoriesYaml'] as const
 const PAGINATION_KEYS = ['paginationProblem', 'paginationContest', 'paginationDiscussion', 'paginationReply', 'paginationRecord', 'paginationRanking', 'paginationSolution', 'paginationTraining'] as const
 const FILE_COUNT_KEYS = ['limitUserFiles', 'limitContestFiles', 'limitProblemFiles'] as const
 const SIZE_KEYS = ['limitUserFileSize', 'limitContestFileSize', 'limitProblemFileSize', 'limitCodeLength'] as const
@@ -145,6 +147,7 @@ export function AdminSettingsPage() {
     const smtpPassword = String(data.get('smtpPassword') ?? '')
     if (smtpPassword) payload.smtpPassword = smtpPassword
     payload.enableScratchpad = data.has('enableScratchpad')
+    payload.cdnDynamic = data.has('cdnDynamic')
     payload.trainingEnrolledUsers = data.has('trainingEnrolledUsers')
     payload.limitByUser = data.has('limitByUser')
     payload.smtpSecure = data.has('smtpSecure')

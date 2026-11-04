@@ -37,10 +37,19 @@ type TranslationMap = Record<string, string>
 type RenderContext = Record<string, unknown>
 
 let currentServerURL = '/'
+let currentCDNPrefix = '/'
+let currentCDNDynamic = false
 
 export function setServerURL(value?: string) {
   const next = value?.trim()
   currentServerURL = next || '/'
+}
+
+export function setCDNSettings(prefix?: string, dynamic = false) {
+  const candidates = String(prefix ?? '').split(',').map((value) => value.trim()).filter(Boolean)
+  const selected = candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : '/'
+  currentCDNPrefix = selected.endsWith('/') ? selected : `${selected}/`
+  currentCDNDynamic = dynamic
 }
 
 const templateFiles: Record<string, string> = {
@@ -340,6 +349,10 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
       getAlphabeticId: (index: number) => String.fromCharCode(65 + index),
     },
     lib: { difficulty },
+    UiContext: {
+      cdn_prefix: currentCDNPrefix,
+      cdn_dynamic: currentCDNDynamic,
+    },
   }
   const extra = options.context ?? {}
   const baseModel = base.model as RenderContext
@@ -357,6 +370,11 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
           ? currentServerURL
           : extraSystem?.get?.(key) ?? baseSystem.get?.(key) ?? '',
       },
+    },
+    UiContext: {
+      ...(extra.UiContext as RenderContext | undefined),
+      cdn_prefix: currentCDNPrefix,
+      cdn_dynamic: currentCDNDynamic,
     },
     utils: { ...(base.utils as RenderContext), ...(extra.utils as RenderContext | undefined) },
   }
