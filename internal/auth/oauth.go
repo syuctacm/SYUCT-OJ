@@ -447,15 +447,56 @@ func (h *OAuthHandler) currentUserID(c *gin.Context) (int64, bool) {
 }
 
 func (h *OAuthHandler) callbackURL(c *gin.Context, provider string) string {
-	base := h.baseURL
-	if base == "" && c != nil {
-		scheme := "http"
-		if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
-			scheme = "https"
-		}
-		base = scheme + "://" + c.Request.Host
+	base := h.configuredServerURL(c)
+	if base == "" {
+		base = h.baseURL
+	}
+	if base == "" {
+		base = oauthRequestOrigin(c)
 	}
 	return base + "/api/v1/auth/oauth/" + url.PathEscape(provider) + "/callback"
+}
+
+func (h *OAuthHandler) configuredServerURL(c *gin.Context) string {
+	if h.db == nil || c == nil {
+		return ""
+	}
+	var doc struct {
+		Value any `bson:"value"`
+	}
+	if err := h.db.Collection("system").FindOne(c.Request.Context(), bson.M{"_id": "server.url"}).Decode(&doc); err != nil {
+		return ""
+	}
+	value, ok := doc.Value.(string)
+	if !ok {
+		return ""
+	}
+	value = strings.TrimSpace(value)
+	if value == "" || value == "/" {
+		return ""
+	}
+	if strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://") {
+		parsed, err := url.Parse(value)
+		if err == nil && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == "" && !strings.Contains(parsed.Path, "..") {
+			return strings.TrimRight(value, "/")
+		}
+		return ""
+	}
+	if strings.HasPrefix(value, "/") && !strings.HasPrefix(value, "//") && !strings.Contains(value, "..") {
+		return oauthRequestOrigin(c) + strings.TrimRight(value, "/")
+	}
+	return ""
+}
+
+func oauthRequestOrigin(c *gin.Context) string {
+	scheme := "http"
+	if c != nil && (c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")) {
+		scheme = "https"
+	}
+	if c == nil {
+		return scheme + "://localhost"
+	}
+	return scheme + "://" + c.Request.Host
 }
 
 func (h *OAuthHandler) setStateCookie(c *gin.Context, state string) {

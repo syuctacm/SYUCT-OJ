@@ -71,6 +71,7 @@ db.getCollection("domain.user").insertMany([
 
 db.system.insertMany([
   { _id: "server.name", value: "SYUCT OJ Visual Fixture" },
+  { _id: "server.url", value: "http://localhost:13009" },
   { _id: "bulletin", value: "截图回归固定公告" },
   { _id: "ui-default.about", value: "# 关于 SYUCT OJ\n\n这是用于前端截图回归的本地固定页面。" },
   { _id: "ui-default.footer_extra_html", value: "SYUCT ACM Visual Regression" },

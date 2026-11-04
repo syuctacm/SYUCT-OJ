@@ -75,6 +75,9 @@ func TestOAuthGitHubLoginAndBinding(t *testing.T) {
 	users := user.NewRepository(db)
 	sessions := auth.NewSessionManager(time.Hour)
 	handler := auth.NewOAuthHandler(db, users, sessions, cfg)
+	if _, err := db.Collection("system").InsertOne(ctx, bson.M{"_id": "server.url", "value": "https://oj.example.com/oj"}); err != nil {
+		t.Fatal(err)
+	}
 	router := gin.New()
 	handler.RegisterRoutes(router.Group("/"))
 	server := httptest.NewServer(router)
@@ -98,6 +101,9 @@ func TestOAuthGitHubLoginAndBinding(t *testing.T) {
 	}
 	if location.Path != "/authorize" || location.Query().Get("state") == "" || location.Query().Get("client_id") != "client-id" {
 		t.Fatalf("oauth authorize location = %s", location)
+	}
+	if redirectURI := location.Query().Get("redirect_uri"); redirectURI != "https://oj.example.com/oj/api/v1/auth/oauth/github/callback" {
+		t.Fatalf("oauth redirect_uri = %q", redirectURI)
 	}
 	stateCookie := loginResp.Cookies()[0]
 	state := location.Query().Get("state")

@@ -160,6 +160,13 @@ func (h *UserEmailHandler) requireUser(c *gin.Context) (int64, bool) {
 }
 
 func absoluteRequestURL(c *gin.Context) string {
+	if configured := configuredServerBaseURL(c); configured != "" {
+		return configured
+	}
+	return requestOriginURL(c)
+}
+
+func requestOriginURL(c *gin.Context) string {
 	scheme := "http"
 	if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
 		scheme = "https"

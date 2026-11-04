@@ -65,6 +65,7 @@ export async function getCountdown(): Promise<Countdown> {
 export type PublicSettings = {
   bulletin: string
   siteName: string
+  serverUrl: string
   navLogo: string
   footerExtraHtml: string
   enableScratchpad: boolean

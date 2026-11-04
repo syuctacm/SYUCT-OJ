@@ -23,6 +23,7 @@ import (
 const (
 	settingBulletin              = "bulletin"
 	settingServerName            = "server.name"
+	settingServerURL             = "server.url"
 	settingNavLogo               = "ui-default.nav_logo_dark"
 	settingFooterExtraHTML       = "ui-default.footer_extra_html"
 	settingScratchpad            = "ui-default.enableScratchpad"
@@ -241,6 +242,7 @@ const DefaultAboutMarkdown = `# about 关于 {{ name }}
 
 var siteSettingKeys = []string{
 	settingBulletin, settingServerName, settingNavLogo, settingFooterExtraHTML,
+	settingServerURL,
 	settingScratchpad, settingGravatarURL, settingHomepage, settingAbout, settingLanguages,
 	settingProblemCategories,
 	settingTrainingEnrolledUsers,
@@ -262,6 +264,7 @@ var smtpSettingKeys = []string{
 type SiteSettings struct {
 	Bulletin              string `json:"bulletin"`
 	SiteName              string `json:"siteName"`
+	ServerURL             string `json:"serverUrl"`
 	NavLogo               string `json:"navLogo"`
 	FooterExtraHTML       string `json:"footerExtraHtml"`
 	EnableScratchpad      bool   `json:"enableScratchpad"`
@@ -308,6 +311,7 @@ type AdminSiteSettings struct {
 func DefaultSiteSettings() SiteSettings {
 	return SiteSettings{
 		SiteName: DefaultSiteName, NavLogo: DefaultNavLogo,
+		ServerURL:       "/",
 		FooterExtraHTML: DefaultFooterExtraHTML, EnableScratchpad: true,
 		GravatarURL: DefaultGravatarURL, HomepageYAML: DefaultHomepageYAML,
 		AboutMarkdown:         DefaultAboutMarkdown,
@@ -469,6 +473,10 @@ func setSiteSettingValue(values *SiteSettings, key string, value any) {
 	case settingServerName:
 		if isText && strings.TrimSpace(text) != "" {
 			values.SiteName = text
+		}
+	case settingServerURL:
+		if normalized, ok := normalizeServerURL(text); ok {
+			values.ServerURL = normalized
 		}
 	case settingNavLogo:
 		if isText && strings.TrimSpace(text) != "" {
@@ -717,6 +725,11 @@ func siteSettingUpdates(input SiteSettingsInput) map[string]any {
 	if input.SiteName != nil {
 		updates[settingServerName] = *input.SiteName
 	}
+	if input.ServerURL != nil {
+		if normalized, ok := normalizeServerURL(*input.ServerURL); ok {
+			updates[settingServerURL] = normalized
+		}
+	}
 	if input.NavLogo != nil {
 		updates[settingNavLogo] = *input.NavLogo
 	}
@@ -791,6 +804,7 @@ func writeSiteSettings(ctx context.Context, db *mongo.Database, updates map[stri
 type SiteSettingsInput struct {
 	Bulletin              *string `json:"bulletin"`
 	SiteName              *string `json:"siteName"`
+	ServerURL             *string `json:"serverUrl"`
 	NavLogo               *string `json:"navLogo"`
 	FooterExtraHTML       *string `json:"footerExtraHtml"`
 	EnableScratchpad      *bool   `json:"enableScratchpad"`
@@ -875,6 +889,11 @@ func validateSiteSettings(input SiteSettingsInput) error {
 	}
 	if input.SiteName != nil && strings.TrimSpace(*input.SiteName) == "" {
 		return fmt.Errorf("site name is required")
+	}
+	if input.ServerURL != nil {
+		if _, ok := normalizeServerURL(*input.ServerURL); !ok {
+			return fmt.Errorf("invalid server URL")
+		}
 	}
 	if input.NavLogo != nil && strings.TrimSpace(*input.NavLogo) == "" {
 		return fmt.Errorf("nav logo is required")
@@ -969,6 +988,59 @@ func validProblemCategoriesYAML(value string) bool {
 		}
 	}
 	return true
+}
+
+func normalizeServerURL(value string) (string, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "/" {
+		return "/", true
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", false
+	}
+	if strings.Contains(parsed.Path, "..") {
+		return "", false
+	}
+	if parsed.IsAbs() {
+		if parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Host == "" {
+			return "", false
+		}
+		return strings.TrimRight(parsed.String(), "/"), true
+	}
+	if parsed.Host != "" || !strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") {
+		return "", false
+	}
+	return strings.TrimRight(value, "/"), true
+}
+
+func configuredServerBaseURL(c *gin.Context) string {
+	rawDB, ok := c.Get(RequestDatabaseKey)
+	if !ok {
+		return ""
+	}
+	db, ok := rawDB.(*mongo.Database)
+	if !ok || db == nil {
+		return ""
+	}
+	var doc struct {
+		Value any `bson:"value"`
+	}
+	if err := db.Collection("system").FindOne(c.Request.Context(), bson.M{"_id": settingServerURL}).Decode(&doc); err != nil {
+		return ""
+	}
+	value, ok := doc.Value.(string)
+	if !ok {
+		return ""
+	}
+	normalized, ok := normalizeServerURL(value)
+	if !ok || normalized == "/" {
+		return ""
+	}
+	if strings.HasPrefix(normalized, "http://") || strings.HasPrefix(normalized, "https://") {
+		return normalized
+	}
+	return requestOriginURL(c) + normalized
 }
 
 func validAssetURL(value string) bool {

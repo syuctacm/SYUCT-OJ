@@ -60,6 +60,8 @@
 
 SMTP 使用 Hydro 同名配置 `smtp.host`、`smtp.port`、`smtp.user`、`smtp.pass`、`smtp.from` 和 `smtp.secure`。后台只返回“密码是否已配置”，不会回传密码明文；留空密码表示保持不变，勾选 Clear SMTP Password 可清除。数据库配置优先于 `MAIL_*` 环境变量，保存后当前进程立即更新 mailer。
 
+站点基址使用 Hydro `server.url`，默认 `/`。可以配置绝对 HTTP(S) URL 或站内路径前缀；忘记密码/邮箱确认邮件和 OAuth callback 优先使用该值，未配置时回退到 `OAUTH_CALLBACK_BASE_URL` 或当前请求 Host。
+
 文件与代码限制使用 Hydro 同名配置：`limit.user_files`、`limit.user_files_size`、`limit.contest_files`、`limit.contest_files_size`、`limit.problem_files_max`、`limit.problem_files_max_size` 和 `limit.codelength`。上传、附件操作和代码提交会读取当前有效值。
 
 提交与自测频率限制使用 `limit.submission`、`limit.submission_user`、`limit.pretest` 和 `limit.by_user`；超限返回 `429` 与 `Retry-After`。当前限流器是单进程内存实现，多实例部署需要替换为共享存储。

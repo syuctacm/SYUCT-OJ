@@ -43,6 +43,8 @@
 
 邮箱变更 token 默认 24 小时有效，只能由发起变更的 uid 使用。SMTP 可在后台配置，或继续使用 `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_FROM` / `MAIL_SECURE` 环境变量作为 fallback。数据库配置优先，密码不会通过 API 回传。未配置 SMTP 时本地模式会直接返回确认链接，便于本地 Docker 验证。
 
+确认邮件中的站点链接使用 `server.url`；未配置时使用当前请求 Host。反向代理部署建议显式设置该值。
+
 TOTP 使用 SHA-1、6 位、30 秒时间片，并允许前后各一个时间片；secret 只保存在用户文档的 `tfa` 字段，`auth/me` 只返回布尔状态。
 
 Passkey 使用稳定的 32 字节 `webauthnId` 作为 WebAuthn user handle。数据库集合：
