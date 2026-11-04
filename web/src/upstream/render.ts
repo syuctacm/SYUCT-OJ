@@ -36,6 +36,13 @@ import {
 type TranslationMap = Record<string, string>
 type RenderContext = Record<string, unknown>
 
+let currentServerURL = '/'
+
+export function setServerURL(value?: string) {
+  const next = value?.trim()
+  currentServerURL = next || '/'
+}
+
 const templateFiles: Record<string, string> = {
   ...import.meta.glob('/node_modules/@hydrooj/ui-default/templates/**/*.html', {
     query: '?raw', import: 'default', eager: true,
@@ -324,6 +331,9 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
         USER_GENDER_RANGE: { 0: 'Boy ♂', 1: 'Girl ♀', 2: 'Other' },
         USER_GENDER_ICONS: { 0: '♂', 1: '♀', 2: '?' },
       },
+      system: {
+        get: (key: string) => key === 'server.url' ? currentServerURL : '',
+      },
     },
     utils: {
       status: { getScoreColor },
@@ -332,10 +342,22 @@ export function renderHydroTemplate(template: string, options: HydroRenderOption
     lib: { difficulty },
   }
   const extra = options.context ?? {}
+  const baseModel = base.model as RenderContext
+  const extraModel = (extra.model ?? {}) as RenderContext
+  const baseSystem = baseModel.system as { get?: (key: string) => unknown }
+  const extraSystem = extraModel.system as { get?: (key: string) => unknown } | undefined
   const context: RenderContext = {
     ...base,
     ...extra,
-    model: { ...(base.model as RenderContext), ...(extra.model as RenderContext | undefined) },
+    model: {
+      ...baseModel,
+      ...extraModel,
+      system: {
+        get: (key: string) => key === 'server.url'
+          ? currentServerURL
+          : extraSystem?.get?.(key) ?? baseSystem.get?.(key) ?? '',
+      },
+    },
     utils: { ...(base.utils as RenderContext), ...(extra.utils as RenderContext | undefined) },
   }
   return env.renderString(

@@ -70,6 +70,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 		Data struct {
 			Bulletin               string `json:"bulletin"`
 			SiteName               string `json:"siteName"`
+			ServerURL              string `json:"serverUrl"`
 			NavLogo                string `json:"navLogo"`
 			FooterExtraHTML        string `json:"footerExtraHtml"`
 			EnableScratchpad       bool   `json:"enableScratchpad"`
@@ -159,6 +160,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 
 	status, payload := get("/api/v1/settings", nil)
 	if status != http.StatusOK || payload.Data.Bulletin != "" || payload.Data.SiteName != handler.DefaultSiteName ||
+		payload.Data.ServerURL != "/" ||
 		payload.Data.NavLogo != handler.DefaultNavLogo || !payload.Data.EnableScratchpad ||
 		payload.Data.GravatarURL != handler.DefaultGravatarURL || payload.Data.HomepageYAML == "" || payload.Data.LanguageYAML == "" ||
 		!strings.Contains(payload.Data.ProblemCategoriesYAML, "动态规划:") ||
@@ -200,6 +202,9 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	}
 	if status := put(`{"siteName":""}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("empty site name = %d", status)
+	}
+	if status := put(`{"serverUrl":"ftp://oj.example.com"}`, adminCookies); status != http.StatusBadRequest {
+		t.Fatalf("invalid server URL = %d", status)
 	}
 	if status := put(`{"navLogo":"javascript:alert(1)"}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid nav logo = %d", status)
@@ -243,7 +248,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 	if status := put(`{"smtpHost":"smtp.example.com","smtpFrom":"not-an-address","smtpPort":587}`, adminCookies); status != http.StatusBadRequest {
 		t.Fatalf("invalid SMTP From = %d", status)
 	}
-	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","problemCategoriesYaml":"基础:\n  - 前缀和\n","trainingEnrolledUsers":false,"paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationReply":36,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6,"limitUserFiles":8,"limitUserFileSize":1048576,"limitContestFiles":9,"limitContestFileSize":2097152,"limitProblemFiles":10,"limitProblemFileSize":3145728,"limitCodeLength":65536,"limitSubmission":11,"limitSubmissionUser":7,"limitPretest":12,"limitByUser":true,"sessionSavedExpireSeconds":7200,"sessionUnsavedExpireSeconds":1800,"smtpHost":"smtp.example.com","smtpPort":2525,"smtpUsername":"mailer","smtpPassword":"smtp-password-secret","smtpFrom":"noreply@example.com","smtpSecure":true,"languageYaml":"cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\n"}`
+	updateBody := `{"bulletin":"# 欢迎来到 Test OJ","siteName":"Test OJ","serverUrl":"https://oj.example.com/","navLogo":"/test-logo.png","footerExtraHtml":"<b>Test Footer</b>","enableScratchpad":false,"gravatarUrl":"https://example.com/avatar/","homepageYaml":"- width: 12\n  bulletin: true\n  contest: 3\n","aboutMarkdown":"# about 关于 {{ name }}\n\nTest About","problemCategoriesYaml":"基础:\n  - 前缀和\n","trainingEnrolledUsers":false,"paginationProblem":37,"paginationContest":12,"paginationDiscussion":24,"paginationReply":36,"paginationRecord":48,"paginationRanking":60,"paginationSolution":18,"paginationTraining":6,"limitUserFiles":8,"limitUserFileSize":1048576,"limitContestFiles":9,"limitContestFileSize":2097152,"limitProblemFiles":10,"limitProblemFileSize":3145728,"limitCodeLength":65536,"limitSubmission":11,"limitSubmissionUser":7,"limitPretest":12,"limitByUser":true,"sessionSavedExpireSeconds":7200,"sessionUnsavedExpireSeconds":1800,"smtpHost":"smtp.example.com","smtpPort":2525,"smtpUsername":"mailer","smtpPassword":"smtp-password-secret","smtpFrom":"noreply@example.com","smtpSecure":true,"languageYaml":"cpp:\n  display: C++17\n  compile: /usr/bin/g++ -O2 -std=c++17 -o foo foo.cpp\n  code_file: foo.cpp\n  execute: /w/foo\n"}`
 	if status := put(updateBody, adminCookies); status != http.StatusOK {
 		t.Fatalf("admin update = %d", status)
 	}
@@ -257,7 +262,7 @@ func TestPublicSettingsIntegration(t *testing.T) {
 
 	status, payload = get("/api/v1/settings", nil)
 	if status != http.StatusOK || payload.Data.Bulletin != "# 欢迎来到 Test OJ" || payload.Data.SiteName != "Test OJ" ||
-		payload.Data.NavLogo != "/test-logo.png" || payload.Data.FooterExtraHTML != "<b>Test Footer</b>" ||
+		payload.Data.ServerURL != "https://oj.example.com" || payload.Data.NavLogo != "/test-logo.png" || payload.Data.FooterExtraHTML != "<b>Test Footer</b>" ||
 		payload.Data.EnableScratchpad || payload.Data.GravatarURL != "https://example.com/avatar/" ||
 		!strings.Contains(payload.Data.HomepageYAML, "contest: 3") || !strings.Contains(payload.Data.AboutMarkdown, "Test About") ||
 		!strings.Contains(payload.Data.LanguageYAML, "C++17") ||

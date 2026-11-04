@@ -1254,6 +1254,22 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地隔离 Docker 视觉回归 34/34 页面通过
 - 不连接真实 SMTP 或生产环境
 
+## 6.72 站点基址配置（2026-11-04）
+
+- 后台新增 Hydro 原版 `server.url`，默认 `/`
+- 支持绝对 HTTP(S) URL 和站内路径前缀，拒绝非 HTTP(S)、带凭据、查询串或片段的值
+- 忘记密码和邮箱修改邮件使用 `server.url` 生成绝对确认链接
+- OAuth callback 优先级为 `server.url` -> `OAUTH_CALLBACK_BASE_URL` -> 当前请求 Host
+- Hydro 模板上下文中的 `model.system.get('server.url')` 使用同一个运行时值
+
+验证：
+
+- Go 集成测试覆盖默认值、非法 URL、保存回读、邮件链接和 OAuth `redirect_uri`
+- 前端 lint/build 通过
+- 本地 Docker Playwright 验证后台保存后公共设置与 OAuth callback 基址更新
+- 本地隔离 Docker 视觉回归 34/34 页面通过
+- 不连接生产环境
+
 ## 7. 当前已知差异
 
 ```text

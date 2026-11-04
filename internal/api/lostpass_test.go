@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -158,7 +159,14 @@ func TestLostPasswordReset(t *testing.T) {
 	// With SMTP the response must not contain the token, and the mail must be
 	// sent to the registered address.
 	fake := &fakeMailer{}
+	if _, err := db.Collection("system").InsertOne(ctx, bson.M{"_id": "server.url", "value": "https://oj.example.com"}); err != nil {
+		t.Fatal(err)
+	}
 	smtpRouter := gin.New()
+	smtpRouter.Use(func(c *gin.Context) {
+		c.Set(handler.RequestDatabaseKey, db)
+		c.Next()
+	})
 	authHandler.RegisterRoutes(smtpRouter.Group("/"))
 	handler.NewLostPassHandler(userRepo, sessions, fake).RegisterRoutes(smtpRouter.Group("/"))
 	smtpServer := httptest.NewServer(smtpRouter)
@@ -169,5 +177,8 @@ func TestLostPasswordReset(t *testing.T) {
 	}
 	if fake.to != "bob@example.com" || fake.subject != "重置密码" || fake.body == "" {
 		t.Fatalf("mailer = %+v", fake)
+	}
+	if !strings.Contains(fake.body, "https://oj.example.com/lostpass/") {
+		t.Fatalf("mail did not use server.url: %s", fake.body)
 	}
 }

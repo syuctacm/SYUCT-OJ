@@ -2,10 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { getPublicSettings, type PublicSettings } from './api.ts'
 import { setGravatarURL } from './upstream/avatar.ts'
 import { applyPaginationSettings } from './pagination.ts'
+import { setServerURL } from './upstream/render.ts'
 
 export const DEFAULT_SITE_SETTINGS: PublicSettings = {
   bulletin: '',
   siteName: 'SYUCT ACM OJ',
+  serverUrl: '/',
   navLogo: '/nav_logo_dark.png',
   footerExtraHtml: '沈阳化工大学 ACM-ICPC 集训队',
   enableScratchpad: true,
@@ -71,6 +73,7 @@ function applyRuntimeSettings(settings: PublicSettings) {
   const previousSiteName = currentSiteName
   currentSiteName = settings.siteName || DEFAULT_SITE_SETTINGS.siteName
   setGravatarURL(settings.gravatarUrl)
+  setServerURL(settings.serverUrl)
   applyPaginationSettings(settings)
   for (const name of new Set([previousSiteName, DEFAULT_SITE_SETTINGS.siteName])) {
     const suffix = ` - ${name}`

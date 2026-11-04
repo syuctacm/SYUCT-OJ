@@ -93,6 +93,8 @@ OAUTH_GITHUB_CLIENT_SECRET=...
 OAUTH_GITHUB_CAN_REGISTER=1
 ```
 
+后台 `/admin/settings` 的 `server.url` 优先于 `OAUTH_CALLBACK_BASE_URL`；两者都未配置时使用当前请求的 Host 和协议。
+
 `OAUTH_GITHUB_AUTHORIZE_URL`、`OAUTH_GITHUB_TOKEN_URL`、`OAUTH_GITHUB_USER_URL`、`OAUTH_GITHUB_EMAILS_URL` 和 `OAUTH_GITHUB_SCOPE` 可在本地 mock provider 或 GitHub Enterprise 中使用；默认值指向 GitHub.com。
 
 ## Session
