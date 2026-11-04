@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	stdmail "net/mail"
 	"net/url"
 	"reflect"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/syuctacm/syuct-oj/internal/judge"
+	mailservice "github.com/syuctacm/syuct-oj/internal/mail"
 )
 
 const (
@@ -30,6 +32,13 @@ const (
 	settingLanguages             = "hydrooj.langs"
 	settingProblemCategories     = "problem.categories"
 	settingTrainingEnrolledUsers = "training.enrolled-users"
+
+	settingSMTPHost     = "smtp.host"
+	settingSMTPPort     = "smtp.port"
+	settingSMTPUsername = "smtp.user"
+	settingSMTPPassword = "smtp.pass"
+	settingSMTPFrom     = "smtp.from"
+	settingSMTPSecure   = "smtp.secure"
 
 	settingLimitUserFiles       = "limit.user_files"
 	settingLimitUserFileSize    = "limit.user_files_size"
@@ -245,6 +254,11 @@ var siteSettingKeys = []string{
 	settingSessionSavedExpire, settingSessionUnsavedExpire,
 }
 
+var smtpSettingKeys = []string{
+	settingSMTPHost, settingSMTPPort, settingSMTPUsername,
+	settingSMTPPassword, settingSMTPFrom, settingSMTPSecure,
+}
+
 type SiteSettings struct {
 	Bulletin              string `json:"bulletin"`
 	SiteName              string `json:"siteName"`
@@ -278,6 +292,17 @@ type SiteSettings struct {
 	LimitByUser           bool   `json:"limitByUser"`
 	SessionSavedExpire    int64  `json:"sessionSavedExpireSeconds"`
 	SessionUnsavedExpire  int64  `json:"sessionUnsavedExpireSeconds"`
+	SMTPConfigured        bool   `json:"smtpConfigured"`
+}
+
+type AdminSiteSettings struct {
+	SiteSettings
+	SMTPHost               string `json:"smtpHost"`
+	SMTPPort               int    `json:"smtpPort"`
+	SMTPUsername           string `json:"smtpUsername"`
+	SMTPPasswordConfigured bool   `json:"smtpPasswordConfigured"`
+	SMTPFrom               string `json:"smtpFrom"`
+	SMTPSecure             bool   `json:"smtpSecure"`
 }
 
 func DefaultSiteSettings() SiteSettings {
@@ -304,11 +329,16 @@ func DefaultSiteSettings() SiteSettings {
 // SettingsHandler serves the public subset of the `system` key/value store,
 // which is the same shape Hydro's model/system.ts uses.
 type SettingsHandler struct {
-	db *mongo.Database
+	db           *mongo.Database
+	mailFallback mailservice.Config
 }
 
 func NewSettingsHandler(db *mongo.Database) *SettingsHandler {
 	return &SettingsHandler{db: db}
+}
+
+func (h *SettingsHandler) SetMailFallback(config mailservice.Config) {
+	h.mailFallback = config
 }
 
 func (h *SettingsHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -320,6 +350,9 @@ func (h *SettingsHandler) publicSettings(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load settings"})
 		return
+	}
+	if config, err := ReadMailConfig(c.Request.Context(), h.db, h.mailFallback); err == nil {
+		values.SMTPConfigured = mailservice.IsConfigured(config)
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": values})
 }
@@ -343,6 +376,87 @@ func readSiteSettings(ctx context.Context, db *mongo.Database) (SiteSettings, er
 		setSiteSettingValue(&values, doc.ID, doc.Value)
 	}
 	return values, cursor.Err()
+}
+
+func ReadMailConfig(ctx context.Context, db *mongo.Database, fallback mailservice.Config) (mailservice.Config, error) {
+	values, found, err := readSystemValues(ctx, db, smtpSettingKeys)
+	if err != nil {
+		return fallback, err
+	}
+	if !found {
+		if fallback.Port <= 0 {
+			fallback.Port = 587
+		}
+		return fallback, nil
+	}
+	config := fallback
+	if config.Port <= 0 {
+		config.Port = 587
+	}
+	if value, ok := values[settingSMTPHost].(string); ok {
+		config.Host = strings.TrimSpace(value)
+	}
+	if value, ok := anyInt(values[settingSMTPPort]); ok {
+		config.Port = value
+	}
+	if value, ok := values[settingSMTPUsername].(string); ok {
+		config.Username = strings.TrimSpace(value)
+	}
+	if value, ok := values[settingSMTPPassword].(string); ok {
+		config.Password = value
+	}
+	if value, ok := values[settingSMTPFrom].(string); ok {
+		config.From = strings.TrimSpace(value)
+	}
+	if value, ok := anyBool(values[settingSMTPSecure]); ok {
+		config.Secure = value
+	}
+	return config, nil
+}
+
+func readAdminSiteSettings(ctx context.Context, db *mongo.Database, fallback mailservice.Config) (AdminSiteSettings, error) {
+	site, err := readSiteSettings(ctx, db)
+	if err != nil {
+		return AdminSiteSettings{}, err
+	}
+	config, err := ReadMailConfig(ctx, db, fallback)
+	if err != nil {
+		return AdminSiteSettings{}, err
+	}
+	site.SMTPConfigured = mailservice.IsConfigured(config)
+	return AdminSiteSettings{
+		SiteSettings:           site,
+		SMTPHost:               config.Host,
+		SMTPPort:               config.Port,
+		SMTPUsername:           config.Username,
+		SMTPPasswordConfigured: config.Password != "",
+		SMTPFrom:               config.From,
+		SMTPSecure:             config.Secure,
+	}, nil
+}
+
+func readSystemValues(ctx context.Context, db *mongo.Database, keys []string) (map[string]any, bool, error) {
+	cursor, err := db.Collection("system").Find(ctx, bson.M{"_id": bson.M{"$in": keys}},
+		options.Find().SetProjection(bson.M{"value": 1}))
+	if err != nil {
+		return nil, false, err
+	}
+	defer cursor.Close(ctx)
+	values := make(map[string]any, len(keys))
+	for cursor.Next(ctx) {
+		var doc struct {
+			ID    string `bson:"_id"`
+			Value any    `bson:"value"`
+		}
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, false, err
+		}
+		values[doc.ID] = doc.Value
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, false, err
+	}
+	return values, len(values) > 0, nil
 }
 
 func setSiteSettingValue(values *SiteSettings, key string, value any) {
@@ -524,6 +638,77 @@ func anyBool(value any) (bool, bool) {
 	return false, false
 }
 
+func hasSMTPChanges(input SiteSettingsInput) bool {
+	return input.SMTPHost != nil || input.SMTPPort != nil || input.SMTPUsername != nil ||
+		input.SMTPPassword != nil || input.SMTPFrom != nil || input.SMTPSecure != nil ||
+		input.SMTPClearPassword != nil
+}
+
+func mergeSMTPConfig(current mailservice.Config, input SiteSettingsInput) mailservice.Config {
+	if input.SMTPHost != nil {
+		current.Host = strings.TrimSpace(*input.SMTPHost)
+	}
+	if input.SMTPPort != nil {
+		current.Port = *input.SMTPPort
+	}
+	if input.SMTPUsername != nil {
+		current.Username = strings.TrimSpace(*input.SMTPUsername)
+	}
+	if input.SMTPFrom != nil {
+		current.From = strings.TrimSpace(*input.SMTPFrom)
+	}
+	if input.SMTPSecure != nil {
+		current.Secure = *input.SMTPSecure
+	}
+	if input.SMTPClearPassword != nil && *input.SMTPClearPassword {
+		current.Password = ""
+	} else if input.SMTPPassword != nil && *input.SMTPPassword != "" {
+		current.Password = *input.SMTPPassword
+	}
+	if parsed, err := stdmail.ParseAddress(current.From); err == nil {
+		current.From = parsed.Address
+	}
+	if current.Port <= 0 && input.SMTPPort == nil {
+		current.Port = 587
+	}
+	return current
+}
+
+func validateSMTPConfig(config mailservice.Config) error {
+	host := strings.TrimSpace(config.Host)
+	from := strings.TrimSpace(config.From)
+	if host == "" && from == "" {
+		return nil
+	}
+	if host == "" || from == "" {
+		return fmt.Errorf("SMTP host and From address must both be set or both be empty")
+	}
+	if strings.ContainsAny(host, " \t\r\n") {
+		return fmt.Errorf("invalid SMTP host")
+	}
+	if config.Port < 1 || config.Port > 65535 {
+		return fmt.Errorf("SMTP port must be between 1 and 65535")
+	}
+	if strings.ContainsAny(config.Username, "\r\n") {
+		return fmt.Errorf("invalid SMTP username")
+	}
+	if _, err := stdmail.ParseAddress(from); err != nil {
+		return fmt.Errorf("invalid SMTP From address")
+	}
+	return nil
+}
+
+func smtpSettingUpdates(config mailservice.Config) map[string]any {
+	return map[string]any{
+		settingSMTPHost:     strings.TrimSpace(config.Host),
+		settingSMTPPort:     config.Port,
+		settingSMTPUsername: strings.TrimSpace(config.Username),
+		settingSMTPPassword: config.Password,
+		settingSMTPFrom:     strings.TrimSpace(config.From),
+		settingSMTPSecure:   config.Secure,
+	}
+}
+
 func siteSettingUpdates(input SiteSettingsInput) map[string]any {
 	updates := make(map[string]any)
 	if input.Bulletin != nil {
@@ -636,6 +821,13 @@ type SiteSettingsInput struct {
 	LimitByUser           *bool   `json:"limitByUser"`
 	SessionSavedExpire    *int64  `json:"sessionSavedExpireSeconds"`
 	SessionUnsavedExpire  *int64  `json:"sessionUnsavedExpireSeconds"`
+	SMTPHost              *string `json:"smtpHost"`
+	SMTPPort              *int    `json:"smtpPort"`
+	SMTPUsername          *string `json:"smtpUsername"`
+	SMTPPassword          *string `json:"smtpPassword"`
+	SMTPFrom              *string `json:"smtpFrom"`
+	SMTPSecure            *bool   `json:"smtpSecure"`
+	SMTPClearPassword     *bool   `json:"smtpClearPassword"`
 }
 
 func validHomepageYAML(value string) bool {

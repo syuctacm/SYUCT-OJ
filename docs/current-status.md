@@ -19,6 +19,7 @@
 - 讨论详情回复分页复用 Hydro 原模板分页器，并支持 URL `page` 参数
 - 后台训练报名用户展示开关，关闭后隐藏报名列表并禁止查看他人训练进度
 - 后台题目分类 YAML，驱动题库侧栏、题目编辑分类和 `category:` 搜索
+- 后台 SMTP 配置、密码只写不读、运行时更新和 465 隐式 TLS
 - 完整合并 Hydro 4.58.5 核心与 `ui-default` 中文语言包，消除模板中的 `page.*` 原始 key
 - 后台判题语言表：`hydrooj.langs` YAML、语言继承和运行时 hub 更新
 - 后台文件与代码限制：用户/活动/题目附件数量和大小、提交代码长度
@@ -49,7 +50,7 @@ TEST_MONGO_URI='mongodb://syuct:syuct_dev_password@127.0.0.1:27017/?authSource=a
 
 ### 功能
 
-- 尚未消费的高级系统配置：配置 schema 编辑器、SMTP/CDN 等部署配置
+- 尚未消费的高级系统配置：配置 schema 编辑器、CDN 等部署配置
 
 ### 发布验收
 

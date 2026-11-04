@@ -87,7 +87,7 @@ func (h *UserEmailHandler) requestChange(c *gin.Context) {
 		return
 	}
 	relativeLink := "/home/changeMail/" + url.PathEscape(code)
-	if h.mailer == nil {
+	if !mail.IsEnabled(h.mailer) {
 		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{
 			"sent": false, "mail": address, "code": code, "link": relativeLink,
 		}})

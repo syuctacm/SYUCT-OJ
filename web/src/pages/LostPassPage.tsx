@@ -3,9 +3,11 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { requestLostPass } from '../api.ts'
 import { HydroTemplate } from '../components/HydroTemplate.tsx'
+import { useSiteSettings } from '../site-settings.tsx'
 
 export function LostPassPage() {
   const navigate = useNavigate()
+  const { settings } = useSiteSettings()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
@@ -13,9 +15,9 @@ export function LostPassPage() {
 
   const context = useMemo(() => ({
     page_name: 'user_lostpass',
-    model: { system: { get: (key: string) => (key === 'smtp.user' ? 'configured' : '') } },
+    model: { system: { get: (key: string) => (key === 'smtp.user' && settings.smtpConfigured ? 'configured' : '') } },
     handler: { user: { _id: 0, viewLang: 'zh', hasPriv: () => false, hasPerm: () => false } },
-  }), [])
+  }), [settings.smtpConfigured])
 
   const handleReady = useCallback((root: HTMLDivElement) => {
     const form = root.querySelector<HTMLFormElement>('form')

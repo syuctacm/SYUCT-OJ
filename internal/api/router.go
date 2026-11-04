@@ -1,6 +1,9 @@
 package api
 
 import (
+	"context"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
@@ -21,6 +24,21 @@ import (
 
 func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handler, authHandler *auth.Handler, problemRepo *problem.Repository, submissionHandler *handler.SubmissionHandler, contestRepo *contest.Repository, trainingRepo *training.Repository, discussionRepo *discussion.Repository, userRepo *user.Repository, adminHandler *handler.AdminHandler, sessions *auth.SessionManager) *gin.Engine {
 	router := gin.New()
+	mailFallback := mail.Config{
+		Host: cfg.MailHost, Port: cfg.MailPort, Username: cfg.MailUsername,
+		Password: cfg.MailPassword, From: cfg.MailFrom, Secure: cfg.MailSecure,
+	}
+	mailer := mail.New(mailFallback)
+	if db != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if loaded, err := handler.ReadMailConfig(ctx, db, mailFallback); err == nil {
+			mailer.Update(loaded)
+		}
+		cancel()
+	}
+	if adminHandler != nil {
+		adminHandler.SetMailConfigUpdater(mailFallback, mailer.Update)
+	}
 	var activeJudgeHub *judge.Hub
 	if judgeHandler != nil {
 		activeJudgeHub = judgeHandler.Hub()
@@ -52,7 +70,9 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 		v1.GET("/health", handler.NewHealthHandler(db).Get)
 		v1.GET("/info", handler.NewInfoHandler().Get)
 		handler.NewStatusHandler(db, activeJudgeHub).RegisterRoutes(router.Group("/"))
-		handler.NewSettingsHandler(db).RegisterRoutes(router.Group("/"))
+		settingsHandler := handler.NewSettingsHandler(db)
+		settingsHandler.SetMailFallback(mailFallback)
+		settingsHandler.RegisterRoutes(router.Group("/"))
 		handler.NewCountdownHandler(cfg.CountdownTitle, cfg.CountdownMax, cfg.CountdownDates).RegisterRoutes(router.Group("/"))
 	}
 	if authHandler != nil {
@@ -108,10 +128,6 @@ func NewRouter(cfg config.Config, db *mongo.Database, judgeHandler *judge.Handle
 	}
 	if userRepo != nil {
 		handler.NewTeamHandler(contest.NewTeamRepository(db), userRepo, sessions).RegisterRoutes(router.Group("/"))
-		mailer := mail.New(mail.Config{
-			Host: cfg.MailHost, Port: cfg.MailPort, Username: cfg.MailUsername,
-			Password: cfg.MailPassword, From: cfg.MailFrom,
-		})
 		handler.NewUserHandler(userRepo, sessions, problemRepo).RegisterRoutes(router.Group("/"))
 		handler.NewUserDeleteHandler(userRepo, sessions).RegisterRoutes(router.Group("/"))
 		handler.NewLostPassHandler(userRepo, sessions, mailer).RegisterRoutes(router.Group("/"))

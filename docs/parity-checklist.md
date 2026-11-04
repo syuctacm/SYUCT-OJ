@@ -1236,6 +1236,24 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - 本地隔离 Docker 视觉回归 33/33 页面通过
 - 不连接生产环境
 
+## 6.71 后台 SMTP 配置（2026-11-04）
+
+- 后台新增 SMTP Host、Port、Username、Password、From 和隐式 TLS 开关
+- 密码只写不读，管理接口仅返回 `smtpPasswordConfigured`；公共接口只返回 `smtpConfigured`
+- 空密码提交保持原密码，Clear SMTP Password 可显式清除
+- 数据库 SMTP 配置优先于 `MAIL_*` 环境变量，启动时加载，保存后当前进程 mailer 立即更新
+- 支持 STARTTLS 和 465 端口的隐式 TLS
+- 忘记密码、邮箱修改和登录弹窗根据实际 SMTP 可用状态展示
+
+验证：
+
+- Go 单元测试覆盖 mailer 启停、配置热更新和 legacy sender 兼容
+- Go 集成测试覆盖校验、密码不回传、公共/管理状态、保留密码、清除密码、禁用 SMTP 和运行时配置更新
+- 前端 lint/build 通过
+- 本地 Docker Playwright 验证后台保存 SMTP 后密码输入框为空、配置状态更新
+- 本地隔离 Docker 视觉回归 34/34 页面通过
+- 不连接真实 SMTP 或生产环境
+
 ## 7. 当前已知差异
 
 ```text
@@ -1250,6 +1268,6 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 
 ## 8. 尚未迁移的模块
 
-以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括配置 schema 编辑器、SMTP/CDN 等部署配置；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
+以 [当前实现状态](./current-status.md) 为准。仍存在的差异包括配置 schema 编辑器、CDN 等部署配置；OAuth（GitHub）、团队管理、组队报名、团队提交、团队榜单、普通题目 Hack、Codeforces 比赛内 Hack、交互题与特殊 checker 已完成真实本地验证。Hydro 4.58.5 作业没有独立的前置题目依赖模型，现有作业分组、认领和提交状态已经覆盖上游实际行为。
 
 已确认无需迁移：多域/多租户、VJudge、HydroAC、Cordis/addon 插件生态、Hydro 后台脚本/插件任务管理器、SSR。维护任务通过仓库 CLI、迁移脚本和 Docker 脚本执行。

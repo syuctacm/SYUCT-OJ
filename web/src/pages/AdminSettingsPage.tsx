@@ -2,7 +2,7 @@
 // (manage_setting.html + partials/setting.html). Only settings consumed by this
 // single-site frontend are exposed.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getAdminSettings, updateAdminSettings, type PublicSettings } from '../api.ts'
+import { getAdminSettings, updateAdminSettings, type AdminSettings } from '../api.ts'
 import { useAuth } from '../auth.tsx'
 import { useSiteSettings } from '../site-settings.tsx'
 import { ErrorPage } from './ErrorPage.tsx'
@@ -26,6 +26,13 @@ const SYSTEM_SETTINGS = [
   { family: 'setting_basic', key: 'languageYaml', type: 'textarea', subType: 'yaml', name: 'Language Config', value: '', flag: 0 },
   { family: 'setting_basic', key: 'problemCategoriesYaml', type: 'textarea', subType: 'yaml', name: 'Problem Categories', value: '{}', flag: 0 },
   { family: 'setting_basic', key: 'trainingEnrolledUsers', type: 'boolean', name: 'Show enrolled users for training', value: true, flag: 0 },
+  { family: 'setting_smtp', key: 'smtpHost', type: 'text', name: 'SMTP Host', value: '', flag: 0 },
+  { family: 'setting_smtp', key: 'smtpPort', type: 'number', name: 'SMTP Port', value: 587, flag: 0 },
+  { family: 'setting_smtp', key: 'smtpUsername', type: 'text', name: 'SMTP Username', value: '', flag: 0 },
+  { family: 'setting_smtp', key: 'smtpPassword', type: 'password', name: 'SMTP Password', desc: 'Leave blank to keep the current password.', value: '', flag: FLAG_SECRET },
+  { family: 'setting_smtp', key: 'smtpFrom', type: 'text', name: 'Mail From', value: '', flag: 0 },
+  { family: 'setting_smtp', key: 'smtpSecure', type: 'boolean', name: 'Use Implicit TLS (usually port 465)', value: false, flag: 0 },
+  { family: 'setting_smtp', key: 'smtpClearPassword', type: 'boolean', name: 'Clear SMTP Password', value: false, flag: 0 },
   { family: 'setting_limits', key: 'paginationProblem', type: 'number', name: 'Problems per page', value: 100, flag: 0 },
   { family: 'setting_limits', key: 'paginationContest', type: 'number', name: 'Contests per page', value: 20, flag: 0 },
   { family: 'setting_limits', key: 'paginationDiscussion', type: 'number', name: 'Discussions per page', value: 50, flag: 0 },
@@ -59,7 +66,7 @@ const SESSION_KEYS = ['sessionSavedExpireSeconds', 'sessionUnsavedExpireSeconds'
 export function AdminSettingsPage() {
   const { user } = useAuth()
   const { refresh: refreshSiteSettings } = useSiteSettings()
-  const [settings, setSettings] = useState<PublicSettings | null>(null)
+  const [settings, setSettings] = useState<AdminSettings | null>(null)
   const [saved, setSaved] = useState('')
   const [error, setError] = useState('')
   const submitRef = useRef<(event: SubmitEvent) => void>(() => {})
@@ -83,7 +90,7 @@ export function AdminSettingsPage() {
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     const data = new FormData(event.target as HTMLFormElement)
-    const payload: Partial<PublicSettings> = {}
+    const payload: Partial<AdminSettings> = {}
     for (const key of STRING_KEYS) payload[key] = String(data.get(key) ?? '')
     for (const key of PAGINATION_KEYS) {
       const value = Number(data.get(key))
@@ -125,9 +132,22 @@ export function AdminSettingsPage() {
       }
       payload[key] = value
     }
+    const smtpPort = Number(data.get('smtpPort'))
+    if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
+      setError('SMTP 端口必须是 1 到 65535 之间的整数')
+      return
+    }
+    payload.smtpHost = String(data.get('smtpHost') ?? '').trim()
+    payload.smtpPort = smtpPort
+    payload.smtpUsername = String(data.get('smtpUsername') ?? '').trim()
+    payload.smtpFrom = String(data.get('smtpFrom') ?? '').trim()
+    const smtpPassword = String(data.get('smtpPassword') ?? '')
+    if (smtpPassword) payload.smtpPassword = smtpPassword
     payload.enableScratchpad = data.has('enableScratchpad')
     payload.trainingEnrolledUsers = data.has('trainingEnrolledUsers')
     payload.limitByUser = data.has('limitByUser')
+    payload.smtpSecure = data.has('smtpSecure')
+    payload.smtpClearPassword = data.has('smtpClearPassword')
     setSaved('')
     setError('')
     try {

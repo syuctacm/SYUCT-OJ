@@ -31,6 +31,7 @@ type Config struct {
 	MailUsername            string
 	MailPassword            string
 	MailFrom                string
+	MailSecure              bool
 	CountdownTitle          string
 	CountdownMax            int
 	CountdownDates          []CountdownDate
@@ -76,6 +77,7 @@ func Load() Config {
 		MailUsername:            env("MAIL_USERNAME", ""),
 		MailPassword:            env("MAIL_PASSWORD", ""),
 		MailFrom:                env("MAIL_FROM", ""),
+		MailSecure:              boolEnv("MAIL_SECURE", false),
 		CountdownTitle:          env("COUNTDOWN_TITLE", "倒计时"),
 		CountdownMax:            intEnv("COUNTDOWN_MAX", 5),
 		CountdownDates:          countdownDatesEnv("COUNTDOWN_DATES"),

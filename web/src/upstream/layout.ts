@@ -62,6 +62,7 @@ export function layoutChromeContext(
         get: (key: string) => {
           if (key === 'server.login') return true
           if (key === 'server.name') return settings.siteName
+          if (key === 'smtp.user') return settings.smtpConfigured ? 'configured' : ''
           return ''
         },
       },

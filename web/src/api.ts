@@ -95,6 +95,18 @@ export type PublicSettings = {
   limitByUser: boolean
   sessionSavedExpireSeconds: number
   sessionUnsavedExpireSeconds: number
+  smtpConfigured: boolean
+}
+
+export type AdminSettings = PublicSettings & {
+  smtpHost: string
+  smtpPort: number
+  smtpUsername: string
+  smtpPassword?: string
+  smtpPasswordConfigured: boolean
+  smtpFrom: string
+  smtpSecure: boolean
+  smtpClearPassword?: boolean
 }
 
 export async function getPublicSettings(): Promise<PublicSettings> {
@@ -102,13 +114,13 @@ export async function getPublicSettings(): Promise<PublicSettings> {
   return result.data
 }
 
-export async function getAdminSettings(): Promise<PublicSettings> {
-  const result = await request<Envelope<PublicSettings>>('/api/v1/admin/settings')
+export async function getAdminSettings(): Promise<AdminSettings> {
+  const result = await request<Envelope<AdminSettings>>('/api/v1/admin/settings')
   return result.data
 }
 
-export async function updateAdminSettings(input: Partial<PublicSettings>): Promise<PublicSettings> {
-  const result = await request<Envelope<PublicSettings>>('/api/v1/admin/settings', {
+export async function updateAdminSettings(input: Partial<AdminSettings>): Promise<AdminSettings> {
+  const result = await request<Envelope<AdminSettings>>('/api/v1/admin/settings', {
     method: 'PUT',
     body: JSON.stringify(input),
   })

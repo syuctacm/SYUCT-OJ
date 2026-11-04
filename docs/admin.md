@@ -56,7 +56,9 @@
 
 训练报名用户展示使用 Hydro 原版 `training.enrolled-users` 布尔配置，默认开启。关闭后，训练详情不再返回报名用户列表，也不能通过 `?uid=` 查看其他用户的训练进度。
 
-题目分类使用 Hydro 原版 `problem.categories` YAML，结构为“分类 -> 子分类数组”。题库侧栏、题目编辑侧栏和 `category:` 搜索直接使用该配置。
+题目分类使用 Hydro 原版 `problem.categories` YAML，结构为“分类 -> 子分类数组”。题目编辑分类和 `category:` 搜索直接使用该配置；题库列表保留旧站 tag-stat 标签统计侧栏。
+
+SMTP 使用 Hydro 同名配置 `smtp.host`、`smtp.port`、`smtp.user`、`smtp.pass`、`smtp.from` 和 `smtp.secure`。后台只返回“密码是否已配置”，不会回传密码明文；留空密码表示保持不变，勾选 Clear SMTP Password 可清除。数据库配置优先于 `MAIL_*` 环境变量，保存后当前进程立即更新 mailer。
 
 文件与代码限制使用 Hydro 同名配置：`limit.user_files`、`limit.user_files_size`、`limit.contest_files`、`limit.contest_files_size`、`limit.problem_files_max`、`limit.problem_files_max_size` 和 `limit.codelength`。上传、附件操作和代码提交会读取当前有效值。
 
@@ -103,7 +105,7 @@ ONSITE_IP_LOGIN=1
 
 ## 尚未完成
 
-- 尚未被当前前台消费的高级系统配置（配置 schema 编辑器、SMTP/CDN 等部署配置）
+- 尚未被当前前台消费的高级系统配置（配置 schema 编辑器和 CDN 等部署配置）
 - `manage_dashboard` 的 WebSocket 连接检查和「Restart」按钮（出于安全考虑未实现，并从 DOM 移除）
 - 题目/比赛/训练编辑仍从各自详情页进入，没有复制到后台单独页面
 
