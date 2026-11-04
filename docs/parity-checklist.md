@@ -1202,6 +1202,22 @@ Playwright 在本地 Vite 和 Docker 生产构建上验证：
 - Playwright 验证关闭设置后训练详情不再渲染报名用户菜单，API 的 `viewedUid` 从请求的 `2` 回退到当前登录用户 `1`
 - 不连接生产环境
 
+## 6.69 Hydro 核心中文语言包（2026-11-04）
+
+- 从 Hydro 4.58.5 固定 commit `11fc1f59c9dba8f790f363d222d4012267d36be0` 原样引入核心 `packages/hydrooj/locales/zh.yaml`
+- 翻译合并顺序为 Hydro core -> `ui-default` -> 本项目覆盖，保留 `ui-default` 对同名文案的覆盖
+- 核心语言包包含 966 个条目，`ui-default` 包含 1141 个条目；两者共用 781 个 key，只有 3 个文案不同
+- 修复训练对比提示直接显示 `page.training_detail.see_other_user_detail` 的问题
+- 新增训练详情“查看其他用户”视觉回归页面，固定 fixtures 同时加入两个报名用户
+
+验证：
+
+- 静态扫描当前 Nunjucks 模板的 598 个静态 `_()` key，所有存在于 Hydro 固定语言包中的 key 都已合并
+- Playwright 断言训练对比页显示“您正在查看用户 visual_user 的训练详情。”，且不存在 `page.training_detail.see_other_user_detail`
+- 前端 lint/build 通过
+- 本地隔离 Docker 视觉回归 32/32 页面通过默认差异阈值；训练对比页为 0 differing pixels
+- 不连接生产环境
+
 ## 7. 当前已知差异
 
 ```text

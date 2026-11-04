@@ -1,8 +1,9 @@
 // The page templates and Chinese translations are loaded verbatim from the
-// pinned @hydrooj/ui-default package. React supplies data and browser events;
-// the markup itself must stay identical to Hydro.
+// pinned Hydro 4.58.5 sources. React supplies data and browser events; the
+// markup itself must stay identical to Hydro.
 import nunjucks from 'nunjucks'
 import yaml from 'js-yaml'
+import hydroCoreZhYaml from './templates/hydrooj_zh.yaml?raw'
 import zhYaml from '@hydrooj/ui-default/locales/zh.yaml?raw'
 import tagStatTemplate from './templates/problem_tag_stat.html?raw'
 import problemMainTemplate from './templates/problem_main.html?raw'
@@ -149,7 +150,11 @@ const LOCAL_TRANSLATIONS: TranslationMap = {
   'problem.import.fps.hint2': '由于 xml 格式无法随机读写，解析需要消耗大量内存，在内存过小的机器上导入大型题目包很可能导致崩溃或死机。',
   'problem.import.fps.hint3': '若您确有需要，此限制可在系统设置中更改。我们建议您使用 Hydro 自带的 zip 格式存储或是交换题目。',
 }
-const translations = { ...(yaml.load(zhYaml) as TranslationMap), ...LOCAL_TRANSLATIONS }
+const translations = {
+  ...(yaml.load(hydroCoreZhYaml) as TranslationMap),
+  ...(yaml.load(zhYaml) as TranslationMap),
+  ...LOCAL_TRANSLATIONS,
+}
 
 const loader = {
   async: false,
