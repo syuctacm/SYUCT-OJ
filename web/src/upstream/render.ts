@@ -138,6 +138,7 @@ sources.set('problem_import_fps.html', `{% extends "layout/basic.html" %}
 // Strings this rewrite adds on top of the pinned ui-default locale.
 const LOCAL_TRANSLATIONS: TranslationMap = {
   setting_basic: '基本设置',
+  setting_smtp: 'SMTP 设置',
   manage_audit: '操作审计',
   manage_ip_login: 'IP 自动登录',
   wiki_about: '关于',

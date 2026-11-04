@@ -57,6 +57,7 @@ export const DEFAULT_SITE_SETTINGS: PublicSettings = {
   limitByUser: false,
   sessionSavedExpireSeconds: 30 * 24 * 60 * 60,
   sessionUnsavedExpireSeconds: 3 * 60 * 60,
+  smtpConfigured: false,
 }
 
 let currentSiteName = DEFAULT_SITE_SETTINGS.siteName

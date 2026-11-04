@@ -264,6 +264,7 @@ main() {
     "ranking:/ranking"
     "about:/about"
     "login:/login"
+    "lostpass:/lostpass"
   )
   local auth_routes=(
     "home-auth:/"

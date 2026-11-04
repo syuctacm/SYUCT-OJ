@@ -115,7 +115,7 @@ OAUTH_GITHUB_CAN_REGISTER=1
 ## 当前限制
 
   - OAuth 默认关闭；未配置 GitHub client id/secret 时 provider 列表为空。
-- 注册 token 仍直接由接口返回；邮箱修改已支持可选 SMTP 发送确认链接，相关配置见 `.env.example`。
+- 注册 token 仍直接由接口返回；找回密码和邮箱修改支持后台 SMTP 或 `MAIL_*` 环境变量发送邮件。
 
 ## 登录交互
 

@@ -15,6 +15,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/syuctacm/syuct-oj/internal/auth"
+	mailservice "github.com/syuctacm/syuct-oj/internal/mail"
 	"github.com/syuctacm/syuct-oj/internal/user"
 )
 
@@ -24,6 +25,8 @@ type AdminHandler struct {
 	sessions          *auth.SessionManager
 	languageUpdater   func(string) error
 	sessionTTLUpdater func(saved, unsaved time.Duration)
+	mailFallback      mailservice.Config
+	mailConfigUpdater func(mailservice.Config)
 }
 
 func NewAdminHandler(db *mongo.Database, users *user.Repository, sessions *auth.SessionManager) *AdminHandler {
@@ -40,6 +43,11 @@ func (h *AdminHandler) SetLanguageUpdater(updater func(string) error) {
 // settings update without coupling the handler to the auth implementation.
 func (h *AdminHandler) SetSessionTTLUpdater(updater func(saved, unsaved time.Duration)) {
 	h.sessionTTLUpdater = updater
+}
+
+func (h *AdminHandler) SetMailConfigUpdater(fallback mailservice.Config, updater func(mailservice.Config)) {
+	h.mailFallback = fallback
+	h.mailConfigUpdater = updater
 }
 
 func (h *AdminHandler) RegisterRoutes(router *gin.RouterGroup) {
@@ -294,7 +302,7 @@ func (h *AdminHandler) settings(c *gin.Context) {
 	if !h.requireAdmin(c) {
 		return
 	}
-	values, err := readSiteSettings(c.Request.Context(), h.db)
+	values, err := readAdminSiteSettings(c.Request.Context(), h.db, h.mailFallback)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load settings"})
 		return
@@ -315,7 +323,25 @@ func (h *AdminHandler) updateSettings(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	currentMail, err := ReadMailConfig(c.Request.Context(), h.db, h.mailFallback)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load SMTP settings"})
+		return
+	}
+	nextMail := mergeSMTPConfig(currentMail, request)
+	smtpChanged := hasSMTPChanges(request)
+	if smtpChanged {
+		if err := validateSMTPConfig(nextMail); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
 	updates := siteSettingUpdates(request)
+	if smtpChanged {
+		for key, value := range smtpSettingUpdates(nextMail) {
+			updates[key] = value
+		}
+	}
 	if err := writeSiteSettings(c.Request.Context(), h.db, updates); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to save settings"})
 		return
@@ -326,7 +352,7 @@ func (h *AdminHandler) updateSettings(c *gin.Context) {
 			return
 		}
 	}
-	values, err := readSiteSettings(c.Request.Context(), h.db)
+	values, err := readAdminSiteSettings(c.Request.Context(), h.db, h.mailFallback)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to reload settings"})
 		return
@@ -336,6 +362,9 @@ func (h *AdminHandler) updateSettings(c *gin.Context) {
 			time.Duration(values.SessionSavedExpire)*time.Second,
 			time.Duration(values.SessionUnsavedExpire)*time.Second,
 		)
+	}
+	if smtpChanged && h.mailConfigUpdater != nil {
+		h.mailConfigUpdater(nextMail)
 	}
 	session, _ := h.sessions.GetContext(c.Request.Context(), auth.Token(c))
 	keys := make([]string, 0, len(updates))

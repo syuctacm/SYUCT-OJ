@@ -75,7 +75,7 @@ func (h *LostPassHandler) request(c *gin.Context) {
 		return
 	}
 	relativeLink := "/lostpass/" + url.PathEscape(code)
-	if h.mailer == nil {
+	if !mail.IsEnabled(h.mailer) {
 		// This mirrors the registration/email-change development behavior. A
 		// configured deployment never returns the reset token to the browser.
 		c.JSON(http.StatusOK, gin.H{"code": 0, "message": "success", "data": gin.H{

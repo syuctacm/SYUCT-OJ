@@ -41,7 +41,7 @@
 - **认证器**：点击“添加认证器”可选择 TOTP 或 Passkey；TOTP 显示二维码和 Base32 密钥，Passkey 使用浏览器认证器完成注册。两类认证器都在上游 `home_security.html` 的 `autherlist` 区块中展示，并可按账号删除
 - **活动会话**：最后活动时间、IP、由 UA 解析出的操作系统与浏览器、当前会话标记；可单独退出其它会话，或退出全部会话
 
-邮箱变更 token 默认 24 小时有效，只能由发起变更的 uid 使用。配置 `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_FROM` 后通过 SMTP 发送确认链接；未配置 SMTP 时本地模式会直接返回确认链接，便于本地 Docker 验证。
+邮箱变更 token 默认 24 小时有效，只能由发起变更的 uid 使用。SMTP 可在后台配置，或继续使用 `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_FROM` / `MAIL_SECURE` 环境变量作为 fallback。数据库配置优先，密码不会通过 API 回传。未配置 SMTP 时本地模式会直接返回确认链接，便于本地 Docker 验证。
 
 TOTP 使用 SHA-1、6 位、30 秒时间片，并允许前后各一个时间片；secret 只保存在用户文档的 `tfa` 字段，`auth/me` 只返回布尔状态。
 
